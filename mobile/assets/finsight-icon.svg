@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- FinSight Icon (graph over bars) -->
+  <rect x="16" y="16" width="224" height="224" rx="28" fill="#2563EB"/>
+  <!-- Bars -->
+  <rect x="72" y="140" width="28" height="56" rx="6" fill="#38BDF8"/>
+  <rect x="112" y="104" width="28" height="92" rx="6" fill="#22C55E"/>
+  <rect x="152" y="64"  width="28" height="132" rx="6" fill="#A855F7"/>
+  <!-- Baseline -->
+  <line x1="48" y1="196" x2="208" y2="196" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/>
+  <!-- Line graph -->
+  <polyline points="60,168 90,132 130,108 170,72 190,56"
+            fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+

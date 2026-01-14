@@ -1,0 +1,87 @@
+import { NavLink } from 'react-router-dom';
+import React, { useState } from 'react';
+import {
+  Home,
+  BarChart3,
+  FolderOpen,
+  ArrowUpDown,
+  Receipt,
+  CreditCard,
+  Wallet
+} from 'lucide-react';
+import FinSightLogo from './FinSightLogo';
+import ProUpgradeMini from './ProUpgradeMini';
+
+const navigation = [
+  { name: 'Dashboard', href: '/', icon: Home },
+  // Mark Pro-required sections so we can show a badge for free users
+  { name: 'Analytics', href: '/analytics', icon: BarChart3, proRequired: true },
+  { name: 'Projects', href: '/projects', icon: FolderOpen, proRequired: true },
+  { name: 'Transactions', href: '/transactions', icon: ArrowUpDown },
+  { name: 'Invoices', href: '/invoices', icon: Receipt, proRequired: true },
+  { name: 'Payments', href: '/payments', icon: CreditCard },
+  { name: 'Accounts', href: '/accounts', icon: Wallet },
+] as const;
+
+export default function Sidebar() {
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const user = (() => {
+    try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
+  })();
+  const isProOrExempt = Boolean(user?.is_pro) || user?.id === 1 || user?.id === 3;
+  return (
+    <div className="bg-gray-900 dark:bg-gray-950 text-white w-64 min-h-screen p-4 flex flex-col">
+      <div className="mb-8">
+        <div className="flex items-center justify-center">
+          <FinSightLogo />
+        </div>
+      </div>
+      
+      <nav className="space-y-2 flex-1">
+        {navigation.map((item) => (
+          <NavLink
+            key={item.name}
+            to={item.href}
+            className={({ isActive }) =>
+              `flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-800 dark:hover:bg-gray-700 hover:text-white'
+              }`
+            }
+          >
+            <item.icon className="mr-3 h-5 w-5" />
+            <span className="flex items-center gap-2">
+              {item.name}
+              {!isProOrExempt && (item as any).proRequired && (
+                <span
+                  className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-400/30"
+                  aria-label="Pro feature"
+                >
+                  Pro
+                </span>
+              )}
+            </span>
+          </NavLink>
+        ))}
+      </nav>
+      {!isProOrExempt && (
+        <div className="mt-4">
+          <a
+            href="#"
+            onClick={async (e) => {
+              e.preventDefault();
+              setShowUpgrade((v) => !v);
+            }}
+            className="block w-full text-center bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 rounded-lg"
+          >
+            Upgrade to Pro
+          </a>
+          <p className="text-xs text-gray-400 mt-2">Unlock analytics, projects & invoices · $10/mo</p>
+          <ProUpgradeMini open={showUpgrade} onClose={() => setShowUpgrade(false)} />
+        </div>
+      )}
+    </div>
+  );
+}
+

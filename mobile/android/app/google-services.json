@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "815225659371",
+    "project_id": "finsight-8b0ec",
+    "storage_bucket": "finsight-8b0ec.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:815225659371:android:3eaadb71ddbaf00207c3ae",
+        "android_client_info": {
+          "package_name": "com.finsight.finsight"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyL4FasokWOLjeLA5dBm0aC16jDqildUc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

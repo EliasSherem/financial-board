@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_spent_title">Spent this month</string>
+    <string name="widget_default_amount">$0.00</string>
+    <string name="widget_cta">New transaction</string>
+    <string name="widget_cta_recurring">New recurring payment</string>
+    <string name="widget_default_month">This month</string>
+</resources>

@@ -1,0 +1,15 @@
+# Exclude VCS and IDE files
+.git
+.gitignore
+.vscode
+.claude
+TMP_*
+
+# Dependencies and build artifacts
+**/node_modules
+financial-dashboard/dist
+
+# OS files
+*.log
+**/.DS_Store
+

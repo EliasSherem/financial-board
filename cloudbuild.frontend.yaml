@@ -1,0 +1,33 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    id: build-frontend
+    args:
+      [
+        "build",
+        "-f","financial-dashboard/Dockerfile",
+        "--build-arg","VITE_API_URL=$_VITE_API_URL",
+        "--build-arg","VITE_GOOGLE_CLIENT_ID=$_VITE_GOOGLE_CLIENT_ID",
+        "--build-arg","VITE_SS_DASHBOARD=$_VITE_SS_DASHBOARD",
+        "--build-arg","VITE_SS_INVOICES=$_VITE_SS_INVOICES",
+        "--build-arg","VITE_SS_PROJECTS=$_VITE_SS_PROJECTS",
+        "--build-arg","VITE_SS_RECURRING=$_VITE_SS_RECURRING",
+        "-t","$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO/$_IMAGE:$BUILD_ID",
+        "financial-dashboard"
+      ]
+
+images:
+  - "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO/$_IMAGE:$BUILD_ID"
+
+substitutions:
+  _AR_REGION: us-central1
+  _REPO: containers
+  _IMAGE: financial-web
+  _VITE_API_URL: https://api.finsight.com.mx/api
+  _VITE_GOOGLE_CLIENT_ID: ""
+  _VITE_SS_DASHBOARD: ""
+  _VITE_SS_INVOICES: ""
+  _VITE_SS_PROJECTS: ""
+  _VITE_SS_RECURRING: ""
+
+options:
+  logging: CLOUD_LOGGING_ONLY
