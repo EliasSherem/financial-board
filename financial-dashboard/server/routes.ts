@@ -1,6 +1,7 @@
 ﻿import { Router, Request, Response } from 'express';
 import { db } from './db.js';
 import { isFcmConfigured, sendFcmNotification } from './fcm.js';
+import { isEmailConfigured, sendResendEmail } from './email.js';
 import { authenticateToken, login, generateToken, verifyPassword } from './auth.js';
 import { createCheckoutSession, createPortalSession, syncUserSubscription, cancelUserSubscription } from './stripe.js';
 import { google } from 'googleapis';
@@ -17,6 +18,122 @@ function getOpenAiClient(): OpenAI | null {
   if (!apiKey) return null;
   openaiClient = new OpenAI({ apiKey });
   return openaiClient;
+}
+
+function escapeEmailHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function maskEmail(value: string): string {
+  const trimmed = value.trim();
+  const atIndex = trimmed.indexOf('@');
+  if (atIndex <= 1) return trimmed;
+  const local = trimmed.slice(0, atIndex);
+  const domain = trimmed.slice(atIndex + 1);
+  const head = local.slice(0, 1);
+  const tail = local.length > 2 ? local.slice(-1) : '';
+  const stars = '*'.repeat(Math.max(1, local.length - 2));
+  return `${head}${stars}${tail}@${domain}`;
+}
+
+function buildWelcomeEmail(username: string) {
+  const greetName = username?.trim() ? username.trim() : 'there';
+  const safeGreet = escapeEmailHtml(greetName);
+  const subject = 'Welcome to FinSight';
+  const text =
+    `Hi ${greetName},\n\n` +
+    `Welcome to FinSight. Your account is ready to go.\n\n` +
+    `Start here:\n` +
+    `- Add your first account\n` +
+    `- Create categories that match your spending\n` +
+    `- Log your first transaction to unlock insights\n\n` +
+    `Open FinSight: https://finsight.com.mx\n\n` +
+    `If you did not create this account, you can ignore this email.\n\n` +
+    `- FinSight`;
+  const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>${subject}</title>
+  </head>
+  <body style="margin:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f5f7;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(17,24,39,0.08);">
+            <tr>
+              <td style="padding:20px 24px;background:#0f172a;color:#ffffff;">
+                <div style="font-size:18px;font-weight:700;letter-spacing:0.3px;">FinSight</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px;">
+                <div style="font-size:20px;font-weight:700;margin-bottom:6px;">Welcome to FinSight</div>
+                <div style="color:#374151;font-size:14px;margin-bottom:18px;">Hi ${safeGreet}, your account is ready to go.</div>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e5e7eb;border-radius:12px;">
+                  <tr>
+                    <td style="padding:16px 18px;">
+                      <div style="font-size:12px;text-transform:uppercase;color:#6b7280;letter-spacing:0.6px;">Start here</div>
+                      <div style="font-size:14px;color:#111827;margin-top:8px;line-height:1.6;">
+                        Add your first account<br />
+                        Create categories that match your spending<br />
+                        Log your first transaction to unlock insights
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+                <div style="margin-top:18px;font-size:13px;color:#6b7280;">If you did not create this account, you can ignore this email.</div>
+                <div style="margin-top:22px;">
+                  <a href="https://finsight.com.mx" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:10px;font-size:14px;font-weight:600;">Open FinSight</a>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 24px;background:#f9fafb;color:#6b7280;font-size:12px;">
+                You received this email because a new FinSight account was created with this address.
+              </td>
+            </tr>
+          </table>
+          <div style="margin-top:14px;color:#9ca3af;font-size:11px;">FinSight Notifications</div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+  return { subject, text, html };
+}
+
+async function sendWelcomeEmail(email: string, username: string) {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) {
+    console.warn('Welcome email skipped: missing email');
+    return;
+  }
+  if (normalized === 'root@example.com') return;
+  const masked = maskEmail(normalized);
+  if (!isEmailConfigured()) {
+    console.warn('Welcome email skipped: Resend not configured for', masked);
+    return;
+  }
+  console.info('Sending welcome email to', masked);
+  const payload = buildWelcomeEmail(username);
+  const sent = await sendResendEmail({
+    to: email,
+    subject: payload.subject,
+    text: payload.text,
+    html: payload.html
+  });
+  if (sent) {
+    console.info('Welcome email sent to', masked);
+  } else {
+    console.warn('Welcome email failed for', masked);
+  }
 }
 
 type CategoryResponse = {
@@ -630,6 +747,10 @@ router.post('/api/signup', async (req: Request, res: Response) => {
     );
     
     const userId = (result as any).insertId;
+    const safeEmail = String(email || '').trim();
+    if (safeEmail) {
+      void sendWelcomeEmail(safeEmail, String(username || ''));
+    }
     
     // Generate token
     const token = generateToken({ id: userId, username });
@@ -820,6 +941,7 @@ router.post('/api/login/google', async (req: Request, res: Response) => {
       const hashed = await bcrypt.hash(randomPass, 10);
       const [ins] = await db.query('INSERT INTO users (username, email, password) VALUES (?, ?, ?)', [username, email, hashed]);
       userId = (ins as any).insertId;
+      void sendWelcomeEmail(email, username);
     }
 
     const token = generateToken({ id: userId, username, is_pro });
