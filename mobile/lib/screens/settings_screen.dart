@@ -8,6 +8,10 @@ import '../state/auth_store.dart';
 import '../models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../utils/links.dart';
+
+const String _supportGptUrl =
+    'https://chatgpt.com/g/g-68f9371179548191a018ea1e1ff99727-finsight-assistant';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -86,6 +90,18 @@ class SettingsScreen extends StatelessWidget {
                 },
               );
             },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.help_outline),
+            title: Text(L('Finsight Assistant', 'Asistente Finsight')),
+            subtitle: Text(
+              L(
+                'Open the support chat',
+                'Abrir chat de ayuda',
+              ),
+            ),
+            onTap: () => openLink(context, _supportGptUrl),
           ),
           const Divider(),
           ListTile(
