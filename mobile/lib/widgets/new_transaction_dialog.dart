@@ -5,6 +5,7 @@ import '../services/data_service.dart';
 import '../services/api.dart';
 import '../utils/format.dart';
 import '../state/auth_store.dart';
+import '../state/refresh_bus.dart';
 import '../i18n.dart';
 import '../screens/manage_categories_screen.dart';
 import 'category_picker.dart';
@@ -488,6 +489,9 @@ class _TransactionFormState extends State<_TransactionForm> {
                           subcategoryId: selectedSubId,
                           projectId: projectId,
                         );
+                      }
+                      if (context.mounted) {
+                        context.read<RefreshBus>().notifyTransactions();
                       }
                       if (mounted) Navigator.pop(context, true);
                     } catch (e) {

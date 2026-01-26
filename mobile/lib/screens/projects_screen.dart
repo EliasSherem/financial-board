@@ -4,6 +4,7 @@ import '../models.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
+import '../state/refresh_bus.dart';
 import '../utils/format.dart';
 import '../widgets/pro_widgets.dart';
 import '../i18n.dart';
@@ -21,6 +22,8 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   bool _openedFromNotification = false;
   Future<List<Project>>? _future;
   String? _token;
+  late final RefreshBus _refreshBus;
+  int _projectsTick = 0;
 
   Future<List<Project>> _loadProjects(String? token) {
     final api = ApiClient()..setToken(token);
@@ -29,9 +32,33 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   }
 
   Future<void> _refresh() async {
-    final future = _loadProjects(_token);
+    final token = _token ?? context.read<AuthStore>().token;
+    _token = token;
+    final future = _loadProjects(token);
     setState(() => _future = future);
     await future;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshBus = context.read<RefreshBus>();
+    _projectsTick = _refreshBus.projects;
+    _refreshBus.addListener(_handleRefresh);
+  }
+
+  @override
+  void dispose() {
+    _refreshBus.removeListener(_handleRefresh);
+    super.dispose();
+  }
+
+  void _handleRefresh() {
+    if (!mounted) return;
+    if (_refreshBus.projects != _projectsTick) {
+      _projectsTick = _refreshBus.projects;
+      _refresh();
+    }
   }
 
   @override
@@ -160,11 +187,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                                   ),
                                 ),
                               );
-                              Navigator.of(context).pushReplacement(
-                                MaterialPageRoute(
-                                  builder: (_) => const ProjectsScreen(),
-                                ),
-                              );
+                              context.read<RefreshBus>().notifyProjects();
                             }
                           } catch (e) {
                             if (context.mounted) {
@@ -228,7 +251,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     );
   }
 
-  void _openProjectDialog(
+  Future<void> _openProjectDialog(
     BuildContext context, {
     Project? initial,
     required Future<void> Function(
@@ -241,7 +264,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       String endDate,
     )
     onSubmit,
-  }) {
+  }) async {
     final nameCtrl = TextEditingController(text: initial?.name ?? '');
     final descCtrl = TextEditingController(text: initial?.description ?? '');
     final initialBudget = initial?.budget;
@@ -259,7 +282,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       text: initial?.endDate != null ? formatYmd(initial!.endDate!) : '',
     );
     String status = initial?.status ?? 'Active';
-    showDialog(
+    final saved = await showDialog<bool>(
       context: context,
       builder:
           (_) => StatefulBuilder(
@@ -402,7 +425,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => Navigator.pop(context, false),
                       child: const Text('Cancel'),
                     ),
                     FilledButton(
@@ -431,14 +454,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                             ddMmYyyyToYmd(startCtrl.text.trim()),
                             ddMmYyyyToYmd(endCtrl.text.trim()),
                           );
-                          if (context.mounted) Navigator.pop(context);
-                          if (context.mounted) {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(
-                                builder: (_) => const ProjectsScreen(),
-                              ),
-                            );
-                          }
+                          if (context.mounted) Navigator.pop(context, true);
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -453,6 +469,9 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                 ),
           ),
     );
+    if (saved == true && context.mounted) {
+      context.read<RefreshBus>().notifyProjects();
+    }
   }
 }
 

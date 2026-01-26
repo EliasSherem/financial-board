@@ -6,6 +6,7 @@ import '../i18n.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
+import '../state/refresh_bus.dart';
 import 'investment_detail_screen.dart';
 import '../widgets/pro_widgets.dart';
 
@@ -71,10 +72,15 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
   List<Investment> _items = [];
   bool _loading = true;
   DataService? _data;
+  late final RefreshBus _refreshBus;
+  int _investmentsTick = 0;
 
   @override
   void initState() {
     super.initState();
+    _refreshBus = context.read<RefreshBus>();
+    _investmentsTick = _refreshBus.investments;
+    _refreshBus.addListener(_handleRefresh);
     final isPro = context.read<AuthStore>().isProOrExempt;
     if (isPro) {
       _load();
@@ -89,6 +95,12 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
         } catch (_) {}
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _refreshBus.removeListener(_handleRefresh);
+    super.dispose();
   }
 
   DataService _svc() {
@@ -162,6 +174,14 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
   }
 
   Future<void> _refresh() => _load(showLoader: false);
+
+  void _handleRefresh() {
+    if (!mounted) return;
+    if (_refreshBus.investments != _investmentsTick) {
+      _investmentsTick = _refreshBus.investments;
+      _refresh();
+    }
+  }
 
   double _valueToday(Investment x) {
     final now = DateTime.now();
@@ -292,7 +312,10 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
             ],
           ),
     );
-    if (ok == true && mounted) await _load();
+    if (ok == true && mounted) {
+      context.read<RefreshBus>().notifyInvestments();
+      await _load();
+    }
   }
 
   Future<void> _delete(Investment inv) async {
@@ -303,7 +326,10 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
         final ds = _data ?? _svc();
         await ds.deleteInvestment(id);
       }
-      if (mounted) await _load();
+      if (mounted) {
+        context.read<RefreshBus>().notifyInvestments();
+        await _load();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

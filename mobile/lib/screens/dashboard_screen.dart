@@ -14,9 +14,11 @@ import '../widgets/kpi_card.dart';
 import '../widgets/account_list_summary.dart';
 import '../widgets/subcategory_budget_summary.dart';
 import '../utils/format.dart';
+import '../utils/savings_goal.dart';
 import 'accounts_screen_new.dart';
 import 'transactions_v2_screen.dart';
 import '../widgets/pro_widgets.dart';
+import '../state/refresh_bus.dart';
 import '../i18n.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -32,6 +34,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
   static const int _insightVariantCount = 4;
   static int _insightSeed = 0;
   int _insightIndex = 0;
+  double? _savingsGoal;
+  int? _goalUserId;
+  late final RefreshBus _refreshBus;
+  int _accountsTick = 0;
+  int _transactionsTick = 0;
+  int _paymentsTick = 0;
+  int _projectsTick = 0;
+  int _investmentsTick = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshBus = context.read<RefreshBus>();
+    _accountsTick = _refreshBus.accounts;
+    _transactionsTick = _refreshBus.transactions;
+    _paymentsTick = _refreshBus.payments;
+    _projectsTick = _refreshBus.projects;
+    _investmentsTick = _refreshBus.investments;
+    _refreshBus.addListener(_handleRefresh);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final userId = context.read<AuthStore>().userId;
+    if (_goalUserId != userId) {
+      _goalUserId = userId;
+      _loadSavingsGoal(_goalUserId);
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshBus.removeListener(_handleRefresh);
+    super.dispose();
+  }
+
+  Future<void> _loadSavingsGoal(int? userId) async {
+    final goal = await SavingsGoalStore.load(userId);
+    if (!mounted) return;
+    setState(() {
+      _goalUserId = userId;
+      _savingsGoal = goal;
+    });
+  }
 
   Future<List<Object>> _loadData(String? token) async {
     final api = ApiClient()..setToken(token);
@@ -63,12 +110,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _refresh() async {
-    final future = _loadData(_token);
+    final token = _token ?? context.read<AuthStore>().token;
+    _token = token;
+    final future = _loadData(token);
     setState(() {
       _future = future;
       _insightIndex = _nextInsightIndex();
     });
-    await future;
+    final userId = _goalUserId ?? context.read<AuthStore>().userId;
+    await Future.wait([future, _loadSavingsGoal(userId)]);
+  }
+
+  void _handleRefresh() {
+    if (!mounted) return;
+    var shouldRefresh = false;
+    if (_refreshBus.accounts != _accountsTick) {
+      _accountsTick = _refreshBus.accounts;
+      shouldRefresh = true;
+    }
+    if (_refreshBus.transactions != _transactionsTick) {
+      _transactionsTick = _refreshBus.transactions;
+      shouldRefresh = true;
+    }
+    if (_refreshBus.payments != _paymentsTick) {
+      _paymentsTick = _refreshBus.payments;
+      shouldRefresh = true;
+    }
+    if (_refreshBus.projects != _projectsTick) {
+      _projectsTick = _refreshBus.projects;
+      shouldRefresh = true;
+    }
+    if (_refreshBus.investments != _investmentsTick) {
+      _investmentsTick = _refreshBus.investments;
+      shouldRefresh = true;
+    }
+    if (shouldRefresh) {
+      _refresh();
+    }
   }
 
   int _nextInsightIndex() {
@@ -78,7 +156,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final token = context.watch<AuthStore>().token;
+    final auth = context.watch<AuthStore>();
+    final token = auth.token;
     if (_future == null || _token != token) {
       _token = token;
       _future = _loadData(token);
@@ -224,6 +303,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final netUp = currNet >= 0;
         final netAmount = money(currNet.abs());
         final budgetPercentLabel = budgetPercent.toStringAsFixed(0);
+        final savingsGoal = _savingsGoal;
+        final hasSavingsGoal = savingsGoal != null && savingsGoal > 0;
+        final savedThisMonth = currNet > 0 ? currNet : 0;
+        final savingsRatio =
+            hasSavingsGoal ? (savedThisMonth / savingsGoal) : 0.0;
+        final savingsProgress = savingsRatio.clamp(0.0, 1.0).toDouble();
+        final savingsPercentLabel =
+            '${(savingsRatio * 100).clamp(0.0, 999.0).toStringAsFixed(0)}%';
 
         const riskWindowDays = 7;
         final today = DateTime(now.year, now.month, now.day);
@@ -424,7 +511,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 : 0;
 
         // Build friendly greeting based on time and user name
-        final auth = context.read<AuthStore>();
         final hour = DateTime.now().hour;
         String partOfDay =
             hour < 12
@@ -432,6 +518,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 : (hour < 18
                     ? I18n.t(context, 'greet.afternoon')
                     : I18n.t(context, 'greet.night'));
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final Widget? savingsGoalCard =
+            hasSavingsGoal
+                ? Card(
+                    color:
+                        isDark
+                            ? Theme.of(context).colorScheme.surface
+                            : Colors.blue.shade50,
+                    elevation: 6,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.savings_outlined, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  I18n.t(context, 'savingsGoal.title'),
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ),
+                              Text(
+                                savingsPercentLabel,
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: savingsProgress,
+                              minHeight: 8,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${I18n.t(context, 'savingsGoal.saved')} ${money(savedThisMonth)} / ${money(savingsGoal)}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : null;
 
         return RefreshIndicator(
           onRefresh: _refresh,
@@ -507,9 +645,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
+                      if (savingsGoalCard != null) savingsGoalCard,
+                      if (savingsGoalCard != null) const SizedBox(height: 12),
                       // Upgrade banner for non-Pro
-                      if (!context.read<AuthStore>().isProOrExempt)
-                        const UpgradeBanner(),
+                      if (!auth.isProOrExempt) const UpgradeBanner(),
                       const SizedBox(height: 12),
                       // KPI Grid
                       LayoutBuilder(

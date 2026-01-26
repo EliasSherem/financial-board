@@ -6,6 +6,7 @@ import '../models.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
+import '../state/refresh_bus.dart';
 import '../utils/format.dart';
 import '../widgets/new_transaction_dialog.dart';
 import '../widgets/quick_create_dialogs.dart';
@@ -21,6 +22,9 @@ class AccountDetailScreen extends StatefulWidget {
 class _AccountDetailScreenState extends State<AccountDetailScreen> {
   late final DataService _data;
   late final int _accountId;
+  late final RefreshBus _refreshBus;
+  int _accountsTick = 0;
+  int _transactionsTick = 0;
 
   Account? _account;
   bool _loading = true;
@@ -32,11 +36,37 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _refreshBus = context.read<RefreshBus>();
+    _accountsTick = _refreshBus.accounts;
+    _transactionsTick = _refreshBus.transactions;
+    _refreshBus.addListener(_handleRefresh);
     _accountId = widget.account.id;
     final api = ApiClient()..setToken(context.read<AuthStore>().token);
     _data = DataService(api);
     _account = widget.account;
     _load();
+  }
+
+  @override
+  void dispose() {
+    _refreshBus.removeListener(_handleRefresh);
+    super.dispose();
+  }
+
+  void _handleRefresh() {
+    if (!mounted) return;
+    var shouldRefresh = false;
+    if (_refreshBus.accounts != _accountsTick) {
+      _accountsTick = _refreshBus.accounts;
+      shouldRefresh = true;
+    }
+    if (_refreshBus.transactions != _transactionsTick) {
+      _transactionsTick = _refreshBus.transactions;
+      shouldRefresh = true;
+    }
+    if (shouldRefresh) {
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -99,8 +129,8 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
     if (_processingQuickAction) return;
     setState(() => _processingQuickAction = true);
     try {
-      await showQuickNewPaymentDialog(context);
-      if (mounted) {
+      final created = await showQuickNewPaymentDialog(context);
+      if (created == true && mounted) {
         await _load();
       }
     } catch (e) {
@@ -256,6 +286,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
     );
 
     if (updated == true && mounted) {
+      context.read<RefreshBus>().notifyAccounts();
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -296,6 +327,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
     try {
       await _data.deleteAccount(_accountId);
       if (!mounted) return;
+      context.read<RefreshBus>().notifyAccounts();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(I18n.t(context, 'accounts.details.deleted'))),
       );

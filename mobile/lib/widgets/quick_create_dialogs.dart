@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
+import '../state/refresh_bus.dart';
 import '../utils/format.dart';
 import '../i18n.dart';
 import '../models.dart';
@@ -17,7 +18,7 @@ Future<DataService> _svc(BuildContext context) async {
   return DataService(api);
 }
 
-Future<void> showQuickNewPaymentDialog(BuildContext context) async {
+Future<bool?> showQuickNewPaymentDialog(BuildContext context) async {
   final data = await _svc(context);
   List<Account> accounts = [];
   List<Project> projects = [];
@@ -67,7 +68,7 @@ Future<void> showQuickNewPaymentDialog(BuildContext context) async {
   final totalCtrl = TextEditingController(text: '');
   final monthsCtrl = TextEditingController(text: '12');
 
-  await showDialog<void>(
+  final created = await showDialog<bool>(
     context: context,
     builder:
         (_) => StatefulBuilder(
@@ -381,7 +382,7 @@ Future<void> showQuickNewPaymentDialog(BuildContext context) async {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(context, false),
                   child: Text(I18n.t(context, 'label.cancel')),
                 ),
                 FilledButton(
@@ -468,7 +469,7 @@ Future<void> showQuickNewPaymentDialog(BuildContext context) async {
                                 projectId: projectId,
                               );
                             }
-                            if (context.mounted) Navigator.pop(context);
+                            if (context.mounted) Navigator.pop(context, true);
                           },
                   child: Text(I18n.t(context, 'label.save')),
                 ),
@@ -477,9 +478,13 @@ Future<void> showQuickNewPaymentDialog(BuildContext context) async {
           },
         ),
   );
+  if (created == true && context.mounted) {
+    context.read<RefreshBus>().notifyPayments();
+  }
+  return created;
 }
 
-Future<void> showQuickNewAccountDialog(BuildContext context) async {
+Future<bool?> showQuickNewAccountDialog(BuildContext context) async {
   final data = await _svc(context);
   final nameCtrl = TextEditingController();
   final balanceCtrl = TextEditingController(text: '');
@@ -488,7 +493,7 @@ Future<void> showQuickNewAccountDialog(BuildContext context) async {
   const types = ['Checking', 'Savings', 'Business', 'Investment', 'Credit'];
   String type = 'Checking';
   bool isActive = true;
-  await showDialog<void>(
+  final created = await showDialog<bool>(
     context: context,
     builder:
         (_) => AlertDialog(
@@ -566,7 +571,7 @@ Future<void> showQuickNewAccountDialog(BuildContext context) async {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(context, false),
               child: Text(I18n.t(context, 'label.cancel')),
             ),
             FilledButton(
@@ -585,20 +590,24 @@ Future<void> showQuickNewAccountDialog(BuildContext context) async {
                           : numberCtrl.text.trim(),
                   isActive: isActive,
                 );
-                if (context.mounted) Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context, true);
               },
               child: Text(I18n.t(context, 'label.save')),
             ),
           ],
         ),
   );
+  if (created == true && context.mounted) {
+    context.read<RefreshBus>().notifyAccounts();
+  }
+  return created;
 }
 
-Future<void> showQuickNewCustomerDialog(BuildContext context) async {
+Future<bool?> showQuickNewCustomerDialog(BuildContext context) async {
   final data = await _svc(context);
   final nameCtrl = TextEditingController();
   final emailCtrl = TextEditingController();
-  await showDialog<void>(
+  final created = await showDialog<bool>(
     context: context,
     builder:
         (_) => AlertDialog(
@@ -627,7 +636,7 @@ Future<void> showQuickNewCustomerDialog(BuildContext context) async {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(context, false),
               child: Text(I18n.t(context, 'label.cancel')),
             ),
             FilledButton(
@@ -639,16 +648,20 @@ Future<void> showQuickNewCustomerDialog(BuildContext context) async {
                           ? null
                           : emailCtrl.text.trim(),
                 );
-                if (context.mounted) Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context, true);
               },
               child: Text(I18n.t(context, 'label.save')),
             ),
           ],
         ),
   );
+  if (created == true && context.mounted) {
+    context.read<RefreshBus>().notifyCustomers();
+  }
+  return created;
 }
 
-Future<void> showQuickNewProjectDialog(BuildContext context) async {
+Future<bool?> showQuickNewProjectDialog(BuildContext context) async {
   final data = await _svc(context);
   final nameCtrl = TextEditingController();
   final descCtrl = TextEditingController();
@@ -656,7 +669,7 @@ Future<void> showQuickNewProjectDialog(BuildContext context) async {
   final startCtrl = TextEditingController();
   final endCtrl = TextEditingController();
   String status = 'Active';
-  await showDialog<void>(
+  final created = await showDialog<bool>(
     context: context,
     builder:
         (_) => AlertDialog(
@@ -763,7 +776,7 @@ Future<void> showQuickNewProjectDialog(BuildContext context) async {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(context, false),
               child: Text(I18n.t(context, 'label.cancel')),
             ),
             FilledButton(
@@ -786,16 +799,20 @@ Future<void> showQuickNewProjectDialog(BuildContext context) async {
                           ? null
                           : ddMmYyyyToYmd(endCtrl.text.trim()),
                 );
-                if (context.mounted) Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context, true);
               },
               child: Text(I18n.t(context, 'label.save')),
             ),
           ],
         ),
   );
+  if (created == true && context.mounted) {
+    context.read<RefreshBus>().notifyProjects();
+  }
+  return created;
 }
 
-Future<void> showQuickNewInvoiceDialog(BuildContext context) async {
+Future<bool?> showQuickNewInvoiceDialog(BuildContext context) async {
   final data = await _svc(context);
   List<Customer> customers = [];
   List<Project> projects = [];
@@ -817,7 +834,7 @@ Future<void> showQuickNewInvoiceDialog(BuildContext context) async {
     {'description': '', 'quantity': null, 'unit_price': null},
   ];
 
-  await showDialog<void>(
+  final created = await showDialog<bool>(
     context: context,
     builder:
         (_) => StatefulBuilder(
@@ -1098,7 +1115,7 @@ Future<void> showQuickNewInvoiceDialog(BuildContext context) async {
                 ),
                 actions: [
                   TextButton(
-                    onPressed: () => Navigator.pop(ctx),
+                    onPressed: () => Navigator.pop(ctx, false),
                     child: Text(I18n.t(context, 'label.cancel')),
                   ),
                   FilledButton(
@@ -1164,7 +1181,7 @@ Future<void> showQuickNewInvoiceDialog(BuildContext context) async {
                         tax: taxAmount,
                         items: mappedItems,
                       );
-                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (ctx.mounted) Navigator.pop(ctx, true);
                     },
                     child: Text(I18n.t(context, 'label.save')),
                   ),
@@ -1172,4 +1189,8 @@ Future<void> showQuickNewInvoiceDialog(BuildContext context) async {
               ),
         ),
   );
+  if (created == true && context.mounted) {
+    context.read<RefreshBus>().notifyInvoices();
+  }
+  return created;
 }

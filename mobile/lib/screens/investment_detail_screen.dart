@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
+import '../state/refresh_bus.dart';
 import '../utils/format.dart';
 import '../widgets/pro_widgets.dart';
 import '../i18n.dart';
@@ -110,6 +111,9 @@ class _InvestmentDetailScreenState extends State<InvestmentDetailScreen> {
           return;
         }
         await _data.addInvestmentContribution(investmentId: widget.investmentId, amount: amt, date: date.toIso8601String().substring(0,10));
+        if (mounted) {
+          context.read<RefreshBus>().notifyInvestments();
+        }
         await _load();
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(I18n.tr(context, 'invest.contributionAdded'))));
       } catch (e) {

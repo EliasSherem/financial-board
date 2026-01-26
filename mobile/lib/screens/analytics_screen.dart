@@ -10,6 +10,7 @@ import '../models.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
+import '../state/refresh_bus.dart';
 import '../utils/format.dart';
 import '../widgets/pro_widgets.dart';
 
@@ -23,6 +24,10 @@ class AnalyticsScreen extends StatefulWidget {
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Future<List<Object>>? _future;
   String? _token;
+  late final RefreshBus _refreshBus;
+  int _accountsTick = 0;
+  int _transactionsTick = 0;
+  int _investmentsTick = 0;
 
   Future<List<Object>> _loadData(String? token) {
     final api = ApiClient()..setToken(token);
@@ -36,9 +41,47 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Future<void> _refresh() async {
-    final future = _loadData(_token);
+    final token = _token ?? context.read<AuthStore>().token;
+    _token = token;
+    final future = _loadData(token);
     setState(() => _future = future);
     await future;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshBus = context.read<RefreshBus>();
+    _accountsTick = _refreshBus.accounts;
+    _transactionsTick = _refreshBus.transactions;
+    _investmentsTick = _refreshBus.investments;
+    _refreshBus.addListener(_handleRefresh);
+  }
+
+  @override
+  void dispose() {
+    _refreshBus.removeListener(_handleRefresh);
+    super.dispose();
+  }
+
+  void _handleRefresh() {
+    if (!mounted) return;
+    var shouldRefresh = false;
+    if (_refreshBus.accounts != _accountsTick) {
+      _accountsTick = _refreshBus.accounts;
+      shouldRefresh = true;
+    }
+    if (_refreshBus.transactions != _transactionsTick) {
+      _transactionsTick = _refreshBus.transactions;
+      shouldRefresh = true;
+    }
+    if (_refreshBus.investments != _investmentsTick) {
+      _investmentsTick = _refreshBus.investments;
+      shouldRefresh = true;
+    }
+    if (shouldRefresh) {
+      _refresh();
+    }
   }
 
   @override

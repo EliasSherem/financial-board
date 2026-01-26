@@ -8,6 +8,7 @@ import '../models.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
+import '../state/refresh_bus.dart';
 import '../i18n.dart';
 
 class TransactionsScreen extends StatefulWidget {
@@ -20,6 +21,10 @@ class TransactionsScreen extends StatefulWidget {
 class _TransactionsScreenState extends State<TransactionsScreen> {
   late final DataService _data;
   final _scroll = ScrollController();
+  late final RefreshBus _refreshBus;
+  int _transactionsTick = 0;
+  int _accountsTick = 0;
+  int _projectsTick = 0;
 
   bool _loading = true;
   List<TransactionItem> _all = [];
@@ -42,6 +47,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   @override
   void initState() {
     super.initState();
+    _refreshBus = context.read<RefreshBus>();
+    _transactionsTick = _refreshBus.transactions;
+    _accountsTick = _refreshBus.accounts;
+    _projectsTick = _refreshBus.projects;
+    _refreshBus.addListener(_handleRefresh);
     final api = ApiClient()..setToken(context.read<AuthStore>().token);
     _data = DataService(api);
     _load();
@@ -67,12 +77,36 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
     if (yes == true) {
       await _data.deleteTransaction(t.id);
-      if (mounted) await _load();
+      if (mounted) {
+        context.read<RefreshBus>().notifyTransactions();
+        await _load();
+      }
     }
   }  @override
   void dispose() {
     _scroll.dispose();
+    _refreshBus.removeListener(_handleRefresh);
     super.dispose();
+  }
+
+  void _handleRefresh() {
+    if (!mounted) return;
+    var shouldRefresh = false;
+    if (_refreshBus.transactions != _transactionsTick) {
+      _transactionsTick = _refreshBus.transactions;
+      shouldRefresh = true;
+    }
+    if (_refreshBus.accounts != _accountsTick) {
+      _accountsTick = _refreshBus.accounts;
+      shouldRefresh = true;
+    }
+    if (_refreshBus.projects != _projectsTick) {
+      _projectsTick = _refreshBus.projects;
+      shouldRefresh = true;
+    }
+    if (shouldRefresh) {
+      _load();
+    }
   }
 
   Future<void> _load() async {

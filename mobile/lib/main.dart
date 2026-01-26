@@ -22,6 +22,7 @@ import 'services/api.dart';
 import 'services/data_service.dart';
 import 'widgets/new_transaction_dialog.dart';
 import 'state/auth_store.dart';
+import 'state/refresh_bus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'widgets/pro_widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -61,6 +62,7 @@ class FinancialBoardRoot extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthStore()..load()),
         ChangeNotifierProvider(create: (_) => LangStore()..load()),
+        ChangeNotifierProvider(create: (_) => RefreshBus()),
       ],
       child: const FinancialBoardApp(),
     );

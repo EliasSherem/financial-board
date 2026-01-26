@@ -8,6 +8,7 @@ import '../utils/format.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
+import '../state/refresh_bus.dart';
 import '../i18n.dart';
 
 class InvoicesScreen extends StatefulWidget {
@@ -30,10 +31,19 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   List<Customer> _customers = [];
   List<Account> _accounts = [];
   List<Project> _projects = [];
+  late final RefreshBus _refreshBus;
+  int _invoicesTick = 0;
+  int _customersTick = 0;
+  int _projectsTick = 0;
 
   @override
   void initState() {
     super.initState();
+    _refreshBus = context.read<RefreshBus>();
+    _invoicesTick = _refreshBus.invoices;
+    _customersTick = _refreshBus.customers;
+    _projectsTick = _refreshBus.projects;
+    _refreshBus.addListener(_handleRefresh);
     final store = context.read<AuthStore>();
     final api = ApiClient()..setToken(store.token);
     _data = DataService(api);
@@ -63,6 +73,12 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _refreshBus.removeListener(_handleRefresh);
+    super.dispose();
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
@@ -78,6 +94,26 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       _projects = res[3] as List<Project>;
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _handleRefresh() {
+    if (!mounted) return;
+    var shouldRefresh = false;
+    if (_refreshBus.invoices != _invoicesTick) {
+      _invoicesTick = _refreshBus.invoices;
+      shouldRefresh = true;
+    }
+    if (_refreshBus.customers != _customersTick) {
+      _customersTick = _refreshBus.customers;
+      shouldRefresh = true;
+    }
+    if (_refreshBus.projects != _projectsTick) {
+      _projectsTick = _refreshBus.projects;
+      shouldRefresh = true;
+    }
+    if (shouldRefresh) {
+      _load();
     }
   }
 
@@ -241,7 +277,10 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         name: name,
         email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
       );
-      if (mounted) await _load();
+      if (mounted) {
+        context.read<RefreshBus>().notifyCustomers();
+        await _load();
+      }
     }
   }
 
@@ -323,7 +362,10 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         taxId: taxCtrl.text.trim(),
         address: addrCtrl.text.trim(),
       );
-      if (mounted) await _load();
+      if (mounted) {
+        context.read<RefreshBus>().notifyCustomers();
+        await _load();
+      }
     }
   }
 
@@ -350,7 +392,10 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     );
     if (yes == true) {
       await _data.deleteCustomer(c.id);
-      if (mounted) await _load();
+      if (mounted) {
+        context.read<RefreshBus>().notifyCustomers();
+        await _load();
+      }
     }
   }
 
@@ -1093,6 +1138,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     );
 
     if (ok == true && mounted) {
+      context.read<RefreshBus>().notifyInvoices();
       await _load();
     }
   }
@@ -1204,7 +1250,10 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         amount: amt,
         accountId: accountId!,
       );
-      if (mounted) await _load();
+      if (mounted) {
+        context.read<RefreshBus>().notifyInvoices();
+        await _load();
+      }
     }
   }
 }
@@ -2024,7 +2073,10 @@ class _EditInvoiceScreenState extends State<EditInvoiceScreen> {
       discount: _discountAmount,
       tax: _taxAmount,
     );
-    if (mounted) Navigator.pop(context, true);
+    if (mounted) {
+      context.read<RefreshBus>().notifyInvoices();
+      Navigator.pop(context, true);
+    }
   }
 
   @override

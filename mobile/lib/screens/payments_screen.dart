@@ -6,6 +6,7 @@ import '../utils/format.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
+import '../state/refresh_bus.dart';
 import '../i18n.dart';
 import '../widgets/category_picker.dart';
 import '../screens/manage_categories_screen.dart';
@@ -26,9 +27,14 @@ class PaymentsScreen extends StatefulWidget {
 class _PaymentsScreenState extends State<PaymentsScreen> {
   bool _opened = false;
   bool _openedFromNotification = false;
+  late final RefreshBus _refreshBus;
+  int _paymentsTick = 0;
   @override
   void initState() {
     super.initState();
+    _refreshBus = context.read<RefreshBus>();
+    _paymentsTick = _refreshBus.payments;
+    _refreshBus.addListener(_handleRefresh);
     if (widget.autoOpenAdd && widget.openPaymentId == null && !_opened) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
@@ -39,6 +45,20 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         } catch (_) {}
         _opened = true;
       });
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshBus.removeListener(_handleRefresh);
+    super.dispose();
+  }
+
+  void _handleRefresh() {
+    if (!mounted) return;
+    if (_refreshBus.payments != _paymentsTick) {
+      _paymentsTick = _refreshBus.payments;
+      setState(() {});
     }
   }
 
@@ -365,7 +385,10 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                                   );
                                   if (yes == true) {
                                     await data.deletePayment(p.id);
-                                    if (context.mounted) setState(() {});
+                                    if (context.mounted) {
+                                      context.read<RefreshBus>().notifyPayments();
+                                      setState(() {});
+                                    }
                                   }
                                 },
                               ),
@@ -1142,7 +1165,10 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                                     projectId: projectId,
                                   );
                                 }
-                                if (context.mounted) Navigator.pop(context);
+                                if (context.mounted) {
+                                  context.read<RefreshBus>().notifyPayments();
+                                  Navigator.pop(context);
+                                }
                                 if (mounted) setState(() {});
                               } catch (e) {
                                 if (context.mounted) {

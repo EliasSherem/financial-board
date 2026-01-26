@@ -9,20 +9,111 @@ import '../models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../utils/links.dart';
+import '../utils/format.dart';
+import '../utils/savings_goal.dart';
 
 const String _supportGptUrl =
     'https://chatgpt.com/g/g-68f9371179548191a018ea1e1ff99727-finsight-assistant';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  double? _savingsGoal;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavingsGoal();
+  }
+
+  Future<void> _loadSavingsGoal() async {
+    final userId = context.read<AuthStore>().userId;
+    final goal = await SavingsGoalStore.load(userId);
+    if (!mounted) return;
+    setState(() => _savingsGoal = goal);
+  }
+
+  String _goalInputValue() {
+    final goal = _savingsGoal;
+    if (goal == null) return '';
+    final isWhole = goal.truncateToDouble() == goal;
+    return goal.toStringAsFixed(isWhole ? 0 : 2);
+  }
+
+  Future<void> _editSavingsGoal(String Function(String en, String es) L) async {
+    final userId = context.read<AuthStore>().userId;
+    final messenger = ScaffoldMessenger.of(context);
+    String draft = _goalInputValue();
+    double? result;
+    result = await showDialog<double?>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(L('Monthly savings goal', 'Meta de ahorro mensual')),
+            content: TextFormField(
+              initialValue: draft,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: L('Amount', 'Monto'),
+                border: const OutlineInputBorder(),
+              ),
+              onChanged: (value) => draft = value,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(L('Cancel', 'Cancelar')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, 0.0),
+                child: Text(L('Clear', 'Limpiar')),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final raw = draft.trim();
+                  if (raw.isEmpty) {
+                    Navigator.pop(ctx, 0.0);
+                    return;
+                  }
+                  final parsed = double.tryParse(raw.replaceAll(',', ''));
+                  if (parsed == null) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          L(
+                            'Enter a valid amount',
+                            'Ingresa un monto valido',
+                          ),
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.pop(ctx, parsed);
+                },
+                child: Text(L('Save', 'Guardar')),
+              ),
+            ],
+          ),
+    );
+    if (!mounted || result == null) return;
+    final goal = result <= 0 ? null : result;
+    setState(() => _savingsGoal = goal);
+    await SavingsGoalStore.save(userId, goal);
+  }
 
   @override
   Widget build(BuildContext context) {
     final api = ApiClient()..setToken(context.watch<AuthStore>().token);
     final data = DataService(api);
-    String L(String en, String es) =>
-        context.watch<LangStore>().lang == 'es' ? es : en;
     final langStore = context.watch<LangStore>();
+    final isEs = langStore.lang == 'es';
+    String L(String en, String es) => isEs ? es : en;
     return Scaffold(
       appBar: AppBar(title: Text(L('Settings', 'Ajustes'))),
       body: ListView(
@@ -90,6 +181,17 @@ class SettingsScreen extends StatelessWidget {
                 },
               );
             },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.savings_outlined),
+            title: Text(L('Savings goal', 'Meta de ahorro')),
+            subtitle: Text(
+              _savingsGoal == null || _savingsGoal! <= 0
+                  ? L('Not set', 'Sin meta')
+                  : '${L('Monthly goal', 'Meta mensual')}: ${money(_savingsGoal!)}',
+            ),
+            onTap: () => _editSavingsGoal(L),
           ),
           const Divider(),
           ListTile(

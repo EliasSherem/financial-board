@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
+import '../state/refresh_bus.dart';
 import '../models.dart';
 import '../i18n.dart';
 import '../utils/format.dart';
@@ -24,13 +25,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
   List<PaymentItem> _payments = [];
   List<SalaryRule> _salaries = [];
   bool _loading = true;
+  late final RefreshBus _refreshBus;
+  int _paymentsTick = 0;
 
   @override
   void initState() {
     super.initState();
+    _refreshBus = context.read<RefreshBus>();
+    _paymentsTick = _refreshBus.payments;
+    _refreshBus.addListener(_handleRefresh);
     final api = ApiClient()..setToken(context.read<AuthStore>().token);
     _data = DataService(api);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _refreshBus.removeListener(_handleRefresh);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -43,6 +55,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _salaries = rows.map((e) => SalaryRule.fromJson(e)).toList();
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
+  }
+
+  void _handleRefresh() {
+    if (!mounted) return;
+    if (_refreshBus.payments != _paymentsTick) {
+      _paymentsTick = _refreshBus.payments;
+      _load();
+    }
   }
 
   // Compute due dates for a given payment within the visible month, starting from its nextDate forward.

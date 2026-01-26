@@ -92,6 +92,11 @@ class I18n {
       'en': 'Top subcategory budgets',
       'es': 'Top presupuestos por subcategoria',
     },
+    'savingsGoal.title': {
+      'en': 'Monthly savings goal',
+      'es': 'Meta de ahorro mensual',
+    },
+    'savingsGoal.saved': {'en': 'Saved', 'es': 'Ahorrado'},
     'aiChat.placeholder': {
       'en': 'Ask about your budget, spending, or goals',
       'es': 'Pregunta sobre tu presupuesto, gastos o metas',
