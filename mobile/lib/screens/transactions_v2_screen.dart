@@ -1,6 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../utils/format.dart';
 import '../widgets/new_transaction_dialog.dart';
@@ -43,6 +49,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   List<Account> _accounts = [];
   List<Project> _projects = [];
   List<String> _categories = [];
+  DateTime? _registeredMonth;
+  bool _registeredMonthLoaded = false;
+  bool _reportBusy = false;
 
   @override
   void initState() {
@@ -350,6 +359,396 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
+  DateTime _monthStart(DateTime date) => DateTime(date.year, date.month, 1);
+
+  DateTime? _resolveReportMonth() {
+    if (_start != null && _end != null) {
+      if (_start!.year == _end!.year && _start!.month == _end!.month) {
+        return _monthStart(_start!);
+      }
+    } else if (_start != null) {
+      return _monthStart(_start!);
+    } else if (_end != null) {
+      return _monthStart(_end!);
+    }
+    return null;
+  }
+
+  DateTime? _parseDateValue(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    if (value is int) {
+      if (value > 1000000000000) {
+        return DateTime.fromMillisecondsSinceEpoch(value);
+      }
+      if (value > 1000000000) {
+        return DateTime.fromMillisecondsSinceEpoch(value * 1000);
+      }
+    }
+    if (value is double) {
+      return _parseDateValue(value.toInt());
+    }
+    if (value is Map) {
+      final date = value['date'];
+      if (date != null) return _parseDateValue(date);
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _asStringMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      try {
+        return Map<String, dynamic>.from(value);
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  DateTime? _extractRegistrationDate(Map<String, dynamic> me) {
+    DateTime? fromMap(Map<String, dynamic> map) {
+      const keys = [
+        'created_at',
+        'createdAt',
+        'registered_at',
+        'registeredAt',
+        'joined_at',
+        'joinedAt',
+        'signup_at',
+        'signupAt',
+        'created',
+      ];
+      for (final key in keys) {
+        final dt = _parseDateValue(map[key]);
+        if (dt != null) return dt;
+      }
+      return null;
+    }
+
+    final direct = fromMap(me);
+    if (direct != null) return direct;
+    final user = _asStringMap(me['user']);
+    if (user != null) {
+      final dt = fromMap(user);
+      if (dt != null) return dt;
+    }
+    final profile = _asStringMap(me['profile']);
+    if (profile != null) {
+      final dt = fromMap(profile);
+      if (dt != null) return dt;
+    }
+    final data = _asStringMap(me['data']);
+    if (data != null) {
+      final dt = fromMap(data);
+      if (dt != null) return dt;
+    }
+    return null;
+  }
+
+  DateTime? _earliestTransactionDate() {
+    if (_all.isEmpty) return null;
+    var earliest = _all.first.date;
+    for (final t in _all) {
+      if (t.date.isBefore(earliest)) earliest = t.date;
+    }
+    return earliest;
+  }
+
+  Future<void> _ensureRegisteredMonth() async {
+    if (_registeredMonthLoaded) return;
+    _registeredMonthLoaded = true;
+    DateTime? registered;
+    try {
+      final me = await _data.getMe();
+      registered = _extractRegistrationDate(me);
+    } catch (_) {}
+    if (registered != null) {
+      final month = _monthStart(registered);
+      if (_registeredMonth == null || month.isBefore(_registeredMonth!)) {
+        _registeredMonth = month;
+      }
+    }
+    _registeredMonth ??= _monthStart(_earliestTransactionDate() ?? DateTime.now());
+  }
+
+  List<DateTime> _availableReportMonths() {
+    final now = _monthStart(DateTime.now());
+    var start = _monthStart(_registeredMonth ?? now);
+    if (start.isAfter(now)) start = now;
+    final months = <DateTime>[];
+    var cursor = DateTime(start.year, start.month, 1);
+    while (!cursor.isAfter(now)) {
+      months.add(cursor);
+      cursor = DateTime(cursor.year, cursor.month + 1, 1);
+    }
+    return months;
+  }
+
+  Future<DateTime?> _pickReportMonth({DateTime? selected}) async {
+    await _ensureRegisteredMonth();
+    final months = _availableReportMonths();
+    if (months.isEmpty) return null;
+    if (months.length == 1) return months.first;
+    final locale = Localizations.localeOf(context).toString();
+    final monthFmt = DateFormat('MMMM yyyy', locale);
+    final selectedMonth = selected != null ? _monthStart(selected) : null;
+    final displayMonths = months.reversed.toList();
+    final maxHeight = MediaQuery.of(context).size.height * 0.6;
+
+    return showModalBottomSheet<DateTime>(
+      context: context,
+      builder: (ctx) {
+        final textTheme = Theme.of(ctx).textTheme;
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Text(
+                    I18n.t(context, 'tx.reportPickMonth'),
+                    style: textTheme.titleMedium,
+                  ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: ListView.builder(
+                    itemCount: displayMonths.length,
+                    itemBuilder: (ctx, index) {
+                      final month = displayMonths[index];
+                      final isSelected =
+                          selectedMonth != null &&
+                          month.year == selectedMonth.year &&
+                          month.month == selectedMonth.month;
+                      return ListTile(
+                        title: Text(monthFmt.format(month)),
+                        trailing: isSelected ? const Icon(Icons.check) : null,
+                        selected: isSelected,
+                        onTap: () => Navigator.pop(ctx, month),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  List<TransactionItem> _reportTransactions(DateTime month) {
+    Iterable<TransactionItem> list = _all;
+    if (_type != null) list = list.where((t) => t.type == _type);
+    if (_category != null && _category!.isNotEmpty) {
+      list = list.where((t) => (t.category ?? '') == _category);
+    }
+    if (_accountId != null) list = list.where((t) => t.accountId == _accountId);
+    if (_projectId != null) {
+      final p = _projects.firstWhere(
+        (x) => x.id == _projectId,
+        orElse:
+            () => Project(
+              id: -1,
+              name: '',
+              description: null,
+              budget: 0,
+              spent: 0,
+              status: 'Active',
+            ),
+      );
+      if (p.id != -1) list = list.where((t) => (t.projectName ?? '') == p.name);
+    }
+    list = list.where(
+      (t) => t.date.year == month.year && t.date.month == month.month,
+    );
+    final result = list.toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    return result;
+  }
+
+  String _reportFileName(DateTime month) {
+    final mm = month.month.toString().padLeft(2, '0');
+    return 'FinSight_Transactions_${month.year}_$mm.pdf';
+  }
+
+  Future<Uint8List> _buildReportPdf(
+    DateTime month,
+    List<TransactionItem> txs,
+  ) async {
+    final logoBytes = await rootBundle.load('assets/finsight-icon.png');
+    final logo = pw.MemoryImage(logoBytes.buffer.asUint8List());
+    final locale = Localizations.localeOf(context).toString();
+    final monthLabel = DateFormat('MMMM yyyy', locale).format(month);
+    final dateFmt = DateFormat('dd/MM/yyyy', locale);
+    final moneyFmt = NumberFormat.currency(symbol: '\$');
+
+    final reportTitle = I18n.tr(context, 'tx.reportTitle');
+    final reportMonth = I18n.tr(context, 'tx.reportMonth');
+    final reportIncome = I18n.tr(context, 'tx.reportIncome');
+    final reportExpense = I18n.tr(context, 'tx.reportExpense');
+    final reportNet = I18n.tr(context, 'tx.reportNet');
+    final noDescription = I18n.tr(context, 'tx.noDescription');
+
+    final headers = [
+      I18n.tr(context, 'tx.date'),
+      I18n.tr(context, 'tx.description'),
+      I18n.tr(context, 'tx.category'),
+      I18n.tr(context, 'tx.account'),
+      I18n.tr(context, 'tx.amount'),
+    ];
+
+    double income = 0;
+    double expense = 0;
+    for (final t in txs) {
+      if (t.amount >= 0) {
+        income += t.amount;
+      } else {
+        expense += t.amount.abs();
+      }
+    }
+    final net = income - expense;
+
+    final rows =
+        txs.map((t) {
+          final desc = t.description.isEmpty ? noDescription : t.description;
+          final category = (t.category ?? '').isEmpty ? '-' : t.category!;
+          final account = (t.accountName ?? '').isEmpty ? '-' : t.accountName!;
+          return [
+            dateFmt.format(t.date),
+            desc,
+            category,
+            account,
+            moneyFmt.format(t.amount),
+          ];
+        }).toList();
+
+    final doc = pw.Document();
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        build:
+            (ctx) => [
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  pw.Image(logo, width: 32, height: 32),
+                  pw.SizedBox(width: 12),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'FinSight',
+                        style: pw.TextStyle(
+                          fontSize: 18,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.Text(
+                        reportTitle,
+                        style: const pw.TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 10),
+              pw.Text(
+                '$reportMonth: $monthLabel',
+                style: const pw.TextStyle(fontSize: 11),
+              ),
+              pw.SizedBox(height: 12),
+              pw.Table.fromTextArray(
+                headers: headers,
+                data: rows,
+                headerDecoration: const pw.BoxDecoration(
+                  color: PdfColors.grey200,
+                ),
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                cellStyle: const pw.TextStyle(fontSize: 10),
+                cellAlignment: pw.Alignment.centerLeft,
+                cellAlignments: {4: pw.Alignment.centerRight},
+                columnWidths: const {
+                  0: pw.FlexColumnWidth(1.2),
+                  1: pw.FlexColumnWidth(2.4),
+                  2: pw.FlexColumnWidth(1.4),
+                  3: pw.FlexColumnWidth(1.4),
+                  4: pw.FlexColumnWidth(1.2),
+                },
+              ),
+              pw.SizedBox(height: 12),
+              pw.Align(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text(
+                      '$reportIncome: ${moneyFmt.format(income)}',
+                      style: const pw.TextStyle(fontSize: 11),
+                    ),
+                    pw.Text(
+                      '$reportExpense: ${moneyFmt.format(expense)}',
+                      style: const pw.TextStyle(fontSize: 11),
+                    ),
+                    pw.Divider(),
+                    pw.Text(
+                      '$reportNet: ${moneyFmt.format(net)}',
+                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+      ),
+    );
+    return doc.save();
+  }
+
+  Future<void> _downloadReport() async {
+    if (_reportBusy) return;
+    setState(() => _reportBusy = true);
+    try {
+      final month = await _pickReportMonth(selected: _resolveReportMonth());
+      if (month == null) return;
+      final txs = _reportTransactions(month);
+      if (txs.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(I18n.tr(context, 'tx.reportEmpty'))),
+        );
+        return;
+      }
+      final pdfBytes = await _buildReportPdf(month, txs);
+      if (!mounted) return;
+      final filename = _reportFileName(month);
+      try {
+        await Printing.layoutPdf(
+          name: filename,
+          onLayout: (_) async => pdfBytes,
+        );
+      } catch (_) {
+        await Printing.sharePdf(
+          bytes: pdfBytes,
+          filename: filename,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${I18n.tr(context, 'tx.reportFailed')}: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _reportBusy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat.currency(symbol: '4'); // fallback not used; actual formatting below
@@ -364,26 +763,32 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16),
                     children: [
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-          OutlinedButton.icon(
-            onPressed: _openFiltersSheet,
-            icon: const Icon(Icons.filter_alt_outlined),
-            label: Text(I18n.t(context, 'tx.filters')),
-          ),
-                      const SizedBox(width: 8),
-          TextButton(
-            onPressed: () {
-              _type = null;
-              _category = null;
-              _accountId = null;
-              _projectId = null;
-              _start = null;
-              _end = null;
-              _applyFilters(resetVisible: true);
-            },
-            child: Text(I18n.t(context, 'tx.clearFilters')),
-          ),
+                      OutlinedButton.icon(
+                        onPressed: _openFiltersSheet,
+                        icon: const Icon(Icons.filter_alt_outlined),
+                        label: Text(I18n.t(context, 'tx.filters')),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _reportBusy ? null : _downloadReport,
+                        icon: const Icon(Icons.picture_as_pdf_outlined),
+                        label: Text(I18n.t(context, 'tx.reports')),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          _type = null;
+                          _category = null;
+                          _accountId = null;
+                          _projectId = null;
+                          _start = null;
+                          _end = null;
+                          _applyFilters(resetVisible: true);
+                        },
+                        child: Text(I18n.t(context, 'tx.clearFilters')),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),

@@ -10,34 +10,73 @@ import '../state/auth_store.dart';
 import 'signup_screen.dart';
 import '../i18n.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final formKey = GlobalKey<FormState>();
-    final usernameCtrl = TextEditingController();
-    final passwordCtrl = TextEditingController();
+  State<LoginScreen> createState() => _LoginScreenState();
+}
 
-    Future<void> submit() async {
-      if (!formKey.currentState!.validate()) return;
-      final messenger = ScaffoldMessenger.of(context);
-      try {
-        final api = ApiClient();
-        final authSvc = AuthService(api);
-        final token = await authSvc.login(
-          username: usernameCtrl.text.trim(),
-          password: passwordCtrl.text,
-        );
-        await context.read<AuthStore>().setToken(token);
-        if (context.mounted && Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
-      } catch (e) {
-        messenger.showSnackBar(SnackBar(content: Text(e.toString())));
-      }
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _usernameCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _usernameCtrl.dispose();
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+  String _errorText(Object error) {
+    final raw = error.toString();
+    if (raw.contains('API error 401')) {
+      return I18n.tr(context, 'auth.invalidCredentials');
     }
+    const prefix = 'Exception: ';
+    if (raw.startsWith(prefix)) {
+      return raw.substring(prefix.length);
+    }
+    return raw;
+  }
 
+  Future<void> _submit() async {
+    if (_submitting) return;
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _submitting = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    navigator.push(MaterialPageRoute(builder: (_) => const SigningInScreen()));
+    try {
+      final api = ApiClient();
+      final authSvc = AuthService(api);
+      final token = await authSvc.login(
+        username: _usernameCtrl.text.trim(),
+        password: _passwordCtrl.text,
+      );
+      await context.read<AuthStore>().setToken(token);
+      if (!mounted) return;
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+      messenger.showSnackBar(SnackBar(content: Text(_errorText(e))));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final muted = Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.65);
     return Scaffold(
@@ -64,7 +103,7 @@ class LoginScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
                   child: Form(
-                    key: formKey,
+                    key: _formKey,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -106,7 +145,7 @@ class LoginScreen extends StatelessWidget {
                         Text(I18n.t(context, 'auth.username'), style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                         const SizedBox(height: 6),
                         TextFormField(
-                          controller: usernameCtrl,
+                          controller: _usernameCtrl,
                           validator: (v) => (v == null || v.isEmpty) ? I18n.t(context, 'validation.required') : null,
                           decoration: InputDecoration(
                             hintText: I18n.t(context, 'auth.enterUsername'),
@@ -123,7 +162,7 @@ class LoginScreen extends StatelessWidget {
                         Text(I18n.t(context, 'auth.password'), style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                         const SizedBox(height: 6),
                         TextFormField(
-                          controller: passwordCtrl,
+                          controller: _passwordCtrl,
                           obscureText: true,
                           validator: (v) => (v == null || v.isEmpty) ? I18n.t(context, 'validation.required') : null,
                           decoration: InputDecoration(
@@ -141,7 +180,7 @@ class LoginScreen extends StatelessWidget {
                         SizedBox(
                           height: 48,
                           child: FilledButton.icon(
-                            onPressed: submit,
+                            onPressed: _submitting ? null : _submit,
                             icon: const Icon(Icons.login_rounded),
                             label: Text(I18n.t(context, 'auth.signIn')),
                           ),
@@ -205,6 +244,34 @@ class LoginScreen extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class SigningInScreen extends StatelessWidget {
+  const SigningInScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return WillPopScope(
+      onWillPop: () async => false,
+      child: Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                I18n.t(context, 'auth.signingIn'),
+                style: theme.textTheme.titleMedium,
+              ),
+            ],
           ),
         ),
       ),

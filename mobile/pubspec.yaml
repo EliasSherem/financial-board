@@ -48,6 +48,8 @@ dependencies:
   firebase_messaging: ^16.0.2
   flutter_local_notifications: ^19.4.2
   home_widget: ^0.8.1
+  pdf: ^3.10.8
+  printing: ^5.12.0
 
 dev_dependencies:
   flutter_test:
@@ -74,6 +76,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/finsight-icon.svg
+    - assets/finsight-icon.png
 
 # App icon configuration (generate launcher icons with the command below)
 flutter_launcher_icons:

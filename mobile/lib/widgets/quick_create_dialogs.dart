@@ -838,8 +838,9 @@ Future<bool?> showQuickNewInvoiceDialog(BuildContext context) async {
     context: context,
     builder:
         (_) => StatefulBuilder(
-          builder:
-              (ctx, setLocal) => AlertDialog(
+          builder: (ctx, setLocal) {
+            final isNarrow = MediaQuery.of(ctx).size.width < 520;
+            return AlertDialog(
                 title: Text(I18n.t(context, 'add.newInvoice')),
                 content: SingleChildScrollView(
                   child: Column(
@@ -973,9 +974,8 @@ Future<bool?> showQuickNewInvoiceDialog(BuildContext context) async {
                         items.length,
                         (i) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: LayoutBuilder(
-                            builder: (ctx, constraints) {
-                              final isNarrow = constraints.maxWidth < 520;
+                          child: Builder(
+                            builder: (ctx) {
                               Widget descField() => TextFormField(
                                 initialValue:
                                     (items[i]['description'] as String?) ?? '',
@@ -1186,7 +1186,8 @@ Future<bool?> showQuickNewInvoiceDialog(BuildContext context) async {
                     child: Text(I18n.t(context, 'label.save')),
                   ),
                 ],
-              ),
+            );
+          },
         ),
   );
   if (created == true && context.mounted) {

@@ -45,6 +45,15 @@ class I18n {
     'label.export': {'en': 'Export', 'es': 'Exportar'},
     'label.process': {'en': 'Process', 'es': 'Procesar'},
     'label.processed': {'en': 'Processed', 'es': 'Procesado'},
+    'label.active': {'en': 'Active', 'es': 'Activo'},
+    'forms.descriptionOptional': {
+      'en': 'Description (optional)',
+      'es': 'Descripci\u00F3n (opcional)',
+    },
+    'forms.emailOptional': {
+      'en': 'Email (optional)',
+      'es': 'Correo (opcional)',
+    },
 
     // Add menu
     'add.newTransaction': {
@@ -189,6 +198,25 @@ class I18n {
     'payments.nextPayment': {'en': 'Next Payment', 'es': 'Pr\u00F3ximo pago'},
     'payments.frequency': {'en': 'Frequency', 'es': 'Frecuencia'},
     'payments.amount': {'en': 'Amount', 'es': 'Monto'},
+    'payments.createPlanTitle': {
+      'en': 'Create payment plan',
+      'es': 'Crear plan de pagos',
+    },
+    'payments.createPlanSubtitle': {
+      'en': 'Split a total into monthly payments',
+      'es': 'Divide un total en pagos mensuales',
+    },
+    'payments.totalAmount': {'en': 'Total amount', 'es': 'Monto total'},
+    'payments.months': {'en': 'Months', 'es': 'Meses'},
+    'payments.approxMonthly': {
+      'en': 'Approx. monthly',
+      'es': 'Aprox. mensual',
+    },
+    'payments.nextDate': {'en': 'Next date', 'es': 'Pr\u00F3xima fecha'},
+    'payments.freq.weekly': {'en': 'Weekly', 'es': 'Semanal'},
+    'payments.freq.monthly': {'en': 'Monthly', 'es': 'Mensual'},
+    'payments.freq.quarterly': {'en': 'Quarterly', 'es': 'Trimestral'},
+    'payments.freq.yearly': {'en': 'Yearly', 'es': 'Anual'},
     'status.active': {'en': 'active', 'es': 'activo'},
     'status.paused': {'en': 'paused', 'es': 'en pausa'},
 
@@ -240,6 +268,24 @@ class I18n {
     'tx.filters': {'en': 'Filters', 'es': 'Filtros'},
     'tx.clearFilters': {'en': 'Clear Filters', 'es': 'Limpiar filtros'},
     'tx.none': {'en': 'No transactions', 'es': 'Sin transacciones'},
+    'tx.reports': {'en': 'Reports', 'es': 'Reportes'},
+    'tx.reportTitle': {
+      'en': 'Transactions Report',
+      'es': 'Reporte de transacciones',
+    },
+    'tx.reportPickMonth': {'en': 'Select month', 'es': 'Selecciona mes'},
+    'tx.reportMonth': {'en': 'Month', 'es': 'Mes'},
+    'tx.reportEmpty': {
+      'en': 'No transactions for the selected month',
+      'es': 'Sin transacciones para el mes seleccionado',
+    },
+    'tx.reportFailed': {
+      'en': 'Failed to generate report',
+      'es': 'Error al generar el reporte',
+    },
+    'tx.reportIncome': {'en': 'Income', 'es': 'Ingresos'},
+    'tx.reportExpense': {'en': 'Expenses', 'es': 'Gastos'},
+    'tx.reportNet': {'en': 'Net', 'es': 'Neto'},
     'tx.deleteTitle': {
       'en': 'Delete transaction?',
       'es': '\u00BFEliminar transacci\u00F3n?',
@@ -433,6 +479,17 @@ class I18n {
       'en': 'No transactions for this project yet',
       'es': 'A\u00FAn no hay transacciones para este proyecto',
     },
+    'projects.status': {'en': 'Status', 'es': 'Estado'},
+    'projects.statusActive': {'en': 'Active', 'es': 'Activo'},
+    'projects.statusOnHold': {'en': 'On hold', 'es': 'En pausa'},
+    'projects.startOptional': {
+      'en': 'Start date (optional)',
+      'es': 'Fecha de inicio (opcional)',
+    },
+    'projects.endOptional': {
+      'en': 'End date (optional)',
+      'es': 'Fecha de fin (opcional)',
+    },
     'projects.refresh': {'en': 'Refresh', 'es': 'Actualizar'},
 
     // Auth / Signup / Login
@@ -451,6 +508,11 @@ class I18n {
       'es': 'Ingresa tu contrase\u00F1a',
     },
     'auth.signIn': {'en': 'Sign In', 'es': 'Iniciar sesi\u00F3n'},
+    'auth.signingIn': {'en': 'Signing in', 'es': 'Iniciando sesi\u00F3n'},
+    'auth.invalidCredentials': {
+      'en': 'Username or password is incorrect',
+      'es': 'Usuario o contrase\u00F1a incorrectos',
+    },
     'auth.or': {'en': 'or', 'es': 'o'},
     'auth.signupCta': {
       'en': "Don't have an account?",
@@ -466,6 +528,10 @@ class I18n {
       'es': '\uFFFDsnete para administrar tus finanzas',
     },
     'auth.email': {'en': 'Email Address', 'es': 'Correo electr\u00F3nico'},
+    'auth.emailPlaceholder': {
+      'en': 'name@example.com',
+      'es': 'correo@ejemplo.com',
+    },
     'auth.validEmailRequired': {
       'en': 'Valid email required',
       'es': 'Correo v\u00E1lido requerido',
@@ -517,6 +583,8 @@ class I18n {
     'invoices.qty': {'en': 'Qty', 'es': 'Cant.'},
     'invoices.unitPrice': {'en': 'Unit Price', 'es': 'Precio unitario'},
     'invoices.amount': {'en': 'Amount', 'es': 'Monto'},
+    'invoices.discount': {'en': 'Discount', 'es': 'Descuento'},
+    'invoices.tax': {'en': 'Tax', 'es': 'Impuesto'},
 
     // Investments
     'invest.add': {'en': 'Add Investment', 'es': 'Agregar inversi\u00F3n'},
