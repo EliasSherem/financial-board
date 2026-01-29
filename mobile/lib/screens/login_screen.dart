@@ -57,18 +57,14 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordCtrl.text,
       );
       await context.read<AuthStore>().setToken(token);
-      if (!mounted) return;
-      if (navigator.canPop()) {
-        navigator.pop();
-      }
       if (navigator.canPop()) {
         navigator.pop();
       }
     } catch (e) {
-      if (!mounted) return;
       if (navigator.canPop()) {
         navigator.pop();
       }
+      if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(_errorText(e))));
     } finally {
       if (mounted) setState(() => _submitting = false);

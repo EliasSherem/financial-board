@@ -281,7 +281,7 @@ class _SummaryGrid extends StatelessWidget {
             Text(highestAccount?.name ?? '-'),
             const SizedBox(height: 4),
             Text(
-              NumberFormat.simpleCurrency(locale: locale.toLanguageTag()).format(highestAccount?.balance ?? 0),
+              money(highestAccount?.balance ?? 0),
               style: Theme.of(context).textTheme.titleLarge,
             ),
           ],

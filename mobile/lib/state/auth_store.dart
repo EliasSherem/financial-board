@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/push_service.dart';
@@ -37,15 +38,19 @@ class AuthStore extends ChangeNotifier {
     _parseToken();
     notifyListeners();
     if (token != null && token.isNotEmpty) {
-      try {
-        await PushService.instance.syncTokenWithBackend();
-      } catch (_) {
-        // ignore sync errors
-      }
+      unawaited(_syncPushToken());
     }
   }
 
   Future<void> logout() async => setToken(null);
+
+  Future<void> _syncPushToken() async {
+    try {
+      await PushService.instance.syncTokenWithBackend();
+    } catch (_) {
+      // ignore sync errors
+    }
+  }
 
   void _parseToken() {
     _userId = null;
