@@ -47,8 +47,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
     final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
+    final navigator = Navigator.of(context, rootNavigator: true);
     navigator.push(MaterialPageRoute(builder: (_) => const SigningInScreen()));
+    Object? submitError;
     try {
       final api = ApiClient();
       final authSvc = AuthService(api);
@@ -57,16 +58,15 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordCtrl.text,
       );
       await context.read<AuthStore>().setToken(token);
-      if (navigator.canPop()) {
-        navigator.pop();
-      }
     } catch (e) {
-      if (navigator.canPop()) {
-        navigator.pop();
-      }
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(_errorText(e))));
+      submitError = e;
     } finally {
+      if (navigator.canPop()) {
+        navigator.popUntil((route) => route.isFirst);
+      }
+      if (submitError != null && mounted) {
+        messenger.showSnackBar(SnackBar(content: Text(_errorText(submitError))));
+      }
       if (mounted) setState(() => _submitting = false);
     }
   }
