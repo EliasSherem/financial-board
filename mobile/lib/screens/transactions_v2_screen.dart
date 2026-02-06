@@ -594,7 +594,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final reportIncome = I18n.tr(context, 'tx.reportIncome');
     final reportExpense = I18n.tr(context, 'tx.reportExpense');
     final reportNet = I18n.tr(context, 'tx.reportNet');
+    final reportBalances = I18n.tr(context, 'tx.reportBalances');
+    final reportAllTransactions = I18n.tr(context, 'tx.reportAllTransactions');
+    final reportAccountTransactions = I18n.tr(context, 'tx.reportAccountTransactions');
+    final reportNoAccountTransactions = I18n.tr(context, 'tx.reportNoAccountTransactions');
     final noDescription = I18n.tr(context, 'tx.noDescription');
+    final totalBalanceLabel = I18n.tr(context, 'kpi.totalBalance');
 
     final headers = [
       I18n.tr(context, 'tx.date'),
@@ -603,6 +608,77 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       I18n.tr(context, 'tx.account'),
       I18n.tr(context, 'tx.amount'),
     ];
+    final accountHeaders = [
+      I18n.tr(context, 'tx.date'),
+      I18n.tr(context, 'tx.description'),
+      I18n.tr(context, 'tx.category'),
+      I18n.tr(context, 'tx.amount'),
+    ];
+
+    final accountNameById = <int, String>{};
+    final accountBalanceById = <int, double>{};
+    for (final account in _accounts) {
+      accountNameById[account.id] = account.name;
+      accountBalanceById[account.id] = account.displayBalance;
+    }
+    for (final t in txs) {
+      accountNameById.putIfAbsent(
+        t.accountId,
+        () => t.accountName ?? '${I18n.tr(context, 'tx.account')} ${t.accountId}',
+      );
+      accountBalanceById.putIfAbsent(t.accountId, () => 0);
+    }
+    final accountIds =
+        accountNameById.keys.toList()
+          ..sort(
+            (a, b) => accountNameById[a]!
+                .toLowerCase()
+                .compareTo(accountNameById[b]!.toLowerCase()),
+          );
+
+    final balanceRows =
+        accountIds
+            .map(
+              (id) => [
+                accountNameById[id] ?? '-',
+                moneyFmt.format(accountBalanceById[id] ?? 0),
+              ],
+            )
+            .toList();
+    if (balanceRows.isNotEmpty) {
+      final totalBalance =
+          _accounts.isNotEmpty
+              ? _accounts.fold<double>(
+                0,
+                (sum, account) => sum + account.displayBalance,
+              )
+              : accountBalanceById.values.fold<double>(
+                0,
+                (sum, balance) => sum + balance,
+              );
+      balanceRows.insert(0, [
+        totalBalanceLabel,
+        moneyFmt.format(totalBalance),
+      ]);
+    }
+
+    List<List<String>> buildRows(
+      List<TransactionItem> items, {
+      required bool includeAccount,
+    }) {
+      return items.map((t) {
+        final desc = t.description.isEmpty ? noDescription : t.description;
+        final category = (t.category ?? '').isEmpty ? '-' : t.category!;
+        final account = (t.accountName ?? '').isEmpty ? '-' : t.accountName!;
+        return [
+          dateFmt.format(t.date),
+          desc,
+          category,
+          if (includeAccount) account,
+          moneyFmt.format(t.amount),
+        ];
+      }).toList();
+    }
 
     double income = 0;
     double expense = 0;
@@ -615,97 +691,174 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     }
     final net = income - expense;
 
-    final rows =
-        txs.map((t) {
-          final desc = t.description.isEmpty ? noDescription : t.description;
-          final category = (t.category ?? '').isEmpty ? '-' : t.category!;
-          final account = (t.accountName ?? '').isEmpty ? '-' : t.accountName!;
-          return [
-            dateFmt.format(t.date),
-            desc,
-            category,
-            account,
-            moneyFmt.format(t.amount),
-          ];
-        }).toList();
+    final rows = buildRows(txs, includeAccount: true);
+    final txsByAccount = <int, List<TransactionItem>>{};
+    for (final t in txs) {
+      txsByAccount.putIfAbsent(t.accountId, () => []).add(t);
+    }
 
     final doc = pw.Document();
+    final sectionTitle = pw.TextStyle(
+      fontSize: 12,
+      fontWeight: pw.FontWeight.bold,
+    );
+    final subSectionTitle = pw.TextStyle(
+      fontSize: 11,
+      fontWeight: pw.FontWeight.bold,
+    );
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(24),
-        build:
-            (ctx) => [
-              pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.center,
-                children: [
-                  pw.Image(logo, width: 32, height: 32),
-                  pw.SizedBox(width: 12),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        'FinSight',
-                        style: pw.TextStyle(
-                          fontSize: 18,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
+        build: (ctx) {
+          final content = <pw.Widget>[
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Image(logo, width: 32, height: 32),
+                pw.SizedBox(width: 12),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'FinSight',
+                      style: pw.TextStyle(
+                        fontSize: 18,
+                        fontWeight: pw.FontWeight.bold,
                       ),
-                      pw.Text(
-                        reportTitle,
-                        style: const pw.TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 10),
+                    ),
+                    pw.Text(
+                      reportTitle,
+                      style: const pw.TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 10),
+            pw.Text(
+              '$reportMonth: $monthLabel',
+              style: const pw.TextStyle(fontSize: 11),
+            ),
+            pw.SizedBox(height: 16),
+            pw.Text(reportBalances, style: sectionTitle),
+            pw.SizedBox(height: 6),
+            if (balanceRows.isEmpty)
               pw.Text(
-                '$reportMonth: $monthLabel',
-                style: const pw.TextStyle(fontSize: 11),
-              ),
-              pw.SizedBox(height: 12),
+                I18n.tr(context, 'analytics.noAccBalanceData'),
+                style: const pw.TextStyle(fontSize: 10),
+              )
+            else
               pw.Table.fromTextArray(
-                headers: headers,
-                data: rows,
+                headers: [
+                  I18n.tr(context, 'tx.account'),
+                  I18n.tr(context, 'label.currentBalance'),
+                ],
+                data: balanceRows,
                 headerDecoration: const pw.BoxDecoration(
                   color: PdfColors.grey200,
                 ),
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                 cellStyle: const pw.TextStyle(fontSize: 10),
                 cellAlignment: pw.Alignment.centerLeft,
-                cellAlignments: {4: pw.Alignment.centerRight},
+                cellAlignments: {1: pw.Alignment.centerRight},
                 columnWidths: const {
-                  0: pw.FlexColumnWidth(1.2),
-                  1: pw.FlexColumnWidth(2.4),
-                  2: pw.FlexColumnWidth(1.4),
-                  3: pw.FlexColumnWidth(1.4),
-                  4: pw.FlexColumnWidth(1.2),
+                  0: pw.FlexColumnWidth(2.2),
+                  1: pw.FlexColumnWidth(1.2),
                 },
               ),
-              pw.SizedBox(height: 12),
-              pw.Align(
-                alignment: pw.Alignment.centerRight,
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.Text(
-                      '$reportIncome: ${moneyFmt.format(income)}',
-                      style: const pw.TextStyle(fontSize: 11),
-                    ),
-                    pw.Text(
-                      '$reportExpense: ${moneyFmt.format(expense)}',
-                      style: const pw.TextStyle(fontSize: 11),
-                    ),
-                    pw.Divider(),
-                    pw.Text(
-                      '$reportNet: ${moneyFmt.format(net)}',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                    ),
-                  ],
-                ),
+            pw.SizedBox(height: 16),
+            pw.Text(reportAllTransactions, style: sectionTitle),
+            pw.SizedBox(height: 6),
+            pw.Table.fromTextArray(
+              headers: headers,
+              data: rows,
+              headerDecoration: const pw.BoxDecoration(
+                color: PdfColors.grey200,
               ),
-            ],
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              cellStyle: const pw.TextStyle(fontSize: 10),
+              cellAlignment: pw.Alignment.centerLeft,
+              cellAlignments: {4: pw.Alignment.centerRight},
+              columnWidths: const {
+                0: pw.FlexColumnWidth(1.2),
+                1: pw.FlexColumnWidth(2.4),
+                2: pw.FlexColumnWidth(1.4),
+                3: pw.FlexColumnWidth(1.4),
+                4: pw.FlexColumnWidth(1.2),
+              },
+            ),
+            pw.SizedBox(height: 12),
+            pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Text(
+                    '$reportIncome: ${moneyFmt.format(income)}',
+                    style: const pw.TextStyle(fontSize: 11),
+                  ),
+                  pw.Text(
+                    '$reportExpense: ${moneyFmt.format(expense)}',
+                    style: const pw.TextStyle(fontSize: 11),
+                  ),
+                  pw.Divider(),
+                  pw.Text(
+                    '$reportNet: ${moneyFmt.format(net)}',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ];
+
+          if (accountIds.isNotEmpty) {
+            content.add(pw.SizedBox(height: 16));
+            content.add(pw.Text(reportAccountTransactions, style: sectionTitle));
+            for (final accountId in accountIds) {
+              final name = accountNameById[accountId] ?? '-';
+              final accountTxs =
+                  txsByAccount[accountId] ?? const <TransactionItem>[];
+              content.add(pw.SizedBox(height: 8));
+              content.add(pw.Text(name, style: subSectionTitle));
+              content.add(pw.SizedBox(height: 4));
+              if (accountTxs.isEmpty) {
+                content.add(
+                  pw.Text(
+                    reportNoAccountTransactions,
+                    style: const pw.TextStyle(fontSize: 10),
+                  ),
+                );
+              } else {
+                final accountRows = buildRows(
+                  accountTxs,
+                  includeAccount: false,
+                );
+                content.add(
+                  pw.Table.fromTextArray(
+                    headers: accountHeaders,
+                    data: accountRows,
+                    headerDecoration: const pw.BoxDecoration(
+                      color: PdfColors.grey200,
+                    ),
+                    headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                    cellStyle: const pw.TextStyle(fontSize: 10),
+                    cellAlignment: pw.Alignment.centerLeft,
+                    cellAlignments: {3: pw.Alignment.centerRight},
+                    columnWidths: const {
+                      0: pw.FlexColumnWidth(1.2),
+                      1: pw.FlexColumnWidth(2.6),
+                      2: pw.FlexColumnWidth(1.6),
+                      3: pw.FlexColumnWidth(1.2),
+                    },
+                  ),
+                );
+              }
+            }
+          }
+
+          return content;
+        },
       ),
     );
     return doc.save();

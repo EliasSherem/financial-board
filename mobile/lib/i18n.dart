@@ -286,6 +286,22 @@ class I18n {
     'tx.reportIncome': {'en': 'Income', 'es': 'Ingresos'},
     'tx.reportExpense': {'en': 'Expenses', 'es': 'Gastos'},
     'tx.reportNet': {'en': 'Net', 'es': 'Neto'},
+    'tx.reportBalances': {
+      'en': 'Account balances',
+      'es': 'Saldos por cuenta',
+    },
+    'tx.reportAllTransactions': {
+      'en': 'All transactions',
+      'es': 'Todas las transacciones',
+    },
+    'tx.reportAccountTransactions': {
+      'en': 'Transactions by account',
+      'es': 'Transacciones por cuenta',
+    },
+    'tx.reportNoAccountTransactions': {
+      'en': 'No transactions for this account',
+      'es': 'Sin transacciones para esta cuenta',
+    },
     'tx.deleteTitle': {
       'en': 'Delete transaction?',
       'es': '\u00BFEliminar transacci\u00F3n?',
