@@ -10,6 +10,8 @@ class AuthStore extends ChangeNotifier {
   bool _isPro = false;
   bool _localPro = false;
   String? _userName;
+  bool _biometricEnabled = false;
+  bool _locked = false;
 
   String? get token => _token;
   int? get userId => _userId;
@@ -17,12 +19,17 @@ class AuthStore extends ChangeNotifier {
   bool get isProOrExempt => isPro || _userId == 1 || _userId == 3;
   String get userName => _userName ?? 'user';
 
-  bool get isAuthenticated => _token != null && _token!.isNotEmpty;
+  bool get hasToken => _token != null && _token!.isNotEmpty;
+  bool get biometricEnabled => _biometricEnabled;
+  bool get isLocked => _locked;
+  bool get isAuthenticated => hasToken && !_locked;
 
   Future<void> load() async {
     final sp = await SharedPreferences.getInstance();
     _token = sp.getString('auth_token');
     _localPro = sp.getBool('is_pro_local') ?? false;
+    _biometricEnabled = sp.getBool('biometric_enabled') ?? false;
+    _locked = hasToken ? (sp.getBool('auth_locked') ?? false) : false;
     _parseToken();
     notifyListeners();
   }
@@ -32,8 +39,12 @@ class AuthStore extends ChangeNotifier {
     final sp = await SharedPreferences.getInstance();
     if (token == null || token.isEmpty) {
       await sp.remove('auth_token');
+      _locked = false;
+      await sp.remove('auth_locked');
     } else {
       await sp.setString('auth_token', token);
+      _locked = false;
+      await sp.remove('auth_locked');
     }
     _parseToken();
     notifyListeners();
@@ -43,6 +54,32 @@ class AuthStore extends ChangeNotifier {
   }
 
   Future<void> logout() async => setToken(null);
+
+  Future<void> lock() async {
+    if (!hasToken) return;
+    _locked = true;
+    final sp = await SharedPreferences.getInstance();
+    await sp.setBool('auth_locked', true);
+    notifyListeners();
+  }
+
+  Future<void> unlock() async {
+    _locked = false;
+    final sp = await SharedPreferences.getInstance();
+    await sp.remove('auth_locked');
+    notifyListeners();
+  }
+
+  Future<void> setBiometricEnabled(bool value) async {
+    _biometricEnabled = value;
+    final sp = await SharedPreferences.getInstance();
+    await sp.setBool('biometric_enabled', value);
+    if (!value && _locked) {
+      _locked = false;
+      await sp.remove('auth_locked');
+    }
+    notifyListeners();
+  }
 
   Future<void> _syncPushToken() async {
     try {

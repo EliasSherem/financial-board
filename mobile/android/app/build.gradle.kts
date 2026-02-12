@@ -36,7 +36,7 @@ android {
     defaultConfig {
         // TODO: change to your final app id before publishing
         applicationId = "com.finsight.finsight"
-        minSdk = flutter.minSdkVersion
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         // Bump versionCode for Play uploads (was flutter.versionCode)
         versionCode = 29

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
@@ -6,6 +7,7 @@ import 'update_profile_screen.dart';
 import '../lang_store.dart';
 import '../state/auth_store.dart';
 import '../models.dart';
+import '../services/biometric_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../utils/links.dart';
@@ -24,11 +26,14 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   double? _savingsGoal;
+  bool _biometricAvailable = false;
+  bool _biometricChecked = false;
 
   @override
   void initState() {
     super.initState();
     _loadSavingsGoal();
+    _checkBiometric();
   }
 
   Future<void> _loadSavingsGoal() async {
@@ -36,6 +41,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final goal = await SavingsGoalStore.load(userId);
     if (!mounted) return;
     setState(() => _savingsGoal = goal);
+  }
+
+  Future<void> _checkBiometric() async {
+    if (kIsWeb) {
+      if (mounted) setState(() => _biometricChecked = true);
+      return;
+    }
+    final available = await BiometricService().isAvailable();
+    if (!mounted) return;
+    setState(() {
+      _biometricAvailable = available;
+      _biometricChecked = true;
+    });
   }
 
   String _goalInputValue() {
@@ -109,11 +127,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final api = ApiClient()..setToken(context.watch<AuthStore>().token);
+    final auth = context.watch<AuthStore>();
+    final api = ApiClient()..setToken(auth.token);
     final data = DataService(api);
     final langStore = context.watch<LangStore>();
     final isEs = langStore.lang == 'es';
     String L(String en, String es) => isEs ? es : en;
+    final biometricReady = _biometricChecked && _biometricAvailable;
+    final biometricEnabled = auth.biometricEnabled;
+    final canEnableBiometric = biometricReady;
+    final canToggleBiometric = biometricEnabled || canEnableBiometric;
+    final biometricSubtitle =
+        !_biometricChecked
+            ? L(
+              'Checking device support...',
+              'Verificando soporte del dispositivo...',
+            )
+            : _biometricAvailable
+            ? L(
+              'Use fingerprint or face to sign in',
+              'Usa huella o rostro para iniciar sesi\u00F3n',
+            )
+            : L(
+              'Not available on this device',
+              'No disponible en este dispositivo',
+            );
+    final showLock = auth.isAuthenticated && auth.biometricEnabled && biometricReady;
     return Scaffold(
       appBar: AppBar(title: Text(L('Settings', 'Ajustes'))),
       body: ListView(
@@ -143,6 +182,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     builder: (_) => const UpdateProfileScreen(),
                   ),
                 ),
+          ),
+          const Divider(),
+          SwitchListTile(
+            secondary: const Icon(Icons.fingerprint),
+            value: biometricEnabled,
+            onChanged:
+                canToggleBiometric
+                    ? (v) async {
+                      if (v && !canEnableBiometric) return;
+                      await auth.setBiometricEnabled(v);
+                    }
+                    : null,
+            title: Text(L('Biometric login', 'Inicio con biometr\u00EDa')),
+            subtitle: Text(biometricSubtitle),
           ),
           const Divider(),
           ListTile(
@@ -271,6 +324,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           const Divider(),
+          if (showLock)
+            ListTile(
+              leading: const Icon(Icons.lock_outline),
+              title: Text(L('Lock', 'Bloquear')),
+              subtitle: Text(
+                L(
+                  'Require biometrics to unlock',
+                  'Requiere biometr\u00EDa para desbloquear',
+                ),
+              ),
+              onTap: () async => auth.lock(),
+            ),
+          if (showLock) const Divider(),
           ListTile(
             leading: const Icon(Icons.logout),
             title: Text(L('Logout', 'Cerrar sesión')),

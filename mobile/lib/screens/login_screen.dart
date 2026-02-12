@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../services/api.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -6,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../utils/links.dart';
 import 'package:flutter/gestures.dart';
 import '../services/auth_service.dart';
+import '../services/biometric_service.dart';
 import '../state/auth_store.dart';
 import 'signup_screen.dart';
 import '../i18n.dart';
@@ -21,7 +23,16 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  final _biometric = BiometricService();
   bool _submitting = false;
+  bool _biometricAvailable = false;
+  bool _biometricChecked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometric();
+  }
 
   @override
   void dispose() {
@@ -40,6 +51,39 @@ class _LoginScreenState extends State<LoginScreen> {
       return raw.substring(prefix.length);
     }
     return raw;
+  }
+
+  Future<void> _checkBiometric() async {
+    if (kIsWeb) {
+      if (mounted) setState(() => _biometricChecked = true);
+      return;
+    }
+    final available = await _biometric.isAvailable();
+    if (!mounted) return;
+    setState(() {
+      _biometricAvailable = available;
+      _biometricChecked = true;
+    });
+  }
+
+  Future<void> _loginWithBiometrics() async {
+    if (_submitting) return;
+    final auth = context.read<AuthStore>();
+    if (!auth.hasToken) return;
+    setState(() => _submitting = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await _biometric.authenticate(
+      reason: I18n.t(context, 'auth.biometricReason'),
+    );
+    if (!mounted) return;
+    if (ok) {
+      await auth.unlock();
+    } else {
+      messenger.showSnackBar(
+        SnackBar(content: Text(I18n.t(context, 'auth.biometricFailed'))),
+      );
+    }
+    if (mounted) setState(() => _submitting = false);
   }
 
   Future<void> _submit() async {
@@ -73,6 +117,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthStore>();
+    final canUseBiometric = _biometricChecked && _biometricAvailable;
+    final showBiometric =
+        !kIsWeb && auth.biometricEnabled && auth.hasToken && canUseBiometric;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final muted = Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.65);
     return Scaffold(
@@ -193,6 +241,17 @@ class _LoginScreenState extends State<LoginScreen> {
                             const Expanded(child: Divider()),
                           ],
                         ),
+                        if (showBiometric) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              onPressed: _submitting ? null : _loginWithBiometrics,
+                              icon: const Icon(Icons.fingerprint),
+                              label: Text(I18n.t(context, 'auth.signInBiometric')),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 18),
                         // Signup link
                         Row(

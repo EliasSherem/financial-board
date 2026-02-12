@@ -524,6 +524,18 @@ class I18n {
       'es': 'Ingresa tu contrase\u00F1a',
     },
     'auth.signIn': {'en': 'Sign In', 'es': 'Iniciar sesi\u00F3n'},
+    'auth.signInBiometric': {
+      'en': 'Sign in with biometrics',
+      'es': 'Iniciar con biometr\u00EDa',
+    },
+    'auth.biometricReason': {
+      'en': 'Authenticate to sign in',
+      'es': 'Autentica para iniciar sesi\u00F3n',
+    },
+    'auth.biometricFailed': {
+      'en': 'Biometric authentication failed',
+      'es': 'Fall\u00F3 la autenticaci\u00F3n biom\u00E9trica',
+    },
     'auth.signingIn': {'en': 'Signing in', 'es': 'Iniciando sesi\u00F3n'},
     'auth.invalidCredentials': {
       'en': 'Username or password is incorrect',

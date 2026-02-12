@@ -22,6 +22,8 @@
 		<string>????</string>
 		<key>CFBundleVersion</key>
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
+		<key>NSFaceIDUsageDescription</key>
+		<string>Use Face ID to sign in to FinSight.</string>
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>
