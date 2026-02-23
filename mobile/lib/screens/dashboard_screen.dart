@@ -171,7 +171,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               final auth = context.read<AuthStore>();
               if (auth.isAuthenticated) {
-                auth.logout();
+                auth.logout(force: true);
               }
             });
             return const Center(child: CircularProgressIndicator());

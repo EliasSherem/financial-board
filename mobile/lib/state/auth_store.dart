@@ -53,7 +53,13 @@ class AuthStore extends ChangeNotifier {
     }
   }
 
-  Future<void> logout() async => setToken(null);
+  Future<void> logout({bool force = false}) async {
+    if (!force && _biometricEnabled && hasToken) {
+      await lock();
+      return;
+    }
+    await setToken(null);
+  }
 
   Future<void> lock() async {
     if (!hasToken) return;

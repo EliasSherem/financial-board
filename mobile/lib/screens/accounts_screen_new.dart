@@ -140,7 +140,7 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
     if (_loadError != null && accounts.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final auth = context.read<AuthStore>();
-        if (auth.isAuthenticated) auth.logout();
+        if (auth.isAuthenticated) auth.logout(force: true);
       });
       return WillPopScope(
         onWillPop: () async => !widget.forceCreate,
