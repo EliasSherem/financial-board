@@ -184,18 +184,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
           ),
           const Divider(),
-          SwitchListTile(
-            secondary: const Icon(Icons.fingerprint),
-            value: biometricEnabled,
-            onChanged:
-                canToggleBiometric
-                    ? (v) async {
-                      if (v && !canEnableBiometric) return;
-                      await auth.setBiometricEnabled(v);
-                    }
-                    : null,
+          ListTile(
+            leading: const Icon(Icons.fingerprint),
             title: Text(L('Biometric login', 'Inicio con biometr\u00EDa')),
             subtitle: Text(biometricSubtitle),
+            trailing: FilledButton(
+              onPressed:
+                  canToggleBiometric
+                      ? () async {
+                        final next = !biometricEnabled;
+                        if (next && !canEnableBiometric) return;
+                        await auth.setBiometricEnabled(next);
+                      }
+                      : null,
+              child: Text(
+                biometricEnabled ? L('Disable', 'Desactivar') : L('Enable', 'Activar'),
+              ),
+            ),
           ),
           const Divider(),
           ListTile(
