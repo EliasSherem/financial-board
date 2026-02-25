@@ -532,6 +532,14 @@ class I18n {
       'en': 'Authenticate to sign in',
       'es': 'Autentica para iniciar sesi\u00F3n',
     },
+    'auth.biometricNotEnrolled': {
+      'en': 'No biometrics enrolled. Set one up in device settings.',
+      'es': 'No hay biometria registrada. Configura una en ajustes.',
+    },
+    'auth.biometricUnavailable': {
+      'en': 'Biometric login is unavailable on this device.',
+      'es': 'El inicio biometrico no esta disponible en este dispositivo.',
+    },
     'auth.biometricFailed': {
       'en': 'Biometric authentication failed',
       'es': 'Fall\u00F3 la autenticaci\u00F3n biom\u00E9trica',

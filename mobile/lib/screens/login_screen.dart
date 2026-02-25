@@ -58,10 +58,10 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) setState(() => _biometricChecked = true);
       return;
     }
-    final available = await _biometric.isAvailable();
+    final availability = await _biometric.availability();
     if (!mounted) return;
     setState(() {
-      _biometricAvailable = available;
+      _biometricAvailable = availability.isAvailable;
       _biometricChecked = true;
     });
   }
@@ -70,20 +70,35 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_submitting) return;
     final auth = context.read<AuthStore>();
     if (!auth.hasToken) return;
-    setState(() => _submitting = true);
-    final messenger = ScaffoldMessenger.of(context);
-    final ok = await _biometric.authenticate(
-      reason: I18n.t(context, 'auth.biometricReason'),
-    );
-    if (!mounted) return;
-    if (ok) {
-      await auth.unlock();
-    } else {
-      messenger.showSnackBar(
-        SnackBar(content: Text(I18n.t(context, 'auth.biometricFailed'))),
+    final availability = await _biometric.availability();
+    if (!availability.isSupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(I18n.tr(context, 'auth.biometricUnavailable'))),
       );
+      return;
     }
-    if (mounted) setState(() => _submitting = false);
+    if (!availability.hasEnrollment) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(I18n.tr(context, 'auth.biometricNotEnrolled'))),
+      );
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      final messenger = ScaffoldMessenger.of(context);
+      final ok = await _biometric.authenticate(
+        reason: I18n.tr(context, 'auth.biometricReason'),
+      );
+      if (ok) {
+        await auth.unlock();
+      } else if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(I18n.tr(context, 'auth.biometricFailed'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   Future<void> _submit() async {

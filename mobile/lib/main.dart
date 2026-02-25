@@ -17,6 +17,7 @@ import 'screens/update_profile_screen.dart';
 import 'screens/manage_categories_screen.dart';
 import 'screens/ai_chat_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/lock_screen.dart';
 import 'screens/signup_screen.dart';
 import 'services/api.dart';
 import 'services/data_service.dart';
@@ -96,7 +97,15 @@ class AppGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthStore>();
-    return auth.isAuthenticated ? const HomeShell() : const LoginScreen();
+    if (!auth.hasToken) {
+      return const LoginScreen();
+    }
+    return Stack(
+      children: [
+        const HomeShell(),
+        if (auth.isLocked) const LockScreen(),
+      ],
+    );
   }
 }
 

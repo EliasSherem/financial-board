@@ -27,7 +27,10 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   double? _savingsGoal;
   bool _biometricAvailable = false;
+  bool _biometricSupported = false;
+  bool _biometricEnrolled = false;
   bool _biometricChecked = false;
+  final _biometric = BiometricService();
 
   @override
   void initState() {
@@ -48,10 +51,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) setState(() => _biometricChecked = true);
       return;
     }
-    final available = await BiometricService().isAvailable();
+    final availability = await _biometric.availability();
     if (!mounted) return;
     setState(() {
-      _biometricAvailable = available;
+      _biometricAvailable = availability.isAvailable;
+      _biometricSupported = availability.isSupported;
+      _biometricEnrolled = availability.hasEnrollment;
       _biometricChecked = true;
     });
   }
@@ -143,6 +148,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Checking device support...',
               'Verificando soporte del dispositivo...',
             )
+            : !_biometricSupported
+            ? L(
+              'Not available on this device',
+              'No disponible en este dispositivo',
+            )
+            : !_biometricEnrolled
+            ? L(
+              'Set up biometrics in device settings',
+              'Configura biometria en ajustes del dispositivo',
+            )
             : _biometricAvailable
             ? L(
               'Use fingerprint or face to sign in',
@@ -192,9 +207,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed:
                   canToggleBiometric
                       ? () async {
-                        final next = !biometricEnabled;
-                        if (next && !canEnableBiometric) return;
-                        await auth.setBiometricEnabled(next);
+                        if (biometricEnabled) {
+                          await auth.setBiometricEnabled(false);
+                          return;
+                        }
+                        if (!canEnableBiometric) return;
+                        final ok = await _biometric.authenticate(
+                          reason: L(
+                            'Confirm biometrics to enable login',
+                            'Confirma biometria para habilitar el inicio',
+                          ),
+                        );
+                        if (!ok) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  L(
+                                    'Biometric authentication failed',
+                                    'Fallo la autenticacion biometrica',
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                          return;
+                        }
+                        await auth.setBiometricEnabled(true);
                       }
                       : null,
               child: Text(

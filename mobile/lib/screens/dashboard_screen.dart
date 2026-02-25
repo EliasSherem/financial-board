@@ -83,30 +83,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<List<Object>> _loadData(String? token) async {
     final api = ApiClient()..setToken(token);
     final data = DataService(api);
-    // Load each dataset with graceful fallbacks for trial accounts (403 on some endpoints)
-    final accounts = await data.getAccounts();
-    final txs = await data.getTransactions();
-    List<Project> projects = [];
-    List<PaymentItem> payments = [];
-    List<BalanceHistoryItem> bh = [];
-    List<Map<String, dynamic>> investments = [];
-    List<ExpenseCategory> categories = [];
-    try {
-      projects = await data.getProjects();
-    } catch (_) {}
-    try {
-      payments = await data.getPayments();
-    } catch (_) {}
-    try {
-      bh = await data.getBalanceHistory();
-    } catch (_) {}
-    try {
-      investments = await data.getInvestments();
-    } catch (_) {}
-    try {
-      categories = await data.getExpenseCategories();
-    } catch (_) {}
-    return <Object>[accounts, txs, projects, payments, bh, investments, categories];
+    // Load datasets in parallel; keep graceful fallbacks for trial accounts (403 on some endpoints).
+    final accountsFuture = data.getAccounts();
+    final txsFuture = data.getTransactions();
+    final projectsFuture = data.getProjects().catchError((_) => <Project>[]);
+    final paymentsFuture = data.getPayments().catchError((_) => <PaymentItem>[]);
+    final bhFuture = data.getBalanceHistory().catchError((_) => <BalanceHistoryItem>[]);
+    final investmentsFuture = data.getInvestments().catchError((_) => <Map<String, dynamic>>[]);
+    final categoriesFuture = data.getExpenseCategories().catchError((_) => <ExpenseCategory>[]);
+
+    return await Future.wait<Object>([
+      accountsFuture,
+      txsFuture,
+      projectsFuture,
+      paymentsFuture,
+      bhFuture,
+      investmentsFuture,
+      categoriesFuture,
+    ]);
   }
 
   Future<void> _refresh() async {
