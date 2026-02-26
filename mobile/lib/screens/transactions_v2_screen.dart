@@ -9,6 +9,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../utils/format.dart';
+import '../utils/category_icons.dart';
 import '../widgets/new_transaction_dialog.dart';
 import '../models.dart';
 import '../services/api.dart';
@@ -75,14 +76,21 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   Future<void> _deleteTransaction(TransactionItem t) async {
     final yes = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(I18n.t(context, 'tx.deleteTitle')),
-        content: Text('This will delete "' + t.description + '"'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
-        ],
-      ),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(I18n.t(context, 'tx.deleteTitle')),
+            content: Text('This will delete "' + t.description + '"'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
     );
     if (yes == true) {
       await _data.deleteTransaction(t.id);
@@ -91,7 +99,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         await _load();
       }
     }
-  }  @override
+  }
+
+  @override
   void dispose() {
     _scroll.dispose();
     _refreshBus.removeListener(_handleRefresh);
@@ -170,7 +180,15 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     if (_projectId != null) {
       final p = _projects.firstWhere(
         (x) => x.id == _projectId,
-        orElse: () => Project(id: -1, name: '', description: null, budget: 0, spent: 0, status: 'Active'),
+        orElse:
+            () => Project(
+              id: -1,
+              name: '',
+              description: null,
+              budget: 0,
+              spent: 0,
+              status: 'Active',
+            ),
       );
       if (p.id != -1) list = list.where((t) => (t.projectName ?? '') == p.name);
     }
@@ -188,7 +206,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     if (pos.pixels >= pos.maxScrollExtent - 12) {
       if (_visible < _filtered.length) {
         final next = _visible + 10;
-        setState(() => _visible = next > _filtered.length ? _filtered.length : next);
+        setState(
+          () => _visible = next > _filtered.length ? _filtered.length : next,
+        );
       }
     }
   }
@@ -215,7 +235,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 firstDate: DateTime(2000),
                 lastDate: DateTime(2100),
               );
-              if (picked != null) setLocal(() => start = DateTime(picked.year, picked.month, picked.day));
+              if (picked != null)
+                setLocal(
+                  () => start = DateTime(picked.year, picked.month, picked.day),
+                );
             }
 
             Future<void> pickEnd() async {
@@ -226,7 +249,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 firstDate: DateTime(2000),
                 lastDate: DateTime(2100),
               );
-              if (picked != null) setLocal(() => end = DateTime(picked.year, picked.month, picked.day, 23, 59, 59));
+              if (picked != null)
+                setLocal(
+                  () =>
+                      end = DateTime(
+                        picked.year,
+                        picked.month,
+                        picked.day,
+                        23,
+                        59,
+                        59,
+                      ),
+                );
             }
 
             return Padding(
@@ -246,11 +280,23 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
                     DropdownButtonFormField<String?>(
                       value: type,
-                      decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Type'),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Type',
+                      ),
                       items: const [
-                        DropdownMenuItem<String?>(value: null, child: Text('All Types')),
-                        DropdownMenuItem<String?>(value: 'Income', child: Text('Income')),
-                        DropdownMenuItem<String?>(value: 'Expense', child: Text('Expense')),
+                        DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('All Types'),
+                        ),
+                        DropdownMenuItem<String?>(
+                          value: 'Income',
+                          child: Text('Income'),
+                        ),
+                        DropdownMenuItem<String?>(
+                          value: 'Expense',
+                          child: Text('Expense'),
+                        ),
                       ],
                       onChanged: (v) => setLocal(() => type = v),
                     ),
@@ -258,10 +304,21 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
                     DropdownButtonFormField<String?>(
                       value: category,
-                      decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Categories'),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Categories',
+                      ),
                       items: [
-                        const DropdownMenuItem<String?>(value: null, child: Text('All Categories')),
-                        ..._categories.map((c) => DropdownMenuItem<String?>(value: c, child: Text(c))),
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('All Categories'),
+                        ),
+                        ..._categories.map(
+                          (c) => DropdownMenuItem<String?>(
+                            value: c,
+                            child: Text(c),
+                          ),
+                        ),
                       ],
                       onChanged: (v) => setLocal(() => category = v),
                     ),
@@ -269,10 +326,21 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
                     DropdownButtonFormField<int?>(
                       value: accountId,
-                      decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Accounts'),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Accounts',
+                      ),
                       items: [
-                        const DropdownMenuItem<int?>(value: null, child: Text('All Accounts')),
-                        ..._accounts.map((a) => DropdownMenuItem<int?>(value: a.id, child: Text(a.name))),
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('All Accounts'),
+                        ),
+                        ..._accounts.map(
+                          (a) => DropdownMenuItem<int?>(
+                            value: a.id,
+                            child: Text(a.name),
+                          ),
+                        ),
                       ],
                       onChanged: (v) => setLocal(() => accountId = v),
                     ),
@@ -280,10 +348,21 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
                     DropdownButtonFormField<int?>(
                       value: projectId,
-                      decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Projects'),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Projects',
+                      ),
                       items: [
-                        const DropdownMenuItem<int?>(value: null, child: Text('All Projects')),
-                        ..._projects.map((p) => DropdownMenuItem<int?>(value: p.id, child: Text(p.name))),
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('All Projects'),
+                        ),
+                        ..._projects.map(
+                          (p) => DropdownMenuItem<int?>(
+                            value: p.id,
+                            child: Text(p.name),
+                          ),
+                        ),
                       ],
                       onChanged: (v) => setLocal(() => projectId = v),
                     ),
@@ -294,11 +373,16 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         Expanded(
                           child: TextField(
                             readOnly: true,
-                            controller: TextEditingController(text: start == null ? '' : formatDate(start!)),
+                            controller: TextEditingController(
+                              text: start == null ? '' : formatDate(start!),
+                            ),
                             decoration: InputDecoration(
                               labelText: 'Start date',
                               border: const OutlineInputBorder(),
-                              suffixIcon: IconButton(icon: const Icon(Icons.calendar_today_outlined), onPressed: pickStart),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.calendar_today_outlined),
+                                onPressed: pickStart,
+                              ),
                             ),
                           ),
                         ),
@@ -306,11 +390,16 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         Expanded(
                           child: TextField(
                             readOnly: true,
-                            controller: TextEditingController(text: end == null ? '' : formatDate(end!)),
+                            controller: TextEditingController(
+                              text: end == null ? '' : formatDate(end!),
+                            ),
                             decoration: InputDecoration(
                               labelText: 'End date',
                               border: const OutlineInputBorder(),
-                              suffixIcon: IconButton(icon: const Icon(Icons.calendar_today_outlined), onPressed: pickEnd),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.calendar_today_outlined),
+                                onPressed: pickEnd,
+                              ),
                             ),
                           ),
                         ),
@@ -472,7 +561,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         _registeredMonth = month;
       }
     }
-    _registeredMonth ??= _monthStart(_earliestTransactionDate() ?? DateTime.now());
+    _registeredMonth ??= _monthStart(
+      _earliestTransactionDate() ?? DateTime.now(),
+    );
   }
 
   List<DateTime> _availableReportMonths() {
@@ -568,8 +659,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     list = list.where(
       (t) => t.date.year == month.year && t.date.month == month.month,
     );
-    final result = list.toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
+    final result = list.toList()..sort((a, b) => a.date.compareTo(b.date));
     return result;
   }
 
@@ -596,8 +686,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final reportNet = I18n.tr(context, 'tx.reportNet');
     final reportBalances = I18n.tr(context, 'tx.reportBalances');
     final reportAllTransactions = I18n.tr(context, 'tx.reportAllTransactions');
-    final reportAccountTransactions = I18n.tr(context, 'tx.reportAccountTransactions');
-    final reportNoAccountTransactions = I18n.tr(context, 'tx.reportNoAccountTransactions');
+    final reportAccountTransactions = I18n.tr(
+      context,
+      'tx.reportAccountTransactions',
+    );
+    final reportNoAccountTransactions = I18n.tr(
+      context,
+      'tx.reportNoAccountTransactions',
+    );
     final noDescription = I18n.tr(context, 'tx.noDescription');
     final totalBalanceLabel = I18n.tr(context, 'kpi.totalBalance');
 
@@ -624,17 +720,17 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     for (final t in txs) {
       accountNameById.putIfAbsent(
         t.accountId,
-        () => t.accountName ?? '${I18n.tr(context, 'tx.account')} ${t.accountId}',
+        () =>
+            t.accountName ?? '${I18n.tr(context, 'tx.account')} ${t.accountId}',
       );
       accountBalanceById.putIfAbsent(t.accountId, () => 0);
     }
     final accountIds =
-        accountNameById.keys.toList()
-          ..sort(
-            (a, b) => accountNameById[a]!
-                .toLowerCase()
-                .compareTo(accountNameById[b]!.toLowerCase()),
-          );
+        accountNameById.keys.toList()..sort(
+          (a, b) => accountNameById[a]!.toLowerCase().compareTo(
+            accountNameById[b]!.toLowerCase(),
+          ),
+        );
 
     final balanceRows =
         accountIds
@@ -656,10 +752,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 0,
                 (sum, balance) => sum + balance,
               );
-      balanceRows.insert(0, [
-        totalBalanceLabel,
-        moneyFmt.format(totalBalance),
-      ]);
+      balanceRows.insert(0, [totalBalanceLabel, moneyFmt.format(totalBalance)]);
     }
 
     List<List<String>> buildRows(
@@ -814,7 +907,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
           if (accountIds.isNotEmpty) {
             content.add(pw.SizedBox(height: 16));
-            content.add(pw.Text(reportAccountTransactions, style: sectionTitle));
+            content.add(
+              pw.Text(reportAccountTransactions, style: sectionTitle),
+            );
             for (final accountId in accountIds) {
               final name = accountNameById[accountId] ?? '-';
               final accountTxs =
@@ -887,10 +982,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           onLayout: (_) async => pdfBytes,
         );
       } catch (_) {
-        await Printing.sharePdf(
-          bytes: pdfBytes,
-          filename: filename,
-        );
+        await Printing.sharePdf(bytes: pdfBytes, filename: filename);
       }
     } catch (e) {
       if (!mounted) return;
@@ -904,65 +996,78 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.currency(symbol: '4'); // fallback not used; actual formatting below
+    final fmt = NumberFormat.currency(
+      symbol: '4',
+    ); // fallback not used; actual formatting below
     return Scaffold(
       appBar: AppBar(title: const Text('Transactions')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
+      body:
+          _loading
+              ? const Center(child: CircularProgressIndicator())
               : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(
-                    controller: _scroll,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: _openFiltersSheet,
-                        icon: const Icon(Icons.filter_alt_outlined),
-                        label: Text(I18n.t(context, 'tx.filters')),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _reportBusy ? null : _downloadReport,
-                        icon: const Icon(Icons.picture_as_pdf_outlined),
-                        label: Text(I18n.t(context, 'tx.reports')),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          _type = null;
-                          _category = null;
-                          _accountId = null;
-                          _projectId = null;
-                          _start = null;
-                          _end = null;
-                          _applyFilters(resetVisible: true);
-                        },
-                        child: Text(I18n.t(context, 'tx.clearFilters')),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (_filtered.isEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(I18n.t(context, 'tx.none')),
+                onRefresh: _load,
+                child: ListView(
+                  controller: _scroll,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _openFiltersSheet,
+                          icon: const Icon(Icons.filter_alt_outlined),
+                          label: Text(I18n.t(context, 'tx.filters')),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _reportBusy ? null : _downloadReport,
+                          icon: const Icon(Icons.picture_as_pdf_outlined),
+                          label: Text(I18n.t(context, 'tx.reports')),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            _type = null;
+                            _category = null;
+                            _accountId = null;
+                            _projectId = null;
+                            _start = null;
+                            _end = null;
+                            _applyFilters(resetVisible: true);
+                          },
+                          child: Text(I18n.t(context, 'tx.clearFilters')),
+                        ),
+                      ],
                     ),
-                  )
-                  else ...[
-                    for (final t in _filtered.take(_visible)) _TxCard(item: t, fmt: NumberFormat.currency(symbol: '\$'), onEdit: () => _editTransaction(t), onDelete: () => _deleteTransaction(t)),
-                    if (_visible < _filtered.length)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Center(child: Text('Showing $_visible of ${_filtered.length}')),
-                      ),
+                    const SizedBox(height: 12),
+                    if (_filtered.isEmpty)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(I18n.t(context, 'tx.none')),
+                        ),
+                      )
+                    else ...[
+                      for (final t in _filtered.take(_visible))
+                        _TxCard(
+                          item: t,
+                          fmt: NumberFormat.currency(symbol: '\$'),
+                          onEdit: () => _editTransaction(t),
+                          onDelete: () => _deleteTransaction(t),
+                        ),
+                      if (_visible < _filtered.length)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Center(
+                            child: Text(
+                              'Showing $_visible of ${_filtered.length}',
+                            ),
+                          ),
+                        ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final ok = await showNewTransactionDialog(context, _data);
@@ -975,7 +1080,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 }
 
 class _TxCard extends StatelessWidget {
-  const _TxCard({required this.item, required this.fmt, required this.onEdit, required this.onDelete});
+  const _TxCard({
+    required this.item,
+    required this.fmt,
+    required this.onEdit,
+    required this.onDelete,
+  });
   final TransactionItem item;
   final NumberFormat fmt;
   final VoidCallback onEdit;
@@ -987,9 +1097,30 @@ class _TxCard extends StatelessWidget {
     final amountStr = (isIncome ? '+' : '-') + fmt.format(item.amount.abs());
     final color = isIncome ? Colors.green : Colors.red;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color bg = isDark
-        ? (isIncome ? const Color(0xFF103521) : const Color(0xFF3A1C1C))
-        : (isIncome ? Colors.green.shade50 : Colors.red.shade50);
+    final iconKey =
+        (item.subcategoryIcon?.trim().isNotEmpty ?? false)
+            ? item.subcategoryIcon!.trim()
+            : (item.categoryIcon?.trim().isNotEmpty ?? false)
+            ? item.categoryIcon!.trim()
+            : null;
+    final iconData =
+        iconKey != null
+            ? iconDataFromKey(iconKey)
+            : (isIncome
+                ? Icons.trending_up_outlined
+                : Icons.receipt_long_outlined);
+    final iconFg =
+        isDark
+            ? Theme.of(context).colorScheme.onSurface
+            : Theme.of(context).colorScheme.primary;
+    final iconBg =
+        isDark
+            ? Colors.black.withValues(alpha: 0.22)
+            : Colors.white.withValues(alpha: 0.82);
+    final Color bg =
+        isDark
+            ? (isIncome ? const Color(0xFF103521) : const Color(0xFF3A1C1C))
+            : (isIncome ? Colors.green.shade50 : Colors.red.shade50);
     return Card(
       color: bg,
       elevation: 6,
@@ -1002,39 +1133,75 @@ class _TxCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: iconBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(iconData, size: 20, color: iconFg),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item.description.isEmpty ? '(No description)' : item.description,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                        item.description.isEmpty
+                            ? '(No description)'
+                            : item.description,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 4),
-                      Builder(builder: (context) {
-                        final parts = <String>[];
-                        if ((item.accountName ?? '').isNotEmpty) parts.add(item.accountName!);
-                        parts.add(formatDate(item.date));
-                        if ((item.category ?? '').isNotEmpty) parts.add(item.category!);
-                        if ((item.projectName ?? '').isNotEmpty) parts.add(item.projectName!);
-                        return Text(
-                          parts.join(' - '),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        );
-                      }),
+                      Builder(
+                        builder: (context) {
+                          final parts = <String>[];
+                          if ((item.accountName ?? '').isNotEmpty)
+                            parts.add(item.accountName!);
+                          parts.add(formatDate(item.date));
+                          if ((item.category ?? '').isNotEmpty)
+                            parts.add(item.category!);
+                          if ((item.projectName ?? '').isNotEmpty)
+                            parts.add(item.projectName!);
+                          return Text(
+                            parts.join(' - '),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(amountStr, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+                    Text(
+                      amountStr,
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(tooltip: 'Edit', icon: Icon(Icons.edit_outlined, size: 20), onPressed: onEdit),
-                        IconButton(tooltip: 'Delete', icon: Icon(Icons.delete_outline, color: Colors.redAccent, size: 20), onPressed: onDelete),
+                        IconButton(
+                          tooltip: 'Edit',
+                          icon: Icon(Icons.edit_outlined, size: 20),
+                          onPressed: onEdit,
+                        ),
+                        IconButton(
+                          tooltip: 'Delete',
+                          icon: Icon(
+                            Icons.delete_outline,
+                            color: Colors.redAccent,
+                            size: 20,
+                          ),
+                          onPressed: onDelete,
+                        ),
                       ],
                     ),
                   ],
@@ -1047,8 +1214,3 @@ class _TxCard extends StatelessWidget {
     );
   }
 }
-
-
-
-
-

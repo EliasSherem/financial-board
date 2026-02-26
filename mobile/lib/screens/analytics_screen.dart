@@ -585,41 +585,208 @@ class _PieBlock extends StatelessWidget {
       );
     }
 
-    final entries = data.entries.toList();
+    final slices = _buildCategorySlices(data);
+    if (slices.isEmpty) {
+      return SizedBox(
+        height: 240,
+        child: Center(child: Text(I18n.t(context, emptyMessageKey))),
+      );
+    }
+    final total = slices.fold<double>(0, (sum, item) => sum + item.value);
+    final top = slices.first;
+    final language = Localizations.localeOf(context).languageCode;
+    final localeTag = Localizations.localeOf(context).toLanguageTag();
+    final monthLabel = DateFormat('MMMM', localeTag).format(DateTime.now());
+    final totalText = language == 'es' ? 'Total del mes' : 'Total this month';
+    final topText = language == 'es' ? 'MAYOR' : 'HIGHEST';
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
+    final surface = theme.colorScheme.surface;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double availableWidth = constraints.maxWidth.isFinite ? constraints.maxWidth : 320.0;
-        final double maxSize = ((availableWidth - 48.0).clamp(120.0, 200.0)).toDouble();
-        double chartSize = ((availableWidth * 0.55).clamp(120.0, maxSize)).toDouble();
-        chartSize = math.min(chartSize, maxSize);
-        if (!chartSize.isFinite || chartSize <= 0) chartSize = 140.0;
-        final double sliceRadius = math.max(0, (chartSize / 2) - 8.0);
+        final availableWidth =
+            constraints.maxWidth.isFinite ? constraints.maxWidth : 320.0;
+        var chartSize = (availableWidth * 0.56).clamp(150.0, 220.0).toDouble();
+        if (!chartSize.isFinite || chartSize <= 0) chartSize = 190.0;
+        final centerSpace = chartSize * 0.30;
+        // In fl_chart, section radius is ring thickness (not outer radius).
+        final sliceRadius = chartSize * 0.18;
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              height: chartSize,
-              width: chartSize,
-              child: Center(
-                child: PieChart(
-                  PieChartData(
-                    pieTouchData: PieTouchData(enabled: false),
-                    sectionsSpace: 0,
-                    centerSpaceRadius: 0,
-                    sections: [
-                      for (var i = 0; i < entries.length; i++)
-                        PieChartSectionData(
-                          showTitle: false,
-                          radius: sliceRadius,
-                          value: entries[i].value,
-                          color: _pieColors[i % _pieColors.length],
+            Text(
+              '$totalText - $monthLabel',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: onSurface.withValues(alpha: 0.74),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              money(total),
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: SizedBox(
+                height: chartSize,
+                width: chartSize,
+                child: ClipRect(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      PieChart(
+                        PieChartData(
+                          pieTouchData: PieTouchData(enabled: false),
+                          centerSpaceRadius: centerSpace,
+                          sectionsSpace: 2,
+                          startDegreeOffset: -90,
+                          sections: [
+                            for (var i = 0; i < slices.length; i++)
+                              PieChartSectionData(
+                                showTitle: false,
+                                radius: sliceRadius,
+                                value: slices[i].value,
+                                color: slices[i].color,
+                                borderSide: BorderSide(
+                                  color: surface,
+                                  width: 2,
+                                ),
+                              ),
+                          ],
                         ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              topText,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: onSurface.withValues(alpha: 0.66),
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              top.label,
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: onSurface,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${top.percent.toStringAsFixed(0)}%',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: top.color,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            _LegendList(data: data),
+            const SizedBox(height: 14),
+            _LegendGrid(items: slices),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _LegendGrid extends StatelessWidget {
+  const _LegendGrid({required this.items});
+  final List<_CategorySlice> items;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 10.0;
+        final width = constraints.maxWidth;
+        final tileWidth = width >= 280
+            ? ((width - gap) / 2).toDouble()
+            : width.toDouble();
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final item in items)
+              SizedBox(
+                width: tileWidth,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outline.withValues(
+                        alpha: 0.22,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: item.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              item.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(
+                                      alpha: 0.75,
+                                    ),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${item.percent.toStringAsFixed(0)}%',
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         );
       },
@@ -677,31 +844,6 @@ class _Card extends StatelessWidget {
   }
 }
 
-class _LegendList extends StatelessWidget {
-  const _LegendList({required this.data});
-  final Map<String, double> data;
-
-  @override
-  Widget build(BuildContext context) {
-    final entries = data.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return Column(
-      children: [
-        for (var i = 0; i < entries.length; i++)
-          ListTile(
-            dense: true,
-            leading: CircleAvatar(
-              backgroundColor: _pieColors[i % _pieColors.length],
-              radius: 6,
-            ),
-            title: Text(entries[i].key),
-            trailing: Text(money(entries[i].value)),
-          ),
-      ],
-    );
-  }
-}
-
 class _LineLegend extends StatelessWidget {
   const _LineLegend({required this.colorByName});
   final Map<String, Color> colorByName;
@@ -741,6 +883,19 @@ class _Point {
   final double value;
 }
 
+class _CategorySlice {
+  const _CategorySlice({
+    required this.label,
+    required this.value,
+    required this.percent,
+    required this.color,
+  });
+  final String label;
+  final double value;
+  final double percent;
+  final Color color;
+}
+
 class _AccountSeriesRow {
   const _AccountSeriesRow({required this.label, required this.values});
   final String label;
@@ -761,6 +916,40 @@ class _BalanceDatasets {
 
 String _slug(String value) => value.toLowerCase().replaceAll(RegExp(r'\s+'), '');
 double _round(double value) => (value * 100).round() / 100;
+
+List<_CategorySlice> _buildCategorySlices(Map<String, double> data) {
+  final sorted = data.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  if (sorted.isEmpty) return const [];
+
+  final total = sorted.fold<double>(0, (sum, item) => sum + item.value);
+  if (total <= 0) return const [];
+
+  const maxVisible = 4;
+  final collapsed = <MapEntry<String, double>>[];
+  var remaining = 0.0;
+
+  for (var i = 0; i < sorted.length; i++) {
+    if (i < maxVisible) {
+      collapsed.add(sorted[i]);
+    } else {
+      remaining += sorted[i].value;
+    }
+  }
+  if (remaining > 0) {
+    collapsed.add(MapEntry('Others', remaining));
+  }
+
+  return [
+    for (var i = 0; i < collapsed.length; i++)
+      _CategorySlice(
+        label: collapsed[i].key,
+        value: _round(collapsed[i].value),
+        percent: (collapsed[i].value / total) * 100,
+        color: _pieColors[i % _pieColors.length],
+      ),
+  ];
+}
 
 double _maxValue(Iterable<double> values) {
   var maxValue = 0.0;
