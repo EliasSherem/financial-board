@@ -619,8 +619,27 @@ class I18n {
     'invoices.qty': {'en': 'Qty', 'es': 'Cant.'},
     'invoices.unitPrice': {'en': 'Unit Price', 'es': 'Precio unitario'},
     'invoices.amount': {'en': 'Amount', 'es': 'Monto'},
+    'invoices.subtotal': {'en': 'Subtotal', 'es': 'Subtotal'},
     'invoices.discount': {'en': 'Discount', 'es': 'Descuento'},
     'invoices.tax': {'en': 'Tax', 'es': 'Impuesto'},
+    'invoices.share': {'en': 'Share', 'es': 'Compartir'},
+    'invoices.sentBy': {'en': 'Sent by', 'es': 'Enviada por'},
+    'invoices.emailSending': {
+      'en': 'Sending invoice...',
+      'es': 'Enviando factura...',
+    },
+    'invoices.emailSent': {
+      'en': 'Invoice emailed to',
+      'es': 'Factura enviada a',
+    },
+    'invoices.emailFailed': {
+      'en': 'Failed to email invoice',
+      'es': 'No se pudo enviar la factura',
+    },
+    'invoices.customerEmailMissing': {
+      'en': 'Customer email is required to share the invoice',
+      'es': 'Se requiere el correo del cliente para compartir la factura',
+    },
 
     // Investments
     'invest.add': {'en': 'Add Investment', 'es': 'Agregar inversi\u00F3n'},

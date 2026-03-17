@@ -78,6 +78,8 @@ flutter:
   assets:
     - assets/finsight-icon.svg
     - assets/finsight-icon.png
+    - assets/fonts/NotoSans-Regular.ttf
+    - assets/fonts/NotoSans-Bold.ttf
 
 # App icon configuration (generate launcher icons with the command below)
 flutter_launcher_icons:

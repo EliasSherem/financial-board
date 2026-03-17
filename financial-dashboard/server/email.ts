@@ -3,6 +3,11 @@ type EmailPayload = {
   subject: string;
   text: string;
   html?: string;
+  attachments?: Array<{
+    filename: string;
+    content: string;
+    contentType?: string;
+  }>;
 };
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
@@ -35,6 +40,17 @@ export async function sendResendEmail(payload: EmailPayload): Promise<boolean> {
         subject: payload.subject,
         text: payload.text,
         ...(payload.html ? { html: payload.html } : {}),
+        ...(payload.attachments && payload.attachments.length > 0
+          ? {
+              attachments: payload.attachments.map((attachment) => ({
+                filename: attachment.filename,
+                content: attachment.content,
+                ...(attachment.contentType
+                  ? { content_type: attachment.contentType }
+                  : {}),
+              })),
+            }
+          : {}),
       }),
     });
 

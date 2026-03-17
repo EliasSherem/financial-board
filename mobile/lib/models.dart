@@ -232,7 +232,13 @@ class InvoiceSummary {
   final int id;
   final String number;
   final String customerName;
+  final String? customerEmail;
+  final String? customerCompany;
+  final String? customerTaxId;
+  final String? customerAddress;
   final String status;
+  final String currency;
+  final String? notes;
   final DateTime issueDate;
   final DateTime dueDate;
   final double subtotal;
@@ -245,7 +251,13 @@ class InvoiceSummary {
     required this.id,
     required this.number,
     required this.customerName,
+    this.customerEmail,
+    this.customerCompany,
+    this.customerTaxId,
+    this.customerAddress,
     required this.status,
+    required this.currency,
+    this.notes,
     required this.issueDate,
     required this.dueDate,
     required this.subtotal,
@@ -259,7 +271,13 @@ class InvoiceSummary {
     id: j['id'] as int,
     number: j['number'] as String? ?? '',
     customerName: j['customer_name'] as String? ?? '',
+    customerEmail: j['customer_email'] as String?,
+    customerCompany: j['customer_company'] as String?,
+    customerTaxId: j['customer_tax_id'] as String?,
+    customerAddress: j['customer_address'] as String?,
     status: j['status'] as String? ?? 'draft',
+    currency: j['currency'] as String? ?? 'MXN',
+    notes: j['notes'] as String?,
     issueDate: DateTime.parse(j['issue_date'] as String),
     dueDate: DateTime.parse(j['due_date'] as String),
     subtotal: _asDouble(j['subtotal']),

@@ -136,6 +136,102 @@ async function sendWelcomeEmail(email: string, username: string) {
   }
 }
 
+function invoiceLabel(invoiceId: number, numberValue: string | null | undefined) {
+  const raw = String(numberValue || '').trim();
+  if (!raw || raw === '#') return `#${invoiceId}`;
+  return raw.startsWith('#') ? raw : `#${raw}`;
+}
+
+function formatInvoiceDate(value: unknown) {
+  if (!value) return '-';
+  const date =
+    value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC' }).format(date);
+}
+
+function formatInvoiceAmount(value: unknown, currency: string | null | undefined) {
+  const amount = Number(value || 0);
+  const safeCurrency = String(currency || 'MXN').toUpperCase();
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: safeCurrency,
+    }).format(amount);
+  } catch (_) {
+    return `${safeCurrency} ${amount.toFixed(2)}`;
+  }
+}
+
+function buildInvoiceShareEmail(args: {
+  invoiceId: number;
+  invoiceNumber?: string | null;
+  customerName: string;
+  total: unknown;
+  dueDate: unknown;
+  currency?: string | null;
+}) {
+  const label = invoiceLabel(args.invoiceId, args.invoiceNumber);
+  const safeCustomerName = escapeEmailHtml(args.customerName.trim() || 'there');
+  const totalLabel = formatInvoiceAmount(args.total, args.currency);
+  const dueLabel = formatInvoiceDate(args.dueDate);
+  const subject = `Invoice ${label} from FinSight`;
+  const text =
+    `Hi ${args.customerName.trim() || 'there'},\n\n` +
+    `Your invoice ${label} is attached as a PDF.\n` +
+    `Total: ${totalLabel}\n` +
+    `Due date: ${dueLabel}\n\n` +
+    `Sent via FinSight.\n\n` +
+    `- FinSight`;
+  const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>${subject}</title>
+  </head>
+  <body style="margin:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f5f7;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(17,24,39,0.08);">
+            <tr>
+              <td style="padding:20px 24px;background:#0f172a;color:#ffffff;">
+                <div style="font-size:18px;font-weight:700;letter-spacing:0.3px;">FinSight</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px;">
+                <div style="font-size:20px;font-weight:700;margin-bottom:6px;">Invoice ${escapeEmailHtml(label)}</div>
+                <div style="color:#374151;font-size:14px;margin-bottom:18px;">Hi ${safeCustomerName}, your invoice PDF is attached.</div>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e5e7eb;border-radius:12px;">
+                  <tr>
+                    <td style="padding:16px 18px;">
+                      <div style="font-size:12px;text-transform:uppercase;color:#6b7280;letter-spacing:0.6px;">Invoice summary</div>
+                      <div style="font-size:14px;color:#111827;margin-top:8px;line-height:1.8;">
+                        Total: ${escapeEmailHtml(totalLabel)}<br />
+                        Due date: ${escapeEmailHtml(dueLabel)}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+                <div style="margin-top:18px;font-size:13px;color:#6b7280;">This invoice was sent from FinSight.</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 24px;background:#f9fafb;color:#6b7280;font-size:12px;">
+                FinSight Notifications
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+  return { subject, text, html };
+}
+
 type CategoryResponse = {
   id: number;
   name: string;
@@ -3022,7 +3118,7 @@ router.get('/api/invoices', authenticateToken, async (req: Request, res: Respons
   try {
     if (!(await ensureProOrExempt(req, res))) return;
     const [rows] = await db.query(
-      `SELECT i.*, c.name AS customer_name
+      `SELECT i.*, c.name AS customer_name, c.email AS customer_email
        FROM invoices i
        JOIN customers c ON i.customer_id = c.id
        WHERE i.user_id = ?
@@ -3039,7 +3135,9 @@ router.get('/api/invoices/:id', authenticateToken, async (req: Request, res: Res
   try {
     if (!(await ensureProOrExempt(req, res))) return;
     const [invRows] = await db.query(
-      `SELECT i.*, c.name AS customer_name
+      `SELECT i.*, c.name AS customer_name, c.email AS customer_email,
+              c.company AS customer_company, c.tax_id AS customer_tax_id,
+              c.address AS customer_address
        FROM invoices i JOIN customers c ON i.customer_id = c.id
        WHERE i.id = ? AND i.user_id = ?`,
       [req.params.id, req.user?.id]
@@ -3221,6 +3319,97 @@ router.delete('/api/invoices/:id', authenticateToken, async (req: Request, res: 
   } catch (e) {
     console.error('Delete invoice error:', e);
     res.status(500).json({ message: 'Failed to delete invoice' });
+  }
+});
+
+router.post('/api/invoices/:id/email', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    if (!(await ensureProOrExempt(req, res))) return;
+    if (!isEmailConfigured()) {
+      return res.status(503).json({ message: 'Email delivery is not configured' });
+    }
+
+    const invoiceId = Number(req.params.id);
+    if (!Number.isFinite(invoiceId)) {
+      return res.status(400).json({ message: 'Invalid invoice id' });
+    }
+
+    const rawBase64 = String(req.body?.pdf_base64 || '').trim();
+    if (!rawBase64) {
+      return res.status(400).json({ message: 'pdf_base64 is required' });
+    }
+
+    const normalizedBase64 = rawBase64.replace(/\s+/g, '');
+    const pdfBuffer = Buffer.from(normalizedBase64, 'base64');
+    if (pdfBuffer.length === 0 || pdfBuffer.subarray(0, 4).toString() !== '%PDF') {
+      return res.status(400).json({ message: 'Invalid PDF attachment' });
+    }
+
+    const requestedFileName = String(req.body?.filename || '').trim();
+    const safeFileNameBase =
+      requestedFileName.replace(/[^A-Za-z0-9._-]/g, '_').replace(/_+/g, '_') ||
+      `invoice-${invoiceId}.pdf`;
+    const filename = safeFileNameBase.toLowerCase().endsWith('.pdf')
+      ? safeFileNameBase
+      : `${safeFileNameBase}.pdf`;
+
+    const [rows] = await db.query(
+      `SELECT i.id, i.number, i.status, i.total, i.due_date, i.currency,
+              c.name AS customer_name, c.email AS customer_email
+       FROM invoices i
+       JOIN customers c ON c.id = i.customer_id
+       WHERE i.id = ? AND i.user_id = ?
+       LIMIT 1`,
+      [invoiceId, req.user?.id]
+    );
+    const invoice = (rows as any[])[0];
+    if (!invoice) {
+      return res.status(404).json({ message: 'Invoice not found' });
+    }
+
+    const customerEmail = String(invoice.customer_email || '').trim();
+    if (!customerEmail) {
+      return res.status(400).json({ message: 'Customer email is required' });
+    }
+
+    const emailPayload = buildInvoiceShareEmail({
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.number,
+      customerName: String(invoice.customer_name || '').trim(),
+      total: invoice.total,
+      dueDate: invoice.due_date,
+      currency: invoice.currency,
+    });
+
+    const sent = await sendResendEmail({
+      to: customerEmail,
+      subject: emailPayload.subject,
+      text: emailPayload.text,
+      html: emailPayload.html,
+      attachments: [
+        {
+          filename,
+          content: normalizedBase64,
+          contentType: 'application/pdf',
+        },
+      ],
+    });
+
+    if (!sent) {
+      return res.status(502).json({ message: 'Failed to send invoice email' });
+    }
+
+    await db.query(
+      `UPDATE invoices
+       SET status = CASE WHEN status = 'draft' THEN 'sent' ELSE status END
+       WHERE id = ? AND user_id = ?`,
+      [invoiceId, req.user?.id]
+    );
+
+    res.json({ success: true, emailed_to: customerEmail, filename });
+  } catch (e) {
+    console.error('Invoice email error:', e);
+    res.status(500).json({ message: 'Failed to email invoice' });
   }
 });
 

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import '../models.dart';
 import 'api.dart';
 
@@ -342,6 +345,18 @@ class DataService {
 
   Future<void> deleteInvoice(int id) async {
     await api.delete('/api/invoices/$id');
+  }
+
+  Future<Map<String, dynamic>> emailInvoice({
+    required int id,
+    required String filename,
+    required Uint8List pdfBytes,
+  }) async {
+    final res = await api.post('/api/invoices/$id/email', body: {
+      'filename': filename,
+      'pdf_base64': base64Encode(pdfBytes),
+    });
+    return res as Map<String, dynamic>;
   }
 
   // Payments

@@ -10,6 +10,25 @@ import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
 import '../i18n.dart';
+import '../utils/invoice_pdf.dart';
+
+Future<Map<String, dynamic>> _emailInvoicePdf({
+  required BuildContext context,
+  required DataService data,
+  required InvoiceDetail detail,
+}) async {
+  final senderName = context.read<AuthStore>().userName;
+  final pdfBytes = await buildInvoicePdf(
+    context,
+    detail,
+    senderName,
+  );
+  return data.emailInvoice(
+    id: detail.invoice.id,
+    filename: invoicePdfFilename(detail.invoice),
+    pdfBytes: pdfBytes,
+  );
+}
 
 class InvoicesScreen extends StatefulWidget {
   const InvoicesScreen({
@@ -35,6 +54,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   int _invoicesTick = 0;
   int _customersTick = 0;
   int _projectsTick = 0;
+  int? _sharingInvoiceId;
 
   @override
   void initState() {
@@ -148,6 +168,11 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                   inv: inv,
                   onOpen: () => _openInvoice(inv),
                   onPay: () => _markPaid(inv),
+                  onShare:
+                      (inv.customerEmail ?? '').trim().isEmpty
+                          ? null
+                          : () => _shareInvoice(inv),
+                  isSharing: _sharingInvoiceId == inv.id,
                 ),
               )
               .toList(),
@@ -1256,6 +1281,57 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       }
     }
   }
+
+  Future<void> _shareInvoice(InvoiceSummary inv) async {
+    final customerEmail = (inv.customerEmail ?? '').trim();
+    if (customerEmail.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(I18n.tr(context, 'invoices.customerEmailMissing')),
+        ),
+      );
+      return;
+    }
+    if (_sharingInvoiceId == inv.id) return;
+
+    setState(() => _sharingInvoiceId = inv.id);
+    try {
+      final detail = await _data.getInvoice(inv.id);
+      if (!mounted) return;
+      final result = await _emailInvoicePdf(
+        context: context,
+        data: _data,
+        detail: detail,
+      );
+      if (!mounted) return;
+      final emailedTo =
+          (result['emailed_to'] as String?)?.trim().isNotEmpty == true
+              ? result['emailed_to'] as String
+              : customerEmail;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${I18n.tr(context, 'invoices.emailSent')} $emailedTo',
+          ),
+        ),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${I18n.tr(context, 'invoices.emailFailed')}: $e',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _sharingInvoiceId = null);
+      }
+    }
+  }
 }
 
 class _InvoiceCard extends StatelessWidget {
@@ -1263,10 +1339,14 @@ class _InvoiceCard extends StatelessWidget {
     required this.inv,
     required this.onOpen,
     required this.onPay,
+    this.onShare,
+    this.isSharing = false,
   });
   final InvoiceSummary inv;
   final VoidCallback onOpen;
   final VoidCallback onPay;
+  final VoidCallback? onShare;
+  final bool isSharing;
   @override
   Widget build(BuildContext context) {
     final isPaid = inv.amountDue <= 0 || inv.status.toLowerCase() == 'paid';
@@ -1337,6 +1417,18 @@ class _InvoiceCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
+                  if (onShare != null)
+                    isSharing
+                        ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : IconButton(
+                          tooltip: I18n.t(context, 'invoices.share'),
+                          icon: const Icon(Icons.ios_share_outlined),
+                          onPressed: onShare,
+                        ),
                   if (!isPaid)
                     IconButton(
                       tooltip: I18n.t(context, 'invoices.markPaid'),
@@ -1347,7 +1439,7 @@ class _InvoiceCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                I18n.t(context, 'invoices.customer') + ': ' + inv.customerName,
+                '${I18n.t(context, 'invoices.customer')}: ${inv.customerName}',
               ),
               const SizedBox(height: 12),
               Row(
@@ -1452,7 +1544,56 @@ class InvoiceDetailScreen extends StatefulWidget {
 
 class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   int _reload = 0;
+  bool _sharing = false;
   void _refresh() => setState(() => _reload++);
+
+  Future<void> _shareInvoice(DataService data, InvoiceDetail detail) async {
+    final customerEmail = (detail.invoice.customerEmail ?? '').trim();
+    if (customerEmail.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(I18n.tr(context, 'invoices.customerEmailMissing')),
+        ),
+      );
+      return;
+    }
+    if (_sharing) return;
+
+    setState(() => _sharing = true);
+    try {
+      if (!mounted) return;
+      final result = await _emailInvoicePdf(
+        context: context,
+        data: data,
+        detail: detail,
+      );
+      if (!mounted) return;
+      final emailedTo =
+          (result['emailed_to'] as String?)?.trim().isNotEmpty == true
+              ? result['emailed_to'] as String
+              : customerEmail;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${I18n.tr(context, 'invoices.emailSent')} $emailedTo',
+          ),
+        ),
+      );
+      _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${I18n.tr(context, 'invoices.emailFailed')}: $e',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1491,16 +1632,27 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             subtotalAmount > 0 ? (discountAmount / subtotalAmount) * 100 : 0;
         final taxPercentDisplay =
             taxableBaseAmount > 0 ? (taxAmount / taxableBaseAmount) * 100 : 0;
-        String label() {
-          final raw = inv.number.trim();
-          if (raw.isEmpty || raw == '#') return '#${inv.id}';
-          return raw.startsWith('#') ? raw : '#$raw';
-        }
+        final label = invoiceDisplayNumber(inv);
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(I18n.t(context, 'invoices.invoice') + ' ${label()}'),
+            title: Text('${I18n.t(context, 'invoices.invoice')} $label'),
             actions: [
+              if ((inv.customerEmail ?? '').trim().isNotEmpty)
+                _sharing
+                    ? const Padding(
+                      padding: EdgeInsets.all(14),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                    : IconButton(
+                      tooltip: I18n.t(context, 'invoices.share'),
+                      icon: const Icon(Icons.ios_share_outlined),
+                      onPressed: () => _shareInvoice(data, d),
+                    ),
               if (inv.status.toLowerCase() != 'paid' &&
                   inv.status.toLowerCase() != 'void')
                 IconButton(
@@ -1838,7 +1990,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                           Row(
                             children: [
                               Text(
-                                'Invoice ${label()}',
+                                'Invoice $label',
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                               const SizedBox(width: 8),
