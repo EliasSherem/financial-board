@@ -39,8 +39,8 @@ android {
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
         // Bump versionCode for Play uploads (was flutter.versionCode)
-        versionCode = 33
-        versionName = flutter.versionName
+        versionCode = 34
+        versionName = 1.1
     }
 
     signingConfigs {

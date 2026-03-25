@@ -54,6 +54,9 @@ class I18n {
       'en': 'Email (optional)',
       'es': 'Correo (opcional)',
     },
+    'forms.company': {'en': 'Company', 'es': 'Empresa'},
+    'forms.taxId': {'en': 'Tax ID', 'es': 'RFC'},
+    'forms.address': {'en': 'Address', 'es': 'Direccion'},
 
     // Add menu
     'add.newTransaction': {
@@ -120,10 +123,7 @@ class I18n {
       'en': 'Ask me anything about your finances.',
       'es': 'Pregunta lo que quieras sobre tus finanzas.',
     },
-    'aiChat.deleteTitle': {
-      'en': 'Delete chat?',
-      'es': '\u00BFEliminar chat?',
-    },
+    'aiChat.deleteTitle': {'en': 'Delete chat?', 'es': '\u00BFEliminar chat?'},
     'aiChat.deleteBody': {
       'en': 'This will remove the chat history from this device.',
       'es': 'Esto eliminara el historial del chat en este dispositivo.',
@@ -135,14 +135,8 @@ class I18n {
       'en': 'This Month Expenses',
       'es': 'Gastos de este mes',
     },
-    'kpi.budgetOverview': {
-      'en': 'Budget usage',
-      'es': 'Uso de presupuesto',
-    },
-    'kpi.budgetUsed': {
-      'en': '{percent}% used',
-      'es': '{percent}% usado',
-    },
+    'kpi.budgetOverview': {'en': 'Budget usage', 'es': 'Uso de presupuesto'},
+    'kpi.budgetUsed': {'en': '{percent}% used', 'es': '{percent}% usado'},
     'kpi.used': {'en': 'used', 'es': 'usado'},
     'kpi.activeProjects': {'en': 'Active Projects', 'es': 'Proyectos activos'},
     'kpi.balanceGrowth': {'en': 'Balance growth', 'es': 'Crecimiento de saldo'},
@@ -208,10 +202,7 @@ class I18n {
     },
     'payments.totalAmount': {'en': 'Total amount', 'es': 'Monto total'},
     'payments.months': {'en': 'Months', 'es': 'Meses'},
-    'payments.approxMonthly': {
-      'en': 'Approx. monthly',
-      'es': 'Aprox. mensual',
-    },
+    'payments.approxMonthly': {'en': 'Approx. monthly', 'es': 'Aprox. mensual'},
     'payments.nextDate': {'en': 'Next date', 'es': 'Pr\u00F3xima fecha'},
     'payments.freq.weekly': {'en': 'Weekly', 'es': 'Semanal'},
     'payments.freq.monthly': {'en': 'Monthly', 'es': 'Mensual'},
@@ -286,10 +277,7 @@ class I18n {
     'tx.reportIncome': {'en': 'Income', 'es': 'Ingresos'},
     'tx.reportExpense': {'en': 'Expenses', 'es': 'Gastos'},
     'tx.reportNet': {'en': 'Net', 'es': 'Neto'},
-    'tx.reportBalances': {
-      'en': 'Account balances',
-      'es': 'Saldos por cuenta',
-    },
+    'tx.reportBalances': {'en': 'Account balances', 'es': 'Saldos por cuenta'},
     'tx.reportAllTransactions': {
       'en': 'All transactions',
       'es': 'Todas las transacciones',
@@ -600,6 +588,16 @@ class I18n {
     // Invoices
     'invoices.add': {'en': 'Add Invoice', 'es': 'Agregar factura'},
     'invoices.addCustomer': {'en': 'Add Customer', 'es': 'Agregar cliente'},
+    'invoices.newCustomer': {'en': 'New Customer', 'es': 'Nuevo cliente'},
+    'invoices.editCustomer': {'en': 'Edit Customer', 'es': 'Editar cliente'},
+    'invoices.deleteCustomerTitle': {
+      'en': 'Delete customer?',
+      'es': 'Eliminar cliente?',
+    },
+    'invoices.deleteCustomerPrefix': {
+      'en': 'This will delete',
+      'es': 'Esto eliminara',
+    },
     'invoices.searchCustomers': {
       'en': 'Search customers',
       'es': 'Buscar clientes',
@@ -639,6 +637,14 @@ class I18n {
     'invoices.customerEmailMissing': {
       'en': 'Customer email is required to share the invoice',
       'es': 'Se requiere el correo del cliente para compartir la factura',
+    },
+    'invoices.customerSaveFailed': {
+      'en': 'Failed to save customer',
+      'es': 'No se pudo guardar el cliente',
+    },
+    'invoices.customerDeleteFailed': {
+      'en': 'Failed to delete customer',
+      'es': 'No se pudo eliminar el cliente',
     },
 
     // Investments
@@ -684,6 +690,10 @@ class I18n {
 
     // Validation / feedback
     'validation.required': {'en': 'Required', 'es': 'Requerido'},
+    'validation.nameRequired': {
+      'en': 'Name is required',
+      'es': 'El nombre es obligatorio',
+    },
     'error.passwordMin6': {
       'en': 'Password must be at least 6 characters',
       'es': 'La contrase\u00F1a debe tener al menos 6 caracteres',
@@ -775,10 +785,7 @@ class I18n {
       'en': 'Monthly budget',
       'es': 'Presupuesto mensual',
     },
-    'categories.monthlyBudgetHint': {
-      'en': 'Optional',
-      'es': 'Opcional',
-    },
+    'categories.monthlyBudgetHint': {'en': 'Optional', 'es': 'Opcional'},
     'categories.budgetProOnly': {
       'en': 'Monthly budgets require Pro',
       'es': 'El presupuesto mensual requiere Pro',

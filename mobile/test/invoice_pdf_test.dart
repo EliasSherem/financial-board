@@ -8,6 +8,11 @@ import 'package:provider/provider.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('formatInvoiceMoney uses only the dollar sign for USD and MXN', () {
+    expect(formatInvoiceMoney(50000, 'USD'), r'$50,000.00');
+    expect(formatInvoiceMoney(50000, 'MXN'), r'$50,000.00');
+  });
+
   testWidgets('buildInvoicePdf creates a PDF document', (tester) async {
     final langStore = LangStore();
     late BuildContext capturedContext;
@@ -57,11 +62,7 @@ void main() {
       payments: const [],
     );
 
-    final pdfBytes = await buildInvoicePdf(
-      capturedContext,
-      detail,
-      'sherelyn',
-    );
+    final pdfBytes = await buildInvoicePdf(capturedContext, detail, 'sherelyn');
 
     expect(pdfBytes, isNotEmpty);
     expect(String.fromCharCodes(pdfBytes.take(4)), '%PDF');

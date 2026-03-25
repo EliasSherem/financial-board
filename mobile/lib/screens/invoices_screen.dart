@@ -18,11 +18,7 @@ Future<Map<String, dynamic>> _emailInvoicePdf({
   required InvoiceDetail detail,
 }) async {
   final senderName = context.read<AuthStore>().userName;
-  final pdfBytes = await buildInvoicePdf(
-    context,
-    detail,
-    senderName,
-  );
+  final pdfBytes = await buildInvoicePdf(context, detail, senderName);
   return data.emailInvoice(
     id: detail.invoice.id,
     filename: invoicePdfFilename(detail.invoice),
@@ -137,6 +133,11 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     }
   }
 
+  String? _trimToNull(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = context.watch<AuthStore>();
@@ -244,13 +245,13 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     );
   }
 
-  void _showAddCustomer() async {
+  Future<void> _showAddCustomer() async {
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
       builder:
-          (_) => AlertDialog(
+          (dialogContext) => AlertDialog(
             title: Text(I18n.t(context, 'invoices.newCustomer')),
             content: SingleChildScrollView(
               child: Column(
@@ -276,40 +277,44 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogContext, false),
                 child: Text(I18n.t(context, 'label.cancel')),
               ),
               FilledButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: () => Navigator.pop(dialogContext, true),
                 child: Text(I18n.t(context, 'label.save')),
               ),
             ],
           ),
     );
-    if (ok == true) {
-      final name = nameCtrl.text.trim();
-      if (name.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(I18n.tr(context, 'validation.nameRequired')),
-            ),
-          );
-        }
-        return;
-      }
+    if (!mounted || ok != true) return;
+    final name = nameCtrl.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(I18n.tr(context, 'validation.nameRequired'))),
+      );
+      return;
+    }
+    try {
       await _data.createCustomer(
         name: name,
-        email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
+        email: _trimToNull(emailCtrl.text),
       );
-      if (mounted) {
-        context.read<RefreshBus>().notifyCustomers();
-        await _load();
-      }
+      if (!mounted) return;
+      context.read<RefreshBus>().notifyCustomers();
+      await _load();
+    } catch (e, st) {
+      debugPrint('Failed to create customer: $e\n$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(I18n.tr(context, 'invoices.customerSaveFailed')),
+        ),
+      );
     }
   }
 
-  void _editCustomer(Customer c) async {
+  Future<void> _editCustomer(Customer c) async {
     final nameCtrl = TextEditingController(text: c.name);
     final emailCtrl = TextEditingController(text: c.email ?? '');
     final companyCtrl = TextEditingController(text: c.company ?? '');
@@ -318,7 +323,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder:
-          (_) => AlertDialog(
+          (dialogContext) => AlertDialog(
             title: Text(I18n.t(context, 'invoices.editCustomer')),
             content: SingleChildScrollView(
               child: Column(
@@ -368,59 +373,82 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogContext, false),
                 child: Text(I18n.t(context, 'label.cancel')),
               ),
               FilledButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: () => Navigator.pop(dialogContext, true),
                 child: Text(I18n.t(context, 'label.save')),
               ),
             ],
           ),
     );
-    if (ok == true) {
+    if (!mounted || ok != true) return;
+    final name = nameCtrl.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(I18n.tr(context, 'validation.nameRequired'))),
+      );
+      return;
+    }
+    try {
       await _data.updateCustomer(
         id: c.id,
-        name: nameCtrl.text.trim(),
-        email: emailCtrl.text.trim(),
-        company: companyCtrl.text.trim(),
-        taxId: taxCtrl.text.trim(),
-        address: addrCtrl.text.trim(),
+        name: name,
+        email: _trimToNull(emailCtrl.text),
+        company: _trimToNull(companyCtrl.text),
+        taxId: _trimToNull(taxCtrl.text),
+        address: _trimToNull(addrCtrl.text),
       );
-      if (mounted) {
-        context.read<RefreshBus>().notifyCustomers();
-        await _load();
-      }
+      if (!mounted) return;
+      context.read<RefreshBus>().notifyCustomers();
+      await _load();
+    } catch (e, st) {
+      debugPrint('Failed to update customer ${c.id}: $e\n$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(I18n.tr(context, 'invoices.customerSaveFailed')),
+        ),
+      );
     }
   }
 
-  void _deleteCustomer(Customer c) async {
+  Future<void> _deleteCustomer(Customer c) async {
     final yes = await showDialog<bool>(
       context: context,
       builder:
-          (_) => AlertDialog(
+          (dialogContext) => AlertDialog(
             title: Text(I18n.t(context, 'invoices.deleteCustomerTitle')),
             content: Text(
               '${I18n.t(context, 'invoices.deleteCustomerPrefix')} ${c.name}',
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogContext, false),
                 child: Text(I18n.t(context, 'label.cancel')),
               ),
               FilledButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: () => Navigator.pop(dialogContext, true),
                 child: Text(I18n.t(context, 'label.delete')),
               ),
             ],
           ),
     );
-    if (yes == true) {
+    if (!mounted || yes != true) return;
+    try {
       await _data.deleteCustomer(c.id);
-      if (mounted) {
-        context.read<RefreshBus>().notifyCustomers();
-        await _load();
-      }
+      if (!mounted) return;
+      context.read<RefreshBus>().notifyCustomers();
+      await _load();
+    } catch (e, st) {
+      debugPrint('Failed to delete customer ${c.id}: $e\n$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(I18n.tr(context, 'invoices.customerDeleteFailed')),
+        ),
+      );
     }
   }
 
@@ -1311,9 +1339,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               : customerEmail;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            '${I18n.tr(context, 'invoices.emailSent')} $emailedTo',
-          ),
+          content: Text('${I18n.tr(context, 'invoices.emailSent')} $emailedTo'),
         ),
       );
       await _load();
@@ -1321,9 +1347,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            '${I18n.tr(context, 'invoices.emailFailed')}: $e',
-          ),
+          content: Text('${I18n.tr(context, 'invoices.emailFailed')}: $e'),
         ),
       );
     } finally {
@@ -1575,9 +1599,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
               : customerEmail;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            '${I18n.tr(context, 'invoices.emailSent')} $emailedTo',
-          ),
+          content: Text('${I18n.tr(context, 'invoices.emailSent')} $emailedTo'),
         ),
       );
       _refresh();
@@ -1585,9 +1607,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            '${I18n.tr(context, 'invoices.emailFailed')}: $e',
-          ),
+          content: Text('${I18n.tr(context, 'invoices.emailFailed')}: $e'),
         ),
       );
     } finally {
