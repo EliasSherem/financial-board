@@ -236,7 +236,6 @@ Future<Uint8List> buildInvoicePdf(
                         _pdfKv('Invoice', label),
                         _pdfKv('Date', dateFmt.format(invoice.issueDate)),
                         _pdfKv('Due', dateFmt.format(invoice.dueDate)),
-                        _pdfKv('Currency', invoice.currency),
                         if (safeSenderName.isNotEmpty)
                           _pdfKv(sentByTitle, safeSenderName),
                         _pdfKv(totalTitle, formatMoney(invoice.total)),
