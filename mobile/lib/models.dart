@@ -143,6 +143,19 @@ class TransactionItem {
   }
 
   String? get effectiveCategory => subcategoryName ?? categoryName ?? category;
+
+  bool get isTransfer {
+    final labels = <String?>[type, category, categoryName, subcategoryName];
+    for (final label in labels) {
+      if ((label ?? '').trim().toLowerCase() == 'transfer') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool get isExpense => amount < 0 && !isTransfer;
+  bool get isIncome => amount > 0 && !isTransfer;
 }
 
 class ExpenseSubcategory {

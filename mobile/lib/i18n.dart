@@ -297,6 +297,7 @@ class I18n {
     'tx.type': {'en': 'Type', 'es': 'Tipo'},
     'tx.income': {'en': 'Income', 'es': 'Ingreso'},
     'tx.expense': {'en': 'Expense', 'es': 'Gasto'},
+    'tx.transfer': {'en': 'Transfer', 'es': 'Transferencia'},
     'tx.allTypes': {'en': 'All Types', 'es': 'Todos los tipos'},
     'tx.categories': {'en': 'Categories', 'es': 'Categor\u00EDas'},
     'tx.allCategories': {
@@ -356,6 +357,36 @@ class I18n {
     // Accounts
     'accounts.addNew': {'en': 'Add New Account', 'es': 'Agregar cuenta nueva'},
     'accounts.edit': {'en': 'Edit Account', 'es': 'Editar cuenta'},
+    'accounts.transferFunds': {
+      'en': 'Transfer Funds',
+      'es': 'Transferir fondos',
+    },
+    'accounts.transferNeedTwo': {
+      'en': 'You need at least 2 accounts to transfer funds',
+      'es': 'Necesitas al menos 2 cuentas para transferir fondos',
+    },
+    'accounts.transferFrom': {'en': 'From', 'es': 'Desde'},
+    'accounts.transferTo': {'en': 'To', 'es': 'Hacia'},
+    'accounts.transferAmount': {'en': 'Amount', 'es': 'Monto'},
+    'accounts.transferDate': {'en': 'Date', 'es': 'Fecha'},
+    'accounts.transferDescription': {'en': 'Description', 'es': 'Descripcion'},
+    'accounts.transferDescriptionHint': {
+      'en': 'Fund transfer',
+      'es': 'Transferencia de fondos',
+    },
+    'accounts.transferInvalid': {
+      'en': 'Choose different accounts and enter a valid amount',
+      'es': 'Elige cuentas distintas e ingresa un monto valido',
+    },
+    'accounts.transferInsufficient': {
+      'en': 'Insufficient funds',
+      'es': 'Fondos insuficientes',
+    },
+    'accounts.transferSubmit': {'en': 'Transfer', 'es': 'Transferir'},
+    'accounts.transferSuccess': {
+      'en': 'Transfer completed',
+      'es': 'Transferencia completada',
+    },
     'accounts.name': {'en': 'Account Name', 'es': 'Nombre de la cuenta'},
     'accounts.type': {'en': 'Account Type', 'es': 'Tipo de cuenta'},
     'accounts.type.checking': {'en': 'Checking', 'es': 'Cuenta de cheques'},

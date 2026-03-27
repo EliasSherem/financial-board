@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -151,7 +149,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       // categories from data
       final set = <String>{};
       for (final t in txs) {
-        final c = t.category?.trim();
+        final c = t.effectiveCategory?.trim();
         if (c != null && c.isNotEmpty) set.add(c);
       }
       _categories = set.toList()..sort();
@@ -174,7 +172,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     if (_end != null) list = list.where((t) => !t.date.isAfter(_end!));
     if (_type != null) list = list.where((t) => t.type == _type);
     if (_category != null && _category!.isNotEmpty) {
-      list = list.where((t) => (t.category ?? '') == _category);
+      list = list.where((t) => (t.effectiveCategory ?? '') == _category);
     }
     if (_accountId != null) list = list.where((t) => t.accountId == _accountId);
     if (_projectId != null) {
@@ -638,7 +636,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     Iterable<TransactionItem> list = _all;
     if (_type != null) list = list.where((t) => t.type == _type);
     if (_category != null && _category!.isNotEmpty) {
-      list = list.where((t) => (t.category ?? '') == _category);
+      list = list.where((t) => (t.effectiveCategory ?? '') == _category);
     }
     if (_accountId != null) list = list.where((t) => t.accountId == _accountId);
     if (_projectId != null) {
@@ -761,7 +759,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     }) {
       return items.map((t) {
         final desc = t.description.isEmpty ? noDescription : t.description;
-        final category = (t.category ?? '').isEmpty ? '-' : t.category!;
+        final effectiveCategory = t.effectiveCategory;
+        final category =
+            (effectiveCategory ?? '').isEmpty ? '-' : effectiveCategory!;
         final account = (t.accountName ?? '').isEmpty ? '-' : t.accountName!;
         return [
           dateFmt.format(t.date),
@@ -776,9 +776,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     double income = 0;
     double expense = 0;
     for (final t in txs) {
-      if (t.amount >= 0) {
+      if (t.isIncome) {
         income += t.amount;
-      } else {
+      } else if (t.isExpense) {
         expense += t.amount.abs();
       }
     }
@@ -996,9 +996,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.currency(
-      symbol: '4',
-    ); // fallback not used; actual formatting below
     return Scaffold(
       appBar: AppBar(title: const Text('Transactions')),
       body:
@@ -1093,9 +1090,11 @@ class _TxCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTransfer = item.isTransfer;
     final isIncome = item.amount >= 0;
     final amountStr = (isIncome ? '+' : '-') + fmt.format(item.amount.abs());
-    final color = isIncome ? Colors.green : Colors.red;
+    final color =
+        isTransfer ? Colors.blue : (isIncome ? Colors.green : Colors.red);
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final iconKey =
         (item.subcategoryIcon?.trim().isNotEmpty ?? false)
@@ -1106,7 +1105,9 @@ class _TxCard extends StatelessWidget {
     final iconData =
         iconKey != null
             ? iconDataFromKey(iconKey)
-            : (isIncome
+            : (isTransfer
+                ? Icons.swap_horiz
+                : isIncome
                 ? Icons.trending_up_outlined
                 : Icons.receipt_long_outlined);
     final iconFg =
@@ -1119,8 +1120,14 @@ class _TxCard extends StatelessWidget {
             : Colors.white.withValues(alpha: 0.82);
     final Color bg =
         isDark
-            ? (isIncome ? const Color(0xFF103521) : const Color(0xFF3A1C1C))
-            : (isIncome ? Colors.green.shade50 : Colors.red.shade50);
+            ? (isTransfer
+                ? const Color(0xFF1D2A44)
+                : (isIncome
+                    ? const Color(0xFF103521)
+                    : const Color(0xFF3A1C1C)))
+            : (isTransfer
+                ? Colors.blue.shade50
+                : (isIncome ? Colors.green.shade50 : Colors.red.shade50));
     return Card(
       color: bg,
       elevation: 6,
@@ -1161,8 +1168,8 @@ class _TxCard extends StatelessWidget {
                           if ((item.accountName ?? '').isNotEmpty)
                             parts.add(item.accountName!);
                           parts.add(formatDate(item.date));
-                          if ((item.category ?? '').isNotEmpty)
-                            parts.add(item.category!);
+                          if ((item.effectiveCategory ?? '').isNotEmpty)
+                            parts.add(item.effectiveCategory!);
                           if ((item.projectName ?? '').isNotEmpty)
                             parts.add(item.projectName!);
                           return Text(

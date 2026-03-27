@@ -486,7 +486,12 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      I18n.t(context, isInvestmentAccount ? 'accounts.details.estimatedValue' : 'label.currentBalance'),
+                      I18n.t(
+                        context,
+                        isInvestmentAccount
+                            ? 'accounts.details.estimatedValue'
+                            : 'label.currentBalance',
+                      ),
                       style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
@@ -771,14 +776,21 @@ class _TxRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTransfer = item.isTransfer;
     final isIncome = item.amount >= 0;
     final amountStr = signedMoney(item.amount);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final Color bg =
         isDark
-            ? (isIncome ? const Color(0xFF103521) : const Color(0xFF3A1C1C))
-            : (isIncome ? Colors.green.shade50 : Colors.red.shade50);
+            ? (isTransfer
+                ? const Color(0xFF1D2A44)
+                : (isIncome
+                    ? const Color(0xFF103521)
+                    : const Color(0xFF3A1C1C)))
+            : (isTransfer
+                ? Colors.blue.shade50
+                : (isIncome ? Colors.green.shade50 : Colors.red.shade50));
 
     return Card(
       color: bg,
@@ -806,7 +818,7 @@ class _TxRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${formatDate(item.date)}'
-                    '${(item.category ?? '').isNotEmpty ? ' - ${item.category}' : ''}',
+                    '${(item.effectiveCategory ?? '').isNotEmpty ? ' - ${item.effectiveCategory}' : ''}',
                     style: theme.textTheme.bodySmall,
                   ),
                 ],
@@ -817,9 +829,11 @@ class _TxRow extends StatelessWidget {
               amountStr,
               style: TextStyle(
                 color:
-                    isIncome
-                        ? const Color(0xFF16A34A)
-                        : theme.colorScheme.error,
+                    isTransfer
+                        ? Colors.blue
+                        : (isIncome
+                            ? const Color(0xFF16A34A)
+                            : theme.colorScheme.error),
                 fontWeight: FontWeight.w700,
               ),
             ),

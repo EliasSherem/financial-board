@@ -10,7 +10,9 @@ class DataService {
 
   Future<List<Account>> getAccounts() async {
     final res = await api.get('/api/accounts');
-    return (res as List).map((e) => Account.fromJson(e as Map<String, dynamic>)).toList();
+    return (res as List)
+        .map((e) => Account.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Account> createAccount({
@@ -21,14 +23,17 @@ class DataService {
     String? accountNumber,
     bool isActive = true,
   }) async {
-    final res = await api.post('/api/accounts', body: {
-      'name': name,
-      'type': type,
-      'balance': balance,
-      'bank_name': bankName,
-      'account_number': accountNumber,
-      'is_active': isActive,
-    });
+    final res = await api.post(
+      '/api/accounts',
+      body: {
+        'name': name,
+        'type': type,
+        'balance': balance,
+        'bank_name': bankName,
+        'account_number': accountNumber,
+        'is_active': isActive,
+      },
+    );
     return Account.fromJson(res as Map<String, dynamic>);
   }
 
@@ -43,7 +48,9 @@ class DataService {
 
   Future<List<TransactionItem>> getTransactions() async {
     final res = await api.get('/api/transactions');
-    return (res as List).map((e) => TransactionItem.fromJson(e as Map<String, dynamic>)).toList();
+    return (res as List)
+        .map((e) => TransactionItem.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<TransactionItem> createTransaction({
@@ -57,18 +64,50 @@ class DataService {
     int? subcategoryId,
     int? projectId,
   }) async {
-    final res = await api.post('/api/transactions', body: {
-      'account_id': accountId,
-      'date': date.toIso8601String().substring(0, 10),
-      'description': description,
-      'amount': type == 'Expense' ? -amount.abs() : amount.abs(),
-      'type': type,
-      if (category != null) 'category': category,
-      if (categoryId != null) 'category_id': categoryId,
-      if (subcategoryId != null) 'subcategory_id': subcategoryId,
-      if (projectId != null) 'project_id': projectId,
-    });
+    final res = await api.post(
+      '/api/transactions',
+      body: {
+        'account_id': accountId,
+        'date': date.toIso8601String().substring(0, 10),
+        'description': description,
+        'amount': type == 'Expense' ? -amount.abs() : amount.abs(),
+        'type': type,
+        if (category != null) 'category': category,
+        if (categoryId != null) 'category_id': categoryId,
+        if (subcategoryId != null) 'subcategory_id': subcategoryId,
+        if (projectId != null) 'project_id': projectId,
+      },
+    );
     return TransactionItem.fromJson(res as Map<String, dynamic>);
+  }
+
+  Future<void> transferFunds({
+    required Account fromAccount,
+    required Account toAccount,
+    required DateTime date,
+    required double amount,
+    String? description,
+  }) async {
+    final note = (description ?? '').trim();
+    final transferLabel = note.isEmpty ? 'Fund transfer' : note;
+
+    await createTransaction(
+      accountId: fromAccount.id,
+      date: date,
+      description: 'Transfer to ${toAccount.name}: $transferLabel',
+      amount: amount,
+      type: 'Expense',
+      category: 'Transfer',
+    );
+
+    await createTransaction(
+      accountId: toAccount.id,
+      date: date,
+      description: 'Transfer from ${fromAccount.name}: $transferLabel',
+      amount: amount,
+      type: 'Income',
+      category: 'Transfer',
+    );
   }
 
   Future<TransactionItem> updateTransaction({
@@ -83,17 +122,20 @@ class DataService {
     int? subcategoryId,
     int? projectId,
   }) async {
-    final res = await api.put('/api/transactions/$id', body: {
-      'account_id': accountId,
-      'date': date.toIso8601String().substring(0, 10),
-      'description': description,
-      'amount': type == 'Expense' ? -amount.abs() : amount.abs(),
-      'type': type,
-      if (category != null) 'category': category,
-      if (categoryId != null) 'category_id': categoryId,
-      if (subcategoryId != null) 'subcategory_id': subcategoryId,
-      if (projectId != null) 'project_id': projectId,
-    });
+    final res = await api.put(
+      '/api/transactions/$id',
+      body: {
+        'account_id': accountId,
+        'date': date.toIso8601String().substring(0, 10),
+        'description': description,
+        'amount': type == 'Expense' ? -amount.abs() : amount.abs(),
+        'type': type,
+        if (category != null) 'category': category,
+        if (categoryId != null) 'category_id': categoryId,
+        if (subcategoryId != null) 'subcategory_id': subcategoryId,
+        if (projectId != null) 'project_id': projectId,
+      },
+    );
     return TransactionItem.fromJson(res as Map<String, dynamic>);
   }
 
@@ -104,7 +146,9 @@ class DataService {
   Future<List<ExpenseCategory>> getExpenseCategories() async {
     final res = await api.get('/api/expense-categories');
     return (res as List<dynamic>)
-        .map((e) => ExpenseCategory.fromJson((e as Map).cast<String, dynamic>()))
+        .map(
+          (e) => ExpenseCategory.fromJson((e as Map).cast<String, dynamic>()),
+        )
         .toList();
   }
 
@@ -112,10 +156,10 @@ class DataService {
     required String name,
     required String icon,
   }) async {
-    final res = await api.post('/api/expense-categories', body: {
-      'name': name,
-      'icon': icon,
-    });
+    final res = await api.post(
+      '/api/expense-categories',
+      body: {'name': name, 'icon': icon},
+    );
     return ExpenseCategory.fromJson((res as Map).cast<String, dynamic>());
   }
 
@@ -124,10 +168,10 @@ class DataService {
     required String name,
     required String icon,
   }) async {
-    final res = await api.put('/api/expense-categories/$id', body: {
-      'name': name,
-      'icon': icon,
-    });
+    final res = await api.put(
+      '/api/expense-categories/$id',
+      body: {'name': name, 'icon': icon},
+    );
     return ExpenseCategory.fromJson((res as Map).cast<String, dynamic>());
   }
 
@@ -141,12 +185,15 @@ class DataService {
     required String icon,
     double budget = 0,
   }) async {
-    final res = await api.post('/api/expense-subcategories', body: {
-      'category_id': categoryId,
-      'name': name,
-      'icon': icon,
-      'budget': budget,
-    });
+    final res = await api.post(
+      '/api/expense-subcategories',
+      body: {
+        'category_id': categoryId,
+        'name': name,
+        'icon': icon,
+        'budget': budget,
+      },
+    );
     return ExpenseCategory.fromJson((res as Map).cast<String, dynamic>());
   }
 
@@ -157,12 +204,15 @@ class DataService {
     int? categoryId,
     double? budget,
   }) async {
-    final res = await api.put('/api/expense-subcategories/$id', body: {
-      'name': name,
-      'icon': icon,
-      if (categoryId != null) 'category_id': categoryId,
-      if (budget != null) 'budget': budget,
-    });
+    final res = await api.put(
+      '/api/expense-subcategories/$id',
+      body: {
+        'name': name,
+        'icon': icon,
+        if (categoryId != null) 'category_id': categoryId,
+        if (budget != null) 'budget': budget,
+      },
+    );
     return ExpenseCategory.fromJson((res as Map).cast<String, dynamic>());
   }
 
@@ -174,7 +224,9 @@ class DataService {
 
   Future<List<Project>> getProjects() async {
     final res = await api.get('/api/projects');
-    return (res as List).map((e) => Project.fromJson(e as Map<String, dynamic>)).toList();
+    return (res as List)
+        .map((e) => Project.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Project> createProject({
@@ -186,15 +238,18 @@ class DataService {
     String? startDate,
     String? endDate,
   }) async {
-    final res = await api.post('/api/projects', body: {
-      'name': name,
-      'description': description,
-      'budget': budget,
-      'spent': spent,
-      'status': status,
-      if (startDate != null) 'start_date': startDate,
-      if (endDate != null) 'end_date': endDate,
-    });
+    final res = await api.post(
+      '/api/projects',
+      body: {
+        'name': name,
+        'description': description,
+        'budget': budget,
+        'spent': spent,
+        'status': status,
+        if (startDate != null) 'start_date': startDate,
+        if (endDate != null) 'end_date': endDate,
+      },
+    );
     return Project.fromJson(res as Map<String, dynamic>);
   }
 
@@ -208,15 +263,18 @@ class DataService {
     String? startDate,
     String? endDate,
   }) async {
-    final res = await api.put('/api/projects/$id', body: {
-      'name': name,
-      'description': description,
-      'budget': budget,
-      'spent': spent,
-      'status': status,
-      if (startDate != null) 'start_date': startDate,
-      if (endDate != null) 'end_date': endDate,
-    });
+    final res = await api.put(
+      '/api/projects/$id',
+      body: {
+        'name': name,
+        'description': description,
+        'budget': budget,
+        'spent': spent,
+        'status': status,
+        if (startDate != null) 'start_date': startDate,
+        if (endDate != null) 'end_date': endDate,
+      },
+    );
     return Project.fromJson(res as Map<String, dynamic>);
   }
 
@@ -226,7 +284,9 @@ class DataService {
 
   Future<List<InvoiceSummary>> getInvoices() async {
     final res = await api.get('/api/invoices');
-    return (res as List).map((e) => InvoiceSummary.fromJson(e as Map<String, dynamic>)).toList();
+    return (res as List)
+        .map((e) => InvoiceSummary.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<InvoiceDetail> getInvoice(int id) async {
@@ -237,28 +297,49 @@ class DataService {
   // Customers
   Future<List<Customer>> getCustomers() async {
     final res = await api.get('/api/customers');
-    return (res as List).map((e) => Customer.fromJson(e as Map<String, dynamic>)).toList();
+    return (res as List)
+        .map((e) => Customer.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<Customer> createCustomer({required String name, String? email, String? company, String? taxId, String? address}) async {
-    final res = await api.post('/api/customers', body: {
-      'name': name,
-      'email': email,
-      'company': company,
-      'tax_id': taxId,
-      'address': address,
-    });
+  Future<Customer> createCustomer({
+    required String name,
+    String? email,
+    String? company,
+    String? taxId,
+    String? address,
+  }) async {
+    final res = await api.post(
+      '/api/customers',
+      body: {
+        'name': name,
+        'email': email,
+        'company': company,
+        'tax_id': taxId,
+        'address': address,
+      },
+    );
     return Customer.fromJson(res as Map<String, dynamic>);
   }
 
-  Future<Customer> updateCustomer({required int id, required String name, String? email, String? company, String? taxId, String? address}) async {
-    final res = await api.put('/api/customers/$id', body: {
-      'name': name,
-      'email': email,
-      'company': company,
-      'tax_id': taxId,
-      'address': address,
-    });
+  Future<Customer> updateCustomer({
+    required int id,
+    required String name,
+    String? email,
+    String? company,
+    String? taxId,
+    String? address,
+  }) async {
+    final res = await api.put(
+      '/api/customers/$id',
+      body: {
+        'name': name,
+        'email': email,
+        'company': company,
+        'tax_id': taxId,
+        'address': address,
+      },
+    );
     return Customer.fromJson(res as Map<String, dynamic>);
   }
 
@@ -280,19 +361,22 @@ class DataService {
     double? discount,
     double? tax,
   }) async {
-    final res = await api.post('/api/invoices', body: {
-      'customer_id': customerId,
-      'project_id': projectId,
-      'account_id': accountId,
-      'number': number,
-      'issue_date': issueDate,
-      'due_date': dueDate,
-      'currency': currency,
-      'notes': notes,
-      'discount': discount,
-      'tax': tax,
-      'items': items,
-    });
+    final res = await api.post(
+      '/api/invoices',
+      body: {
+        'customer_id': customerId,
+        'project_id': projectId,
+        'account_id': accountId,
+        'number': number,
+        'issue_date': issueDate,
+        'due_date': dueDate,
+        'currency': currency,
+        'notes': notes,
+        'discount': discount,
+        'tax': tax,
+        'items': items,
+      },
+    );
     return res as Map<String, dynamic>;
   }
 
@@ -310,19 +394,22 @@ class DataService {
     double? discount,
     double? tax,
   }) async {
-    final res = await api.put('/api/invoices/$id', body: {
-      'customer_id': customerId,
-      'project_id': projectId,
-      'account_id': accountId,
-      'number': number,
-      'issue_date': issueDate,
-      'due_date': dueDate,
-      'currency': currency,
-      'notes': notes,
-      'discount': discount,
-      'tax': tax,
-      'items': items,
-    });
+    final res = await api.put(
+      '/api/invoices/$id',
+      body: {
+        'customer_id': customerId,
+        'project_id': projectId,
+        'account_id': accountId,
+        'number': number,
+        'issue_date': issueDate,
+        'due_date': dueDate,
+        'currency': currency,
+        'notes': notes,
+        'discount': discount,
+        'tax': tax,
+        'items': items,
+      },
+    );
     return res as Map<String, dynamic>;
   }
 
@@ -334,13 +421,16 @@ class DataService {
     String? method,
     String? reference,
   }) async {
-    await api.post('/api/invoices/$id/payments', body: {
-      'date': date,
-      'amount': amount,
-      'account_id': accountId,
-      'method': method,
-      'reference': reference,
-    });
+    await api.post(
+      '/api/invoices/$id/payments',
+      body: {
+        'date': date,
+        'amount': amount,
+        'account_id': accountId,
+        'method': method,
+        'reference': reference,
+      },
+    );
   }
 
   Future<void> deleteInvoice(int id) async {
@@ -352,17 +442,19 @@ class DataService {
     required String filename,
     required Uint8List pdfBytes,
   }) async {
-    final res = await api.post('/api/invoices/$id/email', body: {
-      'filename': filename,
-      'pdf_base64': base64Encode(pdfBytes),
-    });
+    final res = await api.post(
+      '/api/invoices/$id/email',
+      body: {'filename': filename, 'pdf_base64': base64Encode(pdfBytes)},
+    );
     return res as Map<String, dynamic>;
   }
 
   // Payments
   Future<List<PaymentItem>> getPayments() async {
     final res = await api.get('/api/payments');
-    return (res as List).map((e) => PaymentItem.fromJson(e as Map<String, dynamic>)).toList();
+    return (res as List)
+        .map((e) => PaymentItem.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<PaymentItem> createPayment({
@@ -378,19 +470,22 @@ class DataService {
     int? subcategoryId,
     int? projectId,
   }) async {
-    final res = await api.post('/api/payments', body: {
-      'account_id': accountId,
-      'name': name,
-      'description': description,
-      'amount': amount,
-      'frequency': frequency,
-      'next_date': nextDate,
-      'is_active': isActive,
-      'category': category,
-      if (categoryId != null) 'category_id': categoryId,
-      if (subcategoryId != null) 'subcategory_id': subcategoryId,
-      'project_id': projectId,
-    });
+    final res = await api.post(
+      '/api/payments',
+      body: {
+        'account_id': accountId,
+        'name': name,
+        'description': description,
+        'amount': amount,
+        'frequency': frequency,
+        'next_date': nextDate,
+        'is_active': isActive,
+        'category': category,
+        if (categoryId != null) 'category_id': categoryId,
+        if (subcategoryId != null) 'subcategory_id': subcategoryId,
+        'project_id': projectId,
+      },
+    );
     return PaymentItem.fromJson(res as Map<String, dynamic>);
   }
 
@@ -408,19 +503,22 @@ class DataService {
     int? subcategoryId,
     int? projectId,
   }) async {
-    final res = await api.put('/api/payments/$id', body: {
-      'account_id': accountId,
-      'name': name,
-      'description': description,
-      'amount': amount,
-      'frequency': frequency,
-      'next_date': nextDate,
-      'is_active': isActive,
-      'category': category,
-      if (categoryId != null) 'category_id': categoryId,
-      if (subcategoryId != null) 'subcategory_id': subcategoryId,
-      'project_id': projectId,
-    });
+    final res = await api.put(
+      '/api/payments/$id',
+      body: {
+        'account_id': accountId,
+        'name': name,
+        'description': description,
+        'amount': amount,
+        'frequency': frequency,
+        'next_date': nextDate,
+        'is_active': isActive,
+        'category': category,
+        if (categoryId != null) 'category_id': categoryId,
+        if (subcategoryId != null) 'subcategory_id': subcategoryId,
+        'project_id': projectId,
+      },
+    );
     return PaymentItem.fromJson(res as Map<String, dynamic>);
   }
 
@@ -438,8 +536,6 @@ class DataService {
     return res as Map<String, dynamic>;
   }
 
-  
-
   // Create a finite credit installment plan (server computes monthly amount)
   Future<PaymentItem> createInstallmentPlan({
     required int account_id,
@@ -453,25 +549,30 @@ class DataService {
     int? categoryId,
     int? subcategoryId,
   }) async {
-    final res = await api.post('/api/credit/installments', body: {
-      'account_id': account_id,
-      'project_id': project_id,
-      'name': name,
-      'description': description,
-      'total_amount': total_amount,
-      'months': months,
-      'first_due_date': first_due_date,
-      'category': category,
-      if (categoryId != null) 'category_id': categoryId,
-      if (subcategoryId != null) 'subcategory_id': subcategoryId,
-    });
+    final res = await api.post(
+      '/api/credit/installments',
+      body: {
+        'account_id': account_id,
+        'project_id': project_id,
+        'name': name,
+        'description': description,
+        'total_amount': total_amount,
+        'months': months,
+        'first_due_date': first_due_date,
+        'category': category,
+        if (categoryId != null) 'category_id': categoryId,
+        if (subcategoryId != null) 'subcategory_id': subcategoryId,
+      },
+    );
     return PaymentItem.fromJson(res as Map<String, dynamic>);
   }
 
   // Analytics
   Future<List<BalanceHistoryItem>> getBalanceHistory() async {
     final res = await api.get('/api/balance-history');
-    return (res as List).map((e) => BalanceHistoryItem.fromJson(e as Map<String, dynamic>)).toList();
+    return (res as List)
+        .map((e) => BalanceHistoryItem.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> rebuildBalanceHistory() async {
@@ -490,12 +591,15 @@ class DataService {
     int? timezoneOffsetMin,
     String? timezoneName,
   }) async {
-    await api.post('/api/device-tokens', body: {
-      'token': token,
-      'platform': platform,
-      if (timezoneOffsetMin != null) 'timezone_offset_min': timezoneOffsetMin,
-      if (timezoneName != null) 'timezone_name': timezoneName,
-    });
+    await api.post(
+      '/api/device-tokens',
+      body: {
+        'token': token,
+        'platform': platform,
+        if (timezoneOffsetMin != null) 'timezone_offset_min': timezoneOffsetMin,
+        if (timezoneName != null) 'timezone_name': timezoneName,
+      },
+    );
   }
 
   Future<Map<String, dynamic>> pushNotificationsNow() async {
@@ -508,7 +612,9 @@ class DataService {
     if (res is Map && res['reply'] != null) {
       return res['reply'] as String? ?? '';
     }
-    throw Exception(res is Map && res['message'] != null ? res['message'] : 'AI chat failed');
+    throw Exception(
+      res is Map && res['message'] != null ? res['message'] : 'AI chat failed',
+    );
   }
 
   // Activate Pro on the server after a successful store purchase
@@ -533,12 +639,15 @@ class DataService {
     required double annualRate,
     required String startDate, // YYYY-MM-DD
   }) async {
-    final res = await api.post('/api/investments', body: {
-      'name': name,
-      'principal': principal,
-      'annual_rate': annualRate,
-      'start_date': startDate,
-    });
+    final res = await api.post(
+      '/api/investments',
+      body: {
+        'name': name,
+        'principal': principal,
+        'annual_rate': annualRate,
+        'start_date': startDate,
+      },
+    );
     return res as Map<String, dynamic>;
   }
 
@@ -549,12 +658,15 @@ class DataService {
     required double annualRate,
     required String startDate,
   }) async {
-    final res = await api.put('/api/investments/$id', body: {
-      'name': name,
-      'principal': principal,
-      'annual_rate': annualRate,
-      'start_date': startDate,
-    });
+    final res = await api.put(
+      '/api/investments/$id',
+      body: {
+        'name': name,
+        'principal': principal,
+        'annual_rate': annualRate,
+        'start_date': startDate,
+      },
+    );
     return res as Map<String, dynamic>;
   }
 
@@ -567,19 +679,22 @@ class DataService {
     required double amount,
     required String date, // YYYY-MM-DD
   }) async {
-    final res = await api.post('/api/investments/$investmentId/contributions', body: {
-      'amount': amount,
-      'date': date,
-    });
+    final res = await api.post(
+      '/api/investments/$investmentId/contributions',
+      body: {'amount': amount, 'date': date},
+    );
     return res as Map<String, dynamic>;
   }
 
   // Link Play Billing purchase token
-  Future<void> linkPlayPurchase({required String productId, required String purchaseToken}) async {
-    await api.post('/api/play/link', body: {
-      'productId': productId,
-      'purchaseToken': purchaseToken,
-    });
+  Future<void> linkPlayPurchase({
+    required String productId,
+    required String purchaseToken,
+  }) async {
+    await api.post(
+      '/api/play/link',
+      body: {'productId': productId, 'purchaseToken': purchaseToken},
+    );
   }
 
   // Sync Play Billing status for current user
@@ -616,15 +731,18 @@ class DataService {
     int? accountId,
     bool isActive = true,
   }) async {
-    final res = await api.post('/api/salaries', body: {
-      'name': name,
-      'amount': amount,
-      'schedule': schedule,
-      'weekday': weekday,
-      'day': day,
-      'account_id': accountId,
-      'is_active': isActive,
-    });
+    final res = await api.post(
+      '/api/salaries',
+      body: {
+        'name': name,
+        'amount': amount,
+        'schedule': schedule,
+        'weekday': weekday,
+        'day': day,
+        'account_id': accountId,
+        'is_active': isActive,
+      },
+    );
     return res as Map<String, dynamic>;
   }
 
@@ -638,15 +756,18 @@ class DataService {
     int? accountId,
     bool? isActive,
   }) async {
-    final res = await api.put('/api/salaries/$id', body: {
-      'name': name,
-      'amount': amount,
-      'schedule': schedule,
-      'weekday': weekday,
-      'day': day,
-      'account_id': accountId,
-      'is_active': isActive,
-    });
+    final res = await api.put(
+      '/api/salaries/$id',
+      body: {
+        'name': name,
+        'amount': amount,
+        'schedule': schedule,
+        'weekday': weekday,
+        'day': day,
+        'account_id': accountId,
+        'is_active': isActive,
+      },
+    );
     return res as Map<String, dynamic>;
   }
 

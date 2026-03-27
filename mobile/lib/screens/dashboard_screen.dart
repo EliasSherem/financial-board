@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../widgets/account_summary.dart';
 import '../widgets/project_summaries.dart';
 import '../widgets/recent_transactions.dart';
 import '../widgets/upcoming_events.dart';
@@ -87,10 +86,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final accountsFuture = data.getAccounts();
     final txsFuture = data.getTransactions();
     final projectsFuture = data.getProjects().catchError((_) => <Project>[]);
-    final paymentsFuture = data.getPayments().catchError((_) => <PaymentItem>[]);
-    final bhFuture = data.getBalanceHistory().catchError((_) => <BalanceHistoryItem>[]);
-    final investmentsFuture = data.getInvestments().catchError((_) => <Map<String, dynamic>>[]);
-    final categoriesFuture = data.getExpenseCategories().catchError((_) => <ExpenseCategory>[]);
+    final paymentsFuture = data.getPayments().catchError(
+      (_) => <PaymentItem>[],
+    );
+    final bhFuture = data.getBalanceHistory().catchError(
+      (_) => <BalanceHistoryItem>[],
+    );
+    final investmentsFuture = data.getInvestments().catchError(
+      (_) => <Map<String, dynamic>>[],
+    );
+    final categoriesFuture = data.getExpenseCategories().catchError(
+      (_) => <ExpenseCategory>[],
+    );
 
     return await Future.wait<Object>([
       accountsFuture,
@@ -177,12 +184,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final projects = (snap.data![2] as List<Project>);
         final payments = (snap.data![3] as List<PaymentItem>);
         final bh = (snap.data![4] as List<BalanceHistoryItem>);
-        final investments = (snap.data![5] as List<Map<String, dynamic>>);
         final categories = (snap.data![6] as List<ExpenseCategory>);
 
         // Sum account balances (investment accounts already include estimated value)
-        final totalBalance =
-            accounts.fold<double>(0, (sum, a) => sum + a.displayBalance);
+        final totalBalance = accounts.fold<double>(
+          0,
+          (sum, a) => sum + a.displayBalance,
+        );
         // KPIs
         double monthExpense(List<TransactionItem> list, DateTime d) {
           final key =
@@ -192,7 +200,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
           double sum = 0;
           for (final t in filtered) {
-            if (t.amount < 0) sum += t.amount.abs();
+            if (t.isExpense) sum += t.amount.abs();
           }
           return sum;
         }
@@ -205,7 +213,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
           double sum = 0;
           for (final t in filtered) {
-            if (t.amount > 0) sum += t.amount;
+            if (t.isIncome) sum += t.amount;
           }
           return sum;
         }
@@ -246,7 +254,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final monthKey =
               '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
           for (final t in txs) {
-            if (t.amount >= 0) continue;
+            if (!t.isExpense) continue;
             if (!t.date.toIso8601String().startsWith(monthKey)) continue;
             final subId = t.subcategoryId;
             if (subId == null) continue;
@@ -356,18 +364,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         late List<InlineSpan> insightSpans;
 
         if (insightType == 0) {
-          insightIcon =
-              netUp ? Icons.trending_up : Icons.trending_down;
+          insightIcon = netUp ? Icons.trending_up : Icons.trending_down;
           insightColor = netUp ? Colors.green : Colors.red;
           insightSpans = [
             const TextSpan(text: 'Net '),
             TextSpan(
               text: netUp ? 'up ' : 'down ',
-              style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: insightColor,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             TextSpan(
               text: netAmount,
-              style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: insightColor,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const TextSpan(text: ' this month'),
           ];
@@ -379,7 +392,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const TextSpan(text: 'Budget used '),
               TextSpan(
                 text: '$budgetPercentLabel%',
-                style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: insightColor,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               TextSpan(text: ' of ${money(totalBudget)}'),
             ];
@@ -396,7 +412,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const TextSpan(text: 'No upcoming risks in the next '),
               TextSpan(
                 text: '$riskWindowDays days',
-                style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: insightColor,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ];
           } else {
@@ -407,19 +426,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const TextSpan(text: 'Over budget by '),
                 TextSpan(
                   text: money(spentBudget - totalBudget),
-                  style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: insightColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const TextSpan(text: ' and '),
                 TextSpan(
                   text: '$dueCount',
-                  style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: insightColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 TextSpan(
-                  text: dueCount == 1 ? ' payment due in the next ' : ' payments due in the next ',
+                  text:
+                      dueCount == 1
+                          ? ' payment due in the next '
+                          : ' payments due in the next ',
                 ),
                 TextSpan(
                   text: '$riskWindowDays days',
-                  style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: insightColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ];
             } else if (nearBudget && dueCount > 0) {
@@ -427,33 +458,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const TextSpan(text: 'Budget at '),
                 TextSpan(
                   text: '$budgetPercentLabel%',
-                  style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: insightColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const TextSpan(text: ' and '),
                 TextSpan(
                   text: '$dueCount',
-                  style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: insightColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 TextSpan(
-                  text: dueCount == 1 ? ' payment due in the next ' : ' payments due in the next ',
+                  text:
+                      dueCount == 1
+                          ? ' payment due in the next '
+                          : ' payments due in the next ',
                 ),
                 TextSpan(
                   text: '$riskWindowDays days',
-                  style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: insightColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ];
             } else if (dueCount > 0) {
               insightSpans = [
                 TextSpan(
                   text: '$dueCount',
-                  style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: insightColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 TextSpan(
-                  text: dueCount == 1 ? ' payment due in the next ' : ' payments due in the next ',
+                  text:
+                      dueCount == 1
+                          ? ' payment due in the next '
+                          : ' payments due in the next ',
                 ),
                 TextSpan(
                   text: '$riskWindowDays days',
-                  style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: insightColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ];
             } else if (overBudget) {
@@ -461,7 +513,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const TextSpan(text: 'Over budget by '),
                 TextSpan(
                   text: money(spentBudget - totalBudget),
-                  style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: insightColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const TextSpan(text: ' this month'),
               ];
@@ -470,7 +525,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const TextSpan(text: 'Budget at '),
                 TextSpan(
                   text: '$budgetPercentLabel%',
-                  style: TextStyle(color: insightColor, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: insightColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const TextSpan(text: ' this month'),
               ];
@@ -516,53 +574,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final Widget? savingsGoalCard =
             hasSavingsGoal
                 ? Card(
-                    color:
-                        isDark
-                            ? Theme.of(context).colorScheme.surface
-                            : Colors.blue.shade50,
-                    elevation: 6,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.savings_outlined, size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  I18n.t(context, 'savingsGoal.title'),
-                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                ),
+                  color:
+                      isDark
+                          ? Theme.of(context).colorScheme.surface
+                          : Colors.blue.shade50,
+                  elevation: 6,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.savings_outlined, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                I18n.t(context, 'savingsGoal.title'),
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w600),
                               ),
-                              Text(
-                                savingsPercentLabel,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: LinearProgressIndicator(
-                              value: savingsProgress,
-                              minHeight: 8,
                             ),
+                            Text(
+                              savingsPercentLabel,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                            value: savingsProgress,
+                            minHeight: 8,
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${I18n.t(context, 'savingsGoal.saved')} ${money(savedThisMonth)} / ${money(savingsGoal)}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${I18n.t(context, 'savingsGoal.saved')} ${money(savedThisMonth)} / ${money(savingsGoal)}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
                     ),
-                  )
+                  ),
+                )
                 : null;
 
         return RefreshIndicator(
@@ -598,7 +654,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             TextSpan(
                               style: insightStyle,
                               children: [
-                                TextSpan(text: '$partOfDay, ', style: titleStyle),
+                                TextSpan(
+                                  text: '$partOfDay, ',
+                                  style: titleStyle,
+                                ),
                                 TextSpan(
                                   text: auth.userName,
                                   style: titleStyle?.copyWith(
@@ -657,11 +716,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               deltaIsPositive: growth >= 0,
                               subtitle: I18n.t(context, 'kpi.balanceGrowth'),
                             ),
-                          KpiCard(
-                            title: I18n.t(context, 'kpi.netThisMonth'),
-                            value: money(currNet),
-                            icon: Icons.account_balance_wallet_outlined,
-                          ),
+                            KpiCard(
+                              title: I18n.t(context, 'kpi.netThisMonth'),
+                              value: money(currNet),
+                              icon: Icons.account_balance_wallet_outlined,
+                            ),
                             KpiCard(
                               title: I18n.t(context, 'kpi.thisMonthExpenses'),
                               value: money(currExp),
@@ -671,13 +730,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               titleMaxLines: 2,
                               subtitle: I18n.t(context, 'kpi.vsLastMonth'),
                             ),
-                          KpiCard(
-                            title: I18n.t(context, 'kpi.budgetOverview'),
-                            value: money(totalBudget),
-                            icon: Icons.pie_chart_outline,
-                            titleMaxLines: 2,
-                            footer: budgetFooter,
-                          ),
+                            KpiCard(
+                              title: I18n.t(context, 'kpi.budgetOverview'),
+                              value: money(totalBudget),
+                              icon: Icons.pie_chart_outline,
+                              titleMaxLines: 2,
+                              footer: budgetFooter,
+                            ),
                           ];
                           // Two uniform-height tiles per row; last odd spans full width
                           final cols = 2;

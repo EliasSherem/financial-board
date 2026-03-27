@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
@@ -97,7 +97,11 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
         if (!mounted) return;
         final api = ApiClient()..setToken(context.read<AuthStore>().token);
         final data = DataService(api);
-        await _showCreateAccount(context, data, forceCreate: widget.forceCreate);
+        await _showCreateAccount(
+          context,
+          data,
+          forceCreate: widget.forceCreate,
+        );
         _opened = true;
       });
     }
@@ -151,10 +155,7 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
       );
     }
 
-    final total = accounts.fold<double>(
-      0,
-      (s, a) => s + a.displayBalance,
-    );
+    final total = accounts.fold<double>(0, (s, a) => s + a.displayBalance);
     final activeCount = accounts.where((a) => a.isActive).length;
     final highest =
         accounts.isEmpty
@@ -176,9 +177,7 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                 ? Theme.of(context).colorScheme.surface
                 : Colors.blue.shade50,
         elevation: 6,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -187,9 +186,8 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color:
-                      (iconColor ?? Theme.of(context).colorScheme.primary)
-                          .withOpacity(0.12),
+                  color: (iconColor ?? Theme.of(context).colorScheme.primary)
+                      .withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
@@ -204,10 +202,7 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
+                    Text(title, style: Theme.of(context).textTheme.labelLarge),
                     const SizedBox(height: 2),
                     FittedBox(
                       fit: BoxFit.scaleDown,
@@ -288,14 +283,9 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                             ),
                             child: Text(
                               a.isInvestment
-                                  ? I18n.t(
-                                    context,
-                                    'accounts.type.investment',
-                                  )
+                                  ? I18n.t(context, 'accounts.type.investment')
                                   : a.type!,
-                              style: const TextStyle(
-                                color: Color(0xFF2563EB),
-                              ),
+                              style: const TextStyle(color: Color(0xFF2563EB)),
                             ),
                           ),
                       ],
@@ -371,16 +361,12 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                                     actions: [
                                       TextButton(
                                         onPressed:
-                                            () => Navigator.of(
-                                              dctx,
-                                            ).pop(false),
+                                            () => Navigator.of(dctx).pop(false),
                                         child: const Text('Cancel'),
                                       ),
                                       FilledButton(
                                         onPressed:
-                                            () => Navigator.of(
-                                              dctx,
-                                            ).pop(true),
+                                            () => Navigator.of(dctx).pop(true),
                                         child: const Text('Delete'),
                                       ),
                                     ],
@@ -448,7 +434,9 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                 ),
                 const SizedBox(height: 12),
               ],
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   FilledButton.icon(
                     onPressed:
@@ -459,6 +447,14 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                         ),
                     icon: const Icon(Icons.add),
                     label: Text(I18n.t(context, 'label.addAccount')),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed:
+                        _loading
+                            ? null
+                            : () => _showTransferDialog(context, data),
+                    icon: const Icon(Icons.swap_horiz),
+                    label: Text(I18n.t(context, 'accounts.transferFunds')),
                   ),
                 ],
               ),
@@ -510,10 +506,222 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
     );
   }
 
-  Future<void> _showCreateAccount(
+  Future<void> _showTransferDialog(
     BuildContext context,
     DataService data,
-    {
+  ) async {
+    String tr(String key) => I18n.tr(context, key);
+    final messenger = ScaffoldMessenger.of(context);
+    List<Account> accounts = List<Account>.from(_accounts);
+    if (accounts.length < 2) {
+      try {
+        accounts = await data.getAccounts();
+      } catch (e) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(content: Text('Failed to load accounts: $e')),
+        );
+        return;
+      }
+    }
+    if (!mounted) return;
+    if (accounts.length < 2) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(tr('accounts.transferNeedTwo'))),
+      );
+      return;
+    }
+
+    int? fromId = accounts.first.id;
+    int? toId = accounts[1].id;
+    final amountCtrl = TextEditingController();
+    final descriptionCtrl = TextEditingController(
+      text: tr('accounts.transferDescriptionHint'),
+    );
+    DateTime transferDate = DateTime.now();
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder:
+          (_) => StatefulBuilder(
+            builder:
+                (dialogContext, setStateDialog) => AlertDialog(
+                  title: Text(tr('accounts.transferFunds')),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<int>(
+                                value: fromId,
+                                items:
+                                    accounts
+                                        .map(
+                                          (account) => DropdownMenuItem<int>(
+                                            value: account.id,
+                                            child: Text(account.name),
+                                          ),
+                                        )
+                                        .toList(),
+                                onChanged:
+                                    (value) =>
+                                        setStateDialog(() => fromId = value),
+                                decoration: InputDecoration(
+                                  labelText: tr('accounts.transferFrom'),
+                                  border: const OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: DropdownButtonFormField<int>(
+                                value: toId,
+                                items:
+                                    accounts
+                                        .map(
+                                          (account) => DropdownMenuItem<int>(
+                                            value: account.id,
+                                            child: Text(account.name),
+                                          ),
+                                        )
+                                        .toList(),
+                                onChanged:
+                                    (value) =>
+                                        setStateDialog(() => toId = value),
+                                decoration: InputDecoration(
+                                  labelText: tr('accounts.transferTo'),
+                                  border: const OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: amountCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: tr('accounts.transferAmount'),
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          readOnly: true,
+                          controller: TextEditingController(
+                            text: formatDate(transferDate),
+                          ),
+                          decoration: InputDecoration(
+                            labelText: tr('accounts.transferDate'),
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.calendar_today_outlined),
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: dialogContext,
+                                  initialDate: transferDate,
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime(2100),
+                                );
+                                if (picked != null) {
+                                  setStateDialog(() => transferDate = picked);
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: descriptionCtrl,
+                          decoration: InputDecoration(
+                            labelText: tr('accounts.transferDescription'),
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: Text(tr('label.cancel')),
+                    ),
+                    FilledButton(
+                      onPressed: () async {
+                        final amount = double.tryParse(amountCtrl.text) ?? 0;
+                        if (fromId == null ||
+                            toId == null ||
+                            fromId == toId ||
+                            amount <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(tr('accounts.transferInvalid')),
+                            ),
+                          );
+                          return;
+                        }
+
+                        final fromAccount = accounts.firstWhere(
+                          (account) => account.id == fromId,
+                        );
+                        final toAccount = accounts.firstWhere(
+                          (account) => account.id == toId,
+                        );
+                        if (fromAccount.editableBalance < amount) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                tr('accounts.transferInsufficient'),
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        try {
+                          await data.transferFunds(
+                            fromAccount: fromAccount,
+                            toAccount: toAccount,
+                            date: transferDate,
+                            amount: amount,
+                            description: descriptionCtrl.text,
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext, true);
+                          }
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to transfer funds: $e'),
+                            ),
+                          );
+                        }
+                      },
+                      child: Text(tr('accounts.transferSubmit')),
+                    ),
+                  ],
+                ),
+          ),
+    );
+
+    if (saved == true && mounted) {
+      final refreshBus = context.read<RefreshBus>();
+      refreshBus.notifyAccounts();
+      refreshBus.notifyTransactions();
+      await _refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(tr('accounts.transferSuccess'))));
+    }
+  }
+
+  Future<void> _showCreateAccount(
+    BuildContext context,
+    DataService data, {
     bool forceCreate = false,
   }) async {
     final nameCtrl = TextEditingController();
@@ -550,70 +758,70 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                               border: const OutlineInputBorder(),
                             ),
                           ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          value: type,
-                          items:
-                              types
-                                  .map(
-                                    (t) => DropdownMenuItem(
-                                      value: t,
-                                      child: Text(t),
-                                    ),
-                                  )
-                                  .toList(),
-                          onChanged:
-                              (v) => setState(() => type = v ?? 'Checking'),
-                          decoration: InputDecoration(
-                            labelText: I18n.t(context, 'accounts.type'),
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: balanceCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: I18n.t(
-                              context,
-                              'accounts.initialBalance',
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: type,
+                            items:
+                                types
+                                    .map(
+                                      (t) => DropdownMenuItem(
+                                        value: t,
+                                        child: Text(t),
+                                      ),
+                                    )
+                                    .toList(),
+                            onChanged:
+                                (v) => setState(() => type = v ?? 'Checking'),
+                            decoration: InputDecoration(
+                              labelText: I18n.t(context, 'accounts.type'),
+                              border: const OutlineInputBorder(),
                             ),
-                            border: const OutlineInputBorder(),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: bankCtrl,
-                          decoration: InputDecoration(
-                            labelText: I18n.t(
-                              context,
-                              'accounts.bankNameOptional',
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: balanceCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: I18n.t(
+                                context,
+                                'accounts.initialBalance',
+                              ),
+                              border: const OutlineInputBorder(),
                             ),
-                            border: const OutlineInputBorder(),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: numberCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: I18n.t(
-                              context,
-                              'accounts.accountNumberOptional',
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: bankCtrl,
+                            decoration: InputDecoration(
+                              labelText: I18n.t(
+                                context,
+                                'accounts.bankNameOptional',
+                              ),
+                              border: const OutlineInputBorder(),
                             ),
-                            hintText: '****1234',
-                            border: const OutlineInputBorder(),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        SwitchListTile(
-                          value: isActive,
-                          onChanged: (v) => setState(() => isActive = v),
-                          title: Text(I18n.t(context, 'accounts.active')),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: numberCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: I18n.t(
+                                context,
+                                'accounts.accountNumberOptional',
+                              ),
+                              hintText: '****1234',
+                              border: const OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SwitchListTile(
+                            value: isActive,
+                            onChanged: (v) => setState(() => isActive = v),
+                            title: Text(I18n.t(context, 'accounts.active')),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                     actions: [
                       if (!forceCreate)
                         TextButton(

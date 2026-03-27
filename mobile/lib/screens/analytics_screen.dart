@@ -113,18 +113,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         final accounts = snap.data![0] as List<Account>;
         final transactions = snap.data![1] as List<TransactionItem>;
         final balanceHistory = snap.data![2] as List<BalanceHistoryItem>;
-        final investments = snap.data![3] as List<Map<String, dynamic>>;
-
-        final investmentsTotal = accounts
-            .where((a) => a.isInvestment)
-            .fold<double>(0, (sum, a) => sum + a.displayBalance);
-        final totalBalance =
-            accounts.fold<double>(0, (sum, a) => sum + a.displayBalance);
+        final totalBalance = accounts.fold<double>(
+          0,
+          (sum, a) => sum + a.displayBalance,
+        );
         final highestAccount = _highestAccount(accounts);
 
         final balanceDatasets = _buildBalanceDatasets(accounts, balanceHistory);
-        final expenseByCategory = _bucketByCategory(transactions, expense: true);
-        final incomeByCategory = _bucketByCategory(transactions, expense: false);
+        final expenseByCategory = _bucketByCategory(
+          transactions,
+          expense: true,
+        );
+        final incomeByCategory = _bucketByCategory(
+          transactions,
+          expense: false,
+        );
 
         return Scaffold(
           appBar: AppBar(title: Text(I18n.t(context, 'title.analytics'))),
@@ -174,25 +177,25 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     if (history.isEmpty) {
       final now = DateTime.now();
       final label = DateFormat('MMM yyyy').format(now);
-      final total = accounts.fold<double>(0, (sum, a) => sum + a.displayBalance);
+      final total = accounts.fold<double>(
+        0,
+        (sum, a) => sum + a.displayBalance,
+      );
       final accountValues = <String, double>{};
       for (final account in accounts) {
         accountValues[_slug(account.name)] = _round(account.displayBalance);
       }
       return _BalanceDatasets(
-        totalSeries: [
-          _Point(label: label, value: _round(total)),
-        ],
-        accountSeries: [
-          _AccountSeriesRow(label: label, values: accountValues),
-        ],
+        totalSeries: [_Point(label: label, value: _round(total))],
+        accountSeries: [_AccountSeriesRow(label: label, values: accountValues)],
         growthPercent: 0,
       );
     }
 
     final monthly = <String, Map<int, double>>{};
     for (final row in history) {
-      final key = '${row.year.toString().padLeft(4, '0')}-${row.month.toString().padLeft(2, '0')}';
+      final key =
+          '${row.year.toString().padLeft(4, '0')}-${row.month.toString().padLeft(2, '0')}';
       monthly.putIfAbsent(key, () => {});
       monthly[key]![row.accountId] = row.balance;
     }
@@ -230,25 +233,30 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       }
     }
 
-    return _BalanceDatasets(totalSeries: totalSeries, accountSeries: perAccountSeries, growthPercent: growth);
+    return _BalanceDatasets(
+      totalSeries: totalSeries,
+      accountSeries: perAccountSeries,
+      growthPercent: growth,
+    );
   }
 
-  static Map<String, double> _bucketByCategory(List<TransactionItem> txs, {required bool expense}) {
+  static Map<String, double> _bucketByCategory(
+    List<TransactionItem> txs, {
+    required bool expense,
+  }) {
     final monthPrefix = DateFormat('yyyy-MM').format(DateTime.now());
     final map = <String, double>{};
     for (final t in txs) {
       final key = t.date.toIso8601String().substring(0, 7);
       if (key != monthPrefix) continue;
-      final amount = t.amount;
-      if (expense && amount >= 0) continue;
-      if (!expense && amount <= 0) continue;
-      final category = t.categoryName ?? t.category ?? 'Other';
-      final value = expense ? amount.abs() : amount;
+      if (expense && !t.isExpense) continue;
+      if (!expense && !t.isIncome) continue;
+      final category = t.effectiveCategory ?? 'Other';
+      final value = expense ? t.amount.abs() : t.amount;
       map.update(category, (v) => v + value, ifAbsent: () => value);
     }
     return map.map((k, v) => MapEntry(k, _round(v)));
   }
-
 }
 
 class _SummaryGrid extends StatelessWidget {
@@ -264,13 +272,14 @@ class _SummaryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final locale = Localizations.localeOf(context);
     final cards = [
       _Card(
         title: I18n.t(context, 'analytics.currentTotalBalance'),
         child: Text(
           money(totalBalance),
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.green),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(color: Colors.green),
         ),
       ),
       _Card(
@@ -292,8 +301,8 @@ class _SummaryGrid extends StatelessWidget {
         child: Text(
           '${growthPercent >= 0 ? '+' : ''}${growthPercent.toStringAsFixed(1)}%',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: growthPercent >= 0 ? Colors.green : Colors.red,
-              ),
+            color: growthPercent >= 0 ? Colors.green : Colors.red,
+          ),
         ),
       ),
     ];
@@ -307,17 +316,10 @@ class _SummaryGrid extends StatelessWidget {
         for (var i = 0; i < cards.length; i++) {
           final isLastOdd = cards.length.isOdd && i == cards.length - 1;
           children.add(
-            SizedBox(
-              width: isLastOdd ? maxWidth : itemWidth,
-              child: cards[i],
-            ),
+            SizedBox(width: isLastOdd ? maxWidth : itemWidth, child: cards[i]),
           );
         }
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: children,
-        );
+        return Wrap(spacing: spacing, runSpacing: spacing, children: children);
       },
     );
   }
@@ -373,72 +375,85 @@ class _BalanceCharts extends StatelessWidget {
           title: I18n.t(context, 'analytics.totalOverTime'),
           child: SizedBox(
             height: 260,
-            child: totalSeries.isEmpty
-                ? Center(child: Text(I18n.t(context, 'analytics.noBalanceData')))
-                : LineChart(
-                    LineChartData(
-                      minY: 0,
-                      maxY: totalMax == 0 ? 1 : totalMax * 1.1,
-                      titlesData: FlTitlesData(
-                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            interval: totalInterval,
-                            reservedSize: 48,
-                            getTitlesWidget: (value, meta) => buildYAxisTitle(value, totalMax, totalInterval),
+            child:
+                totalSeries.isEmpty
+                    ? Center(
+                      child: Text(I18n.t(context, 'analytics.noBalanceData')),
+                    )
+                    : LineChart(
+                      LineChartData(
+                        minY: 0,
+                        maxY: totalMax == 0 ? 1 : totalMax * 1.1,
+                        titlesData: FlTitlesData(
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              interval: totalInterval,
+                              reservedSize: 48,
+                              getTitlesWidget:
+                                  (value, meta) => buildYAxisTitle(
+                                    value,
+                                    totalMax,
+                                    totalInterval,
+                                  ),
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 32,
+                              interval: 1,
+                              getTitlesWidget: (value, meta) {
+                                final index = value.toInt();
+                                if (index < 0 || index >= totalSeries.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Text(
+                                  totalSeries[index].label,
+                                  style: bottomLabelStyle,
+                                );
+                              },
+                            ),
                           ),
                         ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 32,
-                            interval: 1,
-                            getTitlesWidget: (value, meta) {
-                              final index = value.toInt();
-                              if (index < 0 || index >= totalSeries.length) {
-                                return const SizedBox.shrink();
-                              }
-                              return Text(
-                                totalSeries[index].label,
-                                style: bottomLabelStyle,
-                              );
-                            },
+                        lineBarsData: [
+                          LineChartBarData(
+                            isCurved: true,
+                            barWidth: 3,
+                            isStrokeCapRound: true,
+                            color: _lineColors[2],
+                            dotData: const FlDotData(show: false),
+                            belowBarData: BarAreaData(show: false),
+                            spots: [
+                              for (var i = 0; i < totalSeries.length; i++)
+                                FlSpot(i.toDouble(), totalSeries[i].value),
+                            ],
                           ),
+                        ],
+                        gridData: FlGridData(
+                          drawVerticalLine: false,
+                          horizontalInterval: totalInterval,
+                          getDrawingHorizontalLine:
+                              (value) => FlLine(
+                                color: gridColor,
+                                dashArray: const [4, 4],
+                                strokeWidth: 1,
+                              ),
                         ),
-                      ),
-                      lineBarsData: [
-                        LineChartBarData(
-                          isCurved: true,
-                          barWidth: 3,
-                          isStrokeCapRound: true,
-                          color: _lineColors[2],
-                          dotData: const FlDotData(show: false),
-                          belowBarData: BarAreaData(show: false),
-                          spots: [
-                            for (var i = 0; i < totalSeries.length; i++)
-                              FlSpot(i.toDouble(), totalSeries[i].value),
-                          ],
+                        borderData: FlBorderData(
+                          show: true,
+                          border: Border.all(color: borderColor, width: 1),
                         ),
-                      ],
-                      gridData: FlGridData(
-                        drawVerticalLine: false,
-                        horizontalInterval: totalInterval,
-                        getDrawingHorizontalLine: (value) => FlLine(
-                          color: gridColor,
-                          dashArray: const [4, 4],
-                          strokeWidth: 1,
-                        ),
+                        lineTouchData: const LineTouchData(enabled: false),
+                        clipData: const FlClipData.all(),
                       ),
-                      borderData: FlBorderData(
-                        show: true,
-                        border: Border.all(color: borderColor, width: 1),
-                      ),
-                      lineTouchData: const LineTouchData(enabled: false),
-                      clipData: const FlClipData.all(),
                     ),
-                  ),
           ),
         ),
         const SizedBox(height: 16),
@@ -446,90 +461,119 @@ class _BalanceCharts extends StatelessWidget {
           title: I18n.t(context, 'analytics.accountsOverTime'),
           child: SizedBox(
             height: 260,
-            child: perAccountSeries.isEmpty
-                ? Center(child: Text(I18n.t(context, 'analytics.noAccBalanceData')))
-                : Column(
-                    children: [
-                      Expanded(
-                        child: LineChart(
-                          LineChartData(
-                            minY: 0,
-                            maxY: perAccountMax == 0 ? 1 : perAccountMax * 1.1,
-                            titlesData: FlTitlesData(
-                              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                              leftTitles: AxisTitles(
-                                sideTitles: SideTitles(
-                                  showTitles: true,
-                                  interval: perAccountInterval,
-                                  reservedSize: 48,
-                                  getTitlesWidget: (value, meta) =>
-                                      buildYAxisTitle(value, perAccountMax, perAccountInterval),
+            child:
+                perAccountSeries.isEmpty
+                    ? Center(
+                      child: Text(
+                        I18n.t(context, 'analytics.noAccBalanceData'),
+                      ),
+                    )
+                    : Column(
+                      children: [
+                        Expanded(
+                          child: LineChart(
+                            LineChartData(
+                              minY: 0,
+                              maxY:
+                                  perAccountMax == 0 ? 1 : perAccountMax * 1.1,
+                              titlesData: FlTitlesData(
+                                topTitles: const AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                                rightTitles: const AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                                leftTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    interval: perAccountInterval,
+                                    reservedSize: 48,
+                                    getTitlesWidget:
+                                        (value, meta) => buildYAxisTitle(
+                                          value,
+                                          perAccountMax,
+                                          perAccountInterval,
+                                        ),
+                                  ),
+                                ),
+                                bottomTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 32,
+                                    interval: 1,
+                                    getTitlesWidget: (value, meta) {
+                                      final index = value.toInt();
+                                      if (index < 0 ||
+                                          index >= perAccountSeries.length) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return Text(
+                                        perAccountSeries[index].label,
+                                        style: bottomLabelStyle,
+                                      );
+                                    },
+                                  ),
                                 ),
                               ),
-                              bottomTitles: AxisTitles(
-                                sideTitles: SideTitles(
-                                  showTitles: true,
-                                  reservedSize: 32,
-                                  interval: 1,
-                                  getTitlesWidget: (value, meta) {
-                                    final index = value.toInt();
-                                    if (index < 0 || index >= perAccountSeries.length) {
-                                      return const SizedBox.shrink();
-                                    }
-                                    return Text(
-                                      perAccountSeries[index].label,
-                                      style: bottomLabelStyle,
-                                    );
-                                  },
+                              lineBarsData: [
+                                for (var i = 0; i < accounts.length; i++)
+                                  LineChartBarData(
+                                    isCurved: true,
+                                    barWidth: 2.5,
+                                    isStrokeCapRound: true,
+                                    dotData: const FlDotData(show: false),
+                                    belowBarData: BarAreaData(show: false),
+                                    color: _lineColors[i % _lineColors.length],
+                                    spots: [
+                                      for (
+                                        var j = 0;
+                                        j < perAccountSeries.length;
+                                        j++
+                                      )
+                                        FlSpot(
+                                          j.toDouble(),
+                                          (perAccountSeries[j].values[_slug(
+                                                accounts[i].name,
+                                              )] ??
+                                              0.0),
+                                        ),
+                                    ],
+                                  ),
+                              ],
+                              gridData: FlGridData(
+                                drawVerticalLine: false,
+                                horizontalInterval: perAccountInterval,
+                                getDrawingHorizontalLine:
+                                    (value) => FlLine(
+                                      color: gridColor,
+                                      dashArray: const [4, 4],
+                                      strokeWidth: 1,
+                                    ),
+                              ),
+                              borderData: FlBorderData(
+                                show: true,
+                                border: Border.all(
+                                  color: borderColor,
+                                  width: 1,
                                 ),
                               ),
-                            ),
-                            lineBarsData: [
-                              for (var i = 0; i < accounts.length; i++)
-                                LineChartBarData(
-                                  isCurved: true,
-                                  barWidth: 2.5,
-                                  isStrokeCapRound: true,
-                                  dotData: const FlDotData(show: false),
-                                  belowBarData: BarAreaData(show: false),
-                                  color: _lineColors[i % _lineColors.length],
-                                  spots: [
-                                    for (var j = 0; j < perAccountSeries.length; j++)
-                                      FlSpot(
-                                        j.toDouble(),
-                                        (perAccountSeries[j].values[_slug(accounts[i].name)] ?? 0.0),
-                                      ),
-                                  ],
-                                ),
-                            ],
-                            gridData: FlGridData(
-                              drawVerticalLine: false,
-                              horizontalInterval: perAccountInterval,
-                              getDrawingHorizontalLine: (value) => FlLine(
-                                color: gridColor,
-                                dashArray: const [4, 4],
-                                strokeWidth: 1,
+                              lineTouchData: const LineTouchData(
+                                enabled: false,
                               ),
+                              clipData: const FlClipData.all(),
                             ),
-                            borderData: FlBorderData(
-                              show: true,
-                              border: Border.all(color: borderColor, width: 1),
-                            ),
-                            lineTouchData: const LineTouchData(enabled: false),
-                            clipData: const FlClipData.all(),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      _LineLegend(
-                        colorByName: {
-                          for (var i = 0; i < accounts.length; i++)
-                            accounts[i].name: _lineColors[i % _lineColors.length],
-                        },
-                      ),
-                    ],
-                  ),
+                        const SizedBox(height: 12),
+                        _LineLegend(
+                          colorByName: {
+                            for (var i = 0; i < accounts.length; i++)
+                              accounts[i].name:
+                                  _lineColors[i % _lineColors.length],
+                          },
+                        ),
+                      ],
+                    ),
           ),
         ),
       ],
@@ -538,10 +582,7 @@ class _BalanceCharts extends StatelessWidget {
 }
 
 class _CategoryCharts extends StatelessWidget {
-  const _CategoryCharts({
-    required this.expenseData,
-    required this.incomeData,
-  });
+  const _CategoryCharts({required this.expenseData, required this.incomeData});
 
   final Map<String, double> expenseData;
   final Map<String, double> incomeData;
@@ -720,9 +761,8 @@ class _LegendGrid extends StatelessWidget {
       builder: (context, constraints) {
         const gap = 10.0;
         final width = constraints.maxWidth;
-        final tileWidth = width >= 280
-            ? ((width - gap) / 2).toDouble()
-            : width.toDouble();
+        final tileWidth =
+            width >= 280 ? ((width - gap) / 2).toDouble() : width.toDouble();
         return Wrap(
           spacing: gap,
           runSpacing: gap,
@@ -738,9 +778,9 @@ class _LegendGrid extends StatelessWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Theme.of(context).colorScheme.outline.withValues(
-                        alpha: 0.22,
-                      ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outline.withValues(alpha: 0.22),
                     ),
                   ),
                   child: Row(
@@ -763,22 +803,24 @@ class _LegendGrid extends StatelessWidget {
                               item.label,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurface.withValues(
-                                      alpha: 0.75,
-                                    ),
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.75),
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               '${item.percent.toStringAsFixed(0)}%',
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurface,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                              style: Theme.of(
+                                context,
+                              ).textTheme.titleSmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ],
                         ),
@@ -803,15 +845,16 @@ class _AccountSummary extends StatelessWidget {
     return _Card(
       title: I18n.t(context, 'analytics.accountSummary'),
       child: Column(
-        children: accounts
-            .map(
-              (a) => ListTile(
-                title: Text(a.name),
-                subtitle: Text(a.type ?? ''),
-                trailing: Text(money(a.balance)),
-              ),
-            )
-            .toList(),
+        children:
+            accounts
+                .map(
+                  (a) => ListTile(
+                    title: Text(a.name),
+                    subtitle: Text(a.type ?? ''),
+                    trailing: Text(money(a.balance)),
+                  ),
+                )
+                .toList(),
       ),
     );
   }
@@ -914,12 +957,13 @@ class _BalanceDatasets {
   final double growthPercent;
 }
 
-String _slug(String value) => value.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+String _slug(String value) =>
+    value.toLowerCase().replaceAll(RegExp(r'\s+'), '');
 double _round(double value) => (value * 100).round() / 100;
 
 List<_CategorySlice> _buildCategorySlices(Map<String, double> data) {
-  final sorted = data.entries.toList()
-    ..sort((a, b) => b.value.compareTo(a.value));
+  final sorted =
+      data.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
   if (sorted.isEmpty) return const [];
 
   final total = sorted.fold<double>(0, (sum, item) => sum + item.value);

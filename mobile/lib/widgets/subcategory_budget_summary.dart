@@ -24,7 +24,8 @@ class SubcategoryBudgetSummary extends StatelessWidget {
     final items = _buildItems(categories, transactions);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
-      color: isDark ? Theme.of(context).colorScheme.surface : Colors.blue.shade50,
+      color:
+          isDark ? Theme.of(context).colorScheme.surface : Colors.blue.shade50,
       elevation: 6,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -79,23 +80,22 @@ class _BudgetRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   item.name,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
               Text(
                 percentLabel,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isOver ? Theme.of(context).colorScheme.error : null,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: isOver ? Theme.of(context).colorScheme.error : null,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            item.categoryName,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text(item.categoryName, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
@@ -142,12 +142,16 @@ List<_SubcategoryBudgetItem> _buildItems(
   final monthKey = DateFormat('yyyy-MM').format(DateTime.now());
   final Map<int, double> spentBySub = {};
   for (final t in transactions) {
-    if (t.amount >= 0) continue;
+    if (!t.isExpense) continue;
     final subId = t.subcategoryId;
     if (subId == null) continue;
     final key = t.date.toIso8601String().substring(0, 7);
     if (key != monthKey) continue;
-    spentBySub.update(subId, (v) => v + t.amount.abs(), ifAbsent: () => t.amount.abs());
+    spentBySub.update(
+      subId,
+      (v) => v + t.amount.abs(),
+      ifAbsent: () => t.amount.abs(),
+    );
   }
 
   final items = <_SubcategoryBudgetItem>[];
