@@ -24,6 +24,7 @@ class AnalyticsScreen extends StatefulWidget {
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Future<List<Object>>? _future;
   String? _token;
+  DateTime? _selectedMonth;
   late final RefreshBus _refreshBus;
   int _accountsTick = 0;
   int _transactionsTick = 0;
@@ -84,6 +85,98 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
   }
 
+  DateTime _monthStart(DateTime value) => DateTime(value.year, value.month, 1);
+
+  String _monthKey(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}';
+
+  bool _sameMonth(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month;
+
+  List<DateTime> _availableMonths(
+    List<TransactionItem> transactions,
+    List<BalanceHistoryItem> history,
+  ) {
+    final months = <String, DateTime>{};
+    for (final transaction in transactions) {
+      final month = _monthStart(transaction.date);
+      months[_monthKey(month)] = month;
+    }
+    for (final row in history) {
+      final month = DateTime(row.year, row.month, 1);
+      months[_monthKey(month)] = month;
+    }
+    if (months.isEmpty) {
+      final now = _monthStart(DateTime.now());
+      months[_monthKey(now)] = now;
+    }
+    final result = months.values.toList()..sort((a, b) => a.compareTo(b));
+    return result;
+  }
+
+  DateTime _resolveSelectedMonth(List<DateTime> months) {
+    if (months.isEmpty) return _monthStart(DateTime.now());
+    final selected = _selectedMonth;
+    if (selected != null) {
+      for (final month in months) {
+        if (_sameMonth(month, selected)) return month;
+      }
+    }
+    return months.last;
+  }
+
+  Future<void> _pickAnalyticsMonth(
+    List<DateTime> months,
+    DateTime selectedMonth,
+  ) async {
+    if (months.isEmpty) return;
+    if (months.length == 1) {
+      setState(() => _selectedMonth = months.first);
+      return;
+    }
+    final locale = Localizations.localeOf(context).toString();
+    final monthFmt = DateFormat('MMMM yyyy', locale);
+    final displayMonths = months.reversed.toList();
+    final picked = await showModalBottomSheet<DateTime>(
+      context: context,
+      builder:
+          (ctx) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Text(
+                    I18n.tr(context, 'tx.reportPickMonth'),
+                    style: Theme.of(ctx).textTheme.titleMedium,
+                  ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: displayMonths.length,
+                    itemBuilder: (ctx, index) {
+                      final month = displayMonths[index];
+                      final isSelected = _sameMonth(month, selectedMonth);
+                      return ListTile(
+                        title: Text(monthFmt.format(month)),
+                        trailing: isSelected ? const Icon(Icons.check) : null,
+                        selected: isSelected,
+                        onTap: () => Navigator.pop(ctx, month),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedMonth = _monthStart(picked));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthStore>();
@@ -120,12 +213,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         final highestAccount = _highestAccount(accounts);
 
         final balanceDatasets = _buildBalanceDatasets(accounts, balanceHistory);
+        final availableMonths = _availableMonths(transactions, balanceHistory);
+        final selectedMonth = _resolveSelectedMonth(availableMonths);
+        final selectedMonthLabel = DateFormat(
+          'MMMM yyyy',
+          Localizations.localeOf(context).toLanguageTag(),
+        ).format(selectedMonth);
         final expenseByCategory = _bucketByCategory(
           transactions,
+          month: selectedMonth,
           expense: true,
         );
         final incomeByCategory = _bucketByCategory(
           transactions,
+          month: selectedMonth,
           expense: false,
         );
 
@@ -149,9 +250,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   accounts: accounts,
                 ),
                 const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed:
+                        () =>
+                            _pickAnalyticsMonth(availableMonths, selectedMonth),
+                    icon: const Icon(Icons.calendar_month_outlined),
+                    label: Text(selectedMonthLabel),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 _CategoryCharts(
                   expenseData: expenseByCategory,
                   incomeData: incomeByCategory,
+                  selectedMonth: selectedMonth,
                 ),
                 const SizedBox(height: 16),
                 _AccountSummary(accounts: accounts),
@@ -242,9 +355,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   static Map<String, double> _bucketByCategory(
     List<TransactionItem> txs, {
+    required DateTime month,
     required bool expense,
   }) {
-    final monthPrefix = DateFormat('yyyy-MM').format(DateTime.now());
+    final monthPrefix = DateFormat('yyyy-MM').format(month);
     final map = <String, double>{};
     for (final t in txs) {
       final key = t.date.toIso8601String().substring(0, 7);
@@ -582,10 +696,15 @@ class _BalanceCharts extends StatelessWidget {
 }
 
 class _CategoryCharts extends StatelessWidget {
-  const _CategoryCharts({required this.expenseData, required this.incomeData});
+  const _CategoryCharts({
+    required this.expenseData,
+    required this.incomeData,
+    required this.selectedMonth,
+  });
 
   final Map<String, double> expenseData;
   final Map<String, double> incomeData;
+  final DateTime selectedMonth;
 
   @override
   Widget build(BuildContext context) {
@@ -593,18 +712,20 @@ class _CategoryCharts extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _Card(
-          title: I18n.t(context, 'analytics.expensesByCatCM'),
+          title: I18n.t(context, 'analytics.expensesByCat'),
           child: _PieBlock(
             data: expenseData,
             emptyMessageKey: 'analytics.noExpenseData',
+            month: selectedMonth,
           ),
         ),
         const SizedBox(height: 16),
         _Card(
-          title: I18n.t(context, 'analytics.incomeByCatCM'),
+          title: I18n.t(context, 'analytics.incomeByCat'),
           child: _PieBlock(
             data: incomeData,
             emptyMessageKey: 'analytics.noIncomeData',
+            month: selectedMonth,
           ),
         ),
       ],
@@ -613,9 +734,14 @@ class _CategoryCharts extends StatelessWidget {
 }
 
 class _PieBlock extends StatelessWidget {
-  const _PieBlock({required this.data, required this.emptyMessageKey});
+  const _PieBlock({
+    required this.data,
+    required this.emptyMessageKey,
+    required this.month,
+  });
   final Map<String, double> data;
   final String emptyMessageKey;
+  final DateTime month;
 
   @override
   Widget build(BuildContext context) {
@@ -637,8 +763,8 @@ class _PieBlock extends StatelessWidget {
     final top = slices.first;
     final language = Localizations.localeOf(context).languageCode;
     final localeTag = Localizations.localeOf(context).toLanguageTag();
-    final monthLabel = DateFormat('MMMM', localeTag).format(DateTime.now());
-    final totalText = language == 'es' ? 'Total del mes' : 'Total this month';
+    final monthLabel = DateFormat('MMMM yyyy', localeTag).format(month);
+    final totalText = I18n.t(context, 'analytics.monthlyTotal');
     final topText = language == 'es' ? 'MAYOR' : 'HIGHEST';
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;

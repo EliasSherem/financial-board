@@ -236,9 +236,17 @@ class I18n {
       'en': 'Expenses by Category (current month)',
       'es': 'Gastos por categor\u00EDa (mes actual)',
     },
+    'analytics.expensesByCat': {
+      'en': 'Expenses by Category',
+      'es': 'Gastos por categor\u00EDa',
+    },
     'analytics.incomeByCatCM': {
       'en': 'Income by Category (current month)',
       'es': 'Ingresos por categor\u00EDa (mes actual)',
+    },
+    'analytics.incomeByCat': {
+      'en': 'Income by Category',
+      'es': 'Ingresos por categor\u00EDa',
     },
     'analytics.noBalanceData': {
       'en': 'No balance data',
@@ -248,6 +256,7 @@ class I18n {
       'en': 'No account balance data',
       'es': 'Sin datos de saldos por cuenta',
     },
+    'analytics.monthlyTotal': {'en': 'Monthly total', 'es': 'Total mensual'},
     'analytics.noExpenseData': {'en': 'No expense data', 'es': 'Sin gastos'},
     'analytics.noIncomeData': {'en': 'No income data', 'es': 'Sin ingresos'},
     'analytics.accountSummary': {
