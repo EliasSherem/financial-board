@@ -48,8 +48,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   List<Account> _accounts = [];
   List<Project> _projects = [];
   List<String> _categories = [];
-  DateTime? _registeredMonth;
-  bool _registeredMonthLoaded = false;
   bool _reportBusy = false;
 
   @override
@@ -167,17 +165,47 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   void _applyFilters({bool resetVisible = false}) {
-    Iterable<TransactionItem> list = _all;
-    if (_start != null) list = list.where((t) => !t.date.isBefore(_start!));
-    if (_end != null) list = list.where((t) => !t.date.isAfter(_end!));
-    if (_type != null) list = list.where((t) => t.type == _type);
-    if (_category != null && _category!.isNotEmpty) {
-      list = list.where((t) => (t.effectiveCategory ?? '') == _category);
+    _filtered = _filterTransactions(
+      _all,
+      start: _start,
+      end: _end,
+      type: _type,
+      category: _category,
+      accountId: _accountId,
+      projectId: _projectId,
+    );
+    if (resetVisible) {
+      _visible = _filtered.length < 10 ? _filtered.length : 10;
     }
-    if (_accountId != null) list = list.where((t) => t.accountId == _accountId);
-    if (_projectId != null) {
+    setState(() {});
+  }
+
+  List<TransactionItem> _filterTransactions(
+    List<TransactionItem> source, {
+    DateTime? start,
+    DateTime? end,
+    String? type,
+    String? category,
+    int? accountId,
+    Set<int>? accountIds,
+    int? projectId,
+  }) {
+    Iterable<TransactionItem> list = source;
+    if (start != null) list = list.where((t) => !t.date.isBefore(start));
+    if (end != null) list = list.where((t) => !t.date.isAfter(end));
+    if (type != null) list = list.where((t) => t.type == type);
+    if (category != null && category.isNotEmpty) {
+      list = list.where((t) => (t.effectiveCategory ?? '') == category);
+    }
+    if (accountId != null) {
+      list = list.where((t) => t.accountId == accountId);
+    }
+    if (accountIds != null) {
+      list = list.where((t) => accountIds.contains(t.accountId));
+    }
+    if (projectId != null) {
       final p = _projects.firstWhere(
-        (x) => x.id == _projectId,
+        (x) => x.id == projectId,
         orElse:
             () => Project(
               id: -1,
@@ -188,13 +216,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               status: 'Active',
             ),
       );
-      if (p.id != -1) list = list.where((t) => (t.projectName ?? '') == p.name);
+      if (p.id != -1) {
+        list = list.where((t) => (t.projectName ?? '') == p.name);
+      }
     }
-    _filtered = list.toList();
-    if (resetVisible) {
-      _visible = _filtered.length < 10 ? _filtered.length : 10;
-    }
-    setState(() {});
+    return list.toList();
   }
 
   void _onScroll() {
@@ -446,239 +472,350 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
-  DateTime _monthStart(DateTime date) => DateTime(date.year, date.month, 1);
-
-  DateTime? _resolveReportMonth() {
-    if (_start != null && _end != null) {
-      if (_start!.year == _end!.year && _start!.month == _end!.month) {
-        return _monthStart(_start!);
-      }
-    } else if (_start != null) {
-      return _monthStart(_start!);
-    } else if (_end != null) {
-      return _monthStart(_end!);
-    }
-    return null;
-  }
-
-  DateTime? _parseDateValue(dynamic value) {
-    if (value == null) return null;
-    if (value is DateTime) return value;
-    if (value is String) {
-      final parsed = DateTime.tryParse(value);
-      if (parsed != null) return parsed;
-    }
-    if (value is int) {
-      if (value > 1000000000000) {
-        return DateTime.fromMillisecondsSinceEpoch(value);
-      }
-      if (value > 1000000000) {
-        return DateTime.fromMillisecondsSinceEpoch(value * 1000);
-      }
-    }
-    if (value is double) {
-      return _parseDateValue(value.toInt());
-    }
-    if (value is Map) {
-      final date = value['date'];
-      if (date != null) return _parseDateValue(date);
-    }
-    return null;
-  }
-
-  Map<String, dynamic>? _asStringMap(dynamic value) {
-    if (value is Map<String, dynamic>) return value;
-    if (value is Map) {
-      try {
-        return Map<String, dynamic>.from(value);
-      } catch (_) {}
-    }
-    return null;
-  }
-
-  DateTime? _extractRegistrationDate(Map<String, dynamic> me) {
-    DateTime? fromMap(Map<String, dynamic> map) {
-      const keys = [
-        'created_at',
-        'createdAt',
-        'registered_at',
-        'registeredAt',
-        'joined_at',
-        'joinedAt',
-        'signup_at',
-        'signupAt',
-        'created',
-      ];
-      for (final key in keys) {
-        final dt = _parseDateValue(map[key]);
-        if (dt != null) return dt;
-      }
-      return null;
-    }
-
-    final direct = fromMap(me);
-    if (direct != null) return direct;
-    final user = _asStringMap(me['user']);
-    if (user != null) {
-      final dt = fromMap(user);
-      if (dt != null) return dt;
-    }
-    final profile = _asStringMap(me['profile']);
-    if (profile != null) {
-      final dt = fromMap(profile);
-      if (dt != null) return dt;
-    }
-    final data = _asStringMap(me['data']);
-    if (data != null) {
-      final dt = fromMap(data);
-      if (dt != null) return dt;
-    }
-    return null;
-  }
-
-  DateTime? _earliestTransactionDate() {
-    if (_all.isEmpty) return null;
-    var earliest = _all.first.date;
-    for (final t in _all) {
-      if (t.date.isBefore(earliest)) earliest = t.date;
-    }
-    return earliest;
-  }
-
-  Future<void> _ensureRegisteredMonth() async {
-    if (_registeredMonthLoaded) return;
-    _registeredMonthLoaded = true;
-    DateTime? registered;
-    try {
-      final me = await _data.getMe();
-      registered = _extractRegistrationDate(me);
-    } catch (_) {}
-    if (registered != null) {
-      final month = _monthStart(registered);
-      if (_registeredMonth == null || month.isBefore(_registeredMonth!)) {
-        _registeredMonth = month;
-      }
-    }
-    _registeredMonth ??= _monthStart(
-      _earliestTransactionDate() ?? DateTime.now(),
+  _ReportConfig _seedReportConfig() {
+    final selectedAccountIds =
+        _accountId != null
+            ? <int>{_accountId!}
+            : _accounts.map((account) => account.id).toSet();
+    return _ReportConfig(
+      type: _type,
+      category: _category,
+      projectId: _projectId,
+      start: _start,
+      end: _end,
+      accountIds: selectedAccountIds,
     );
   }
 
-  List<DateTime> _availableReportMonths() {
-    final now = _monthStart(DateTime.now());
-    var start = _monthStart(_registeredMonth ?? now);
-    if (start.isAfter(now)) start = now;
-    final months = <DateTime>[];
-    var cursor = DateTime(start.year, start.month, 1);
-    while (!cursor.isAfter(now)) {
-      months.add(cursor);
-      cursor = DateTime(cursor.year, cursor.month + 1, 1);
-    }
-    return months;
-  }
+  Future<_ReportConfig?> _openReportOptionsSheet() async {
+    final seed = _seedReportConfig();
+    String? type = seed.type;
+    String? category = seed.category;
+    int? projectId = seed.projectId;
+    DateTime? start = seed.start;
+    DateTime? end = seed.end;
+    final accountIds = Set<int>.from(seed.accountIds);
 
-  Future<DateTime?> _pickReportMonth({DateTime? selected}) async {
-    await _ensureRegisteredMonth();
-    final months = _availableReportMonths();
-    if (months.isEmpty) return null;
-    if (months.length == 1) return months.first;
-    final locale = Localizations.localeOf(context).toString();
-    final monthFmt = DateFormat('MMMM yyyy', locale);
-    final selectedMonth = selected != null ? _monthStart(selected) : null;
-    final displayMonths = months.reversed.toList();
-    final maxHeight = MediaQuery.of(context).size.height * 0.6;
-
-    return showModalBottomSheet<DateTime>(
+    return showModalBottomSheet<_ReportConfig>(
       context: context,
+      isScrollControlled: true,
       builder: (ctx) {
-        final textTheme = Theme.of(ctx).textTheme;
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxHeight),
-            child: Column(
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Text(
-                    I18n.t(context, 'tx.reportPickMonth'),
-                    style: textTheme.titleMedium,
-                  ),
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            Future<void> pickStart() async {
+              final picked = await showDatePicker(
+                context: ctx,
+                initialDate: start ?? DateTime.now(),
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) {
+                setLocal(
+                  () => start = DateTime(picked.year, picked.month, picked.day),
+                );
+              }
+            }
+
+            Future<void> pickEnd() async {
+              final picked = await showDatePicker(
+                context: ctx,
+                initialDate: end ?? start ?? DateTime.now(),
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) {
+                setLocal(
+                  () =>
+                      end = DateTime(
+                        picked.year,
+                        picked.month,
+                        picked.day,
+                        23,
+                        59,
+                        59,
+                      ),
+                );
+              }
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      I18n.tr(context, 'tx.reportOptions'),
+                      style: Theme.of(ctx).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String?>(
+                      value: type,
+                      decoration: InputDecoration(
+                        border: const OutlineInputBorder(),
+                        labelText: I18n.tr(context, 'tx.type'),
+                      ),
+                      items: [
+                        DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text(I18n.tr(context, 'tx.allTypes')),
+                        ),
+                        DropdownMenuItem<String?>(
+                          value: 'Income',
+                          child: Text(I18n.tr(context, 'tx.income')),
+                        ),
+                        DropdownMenuItem<String?>(
+                          value: 'Expense',
+                          child: Text(I18n.tr(context, 'tx.expense')),
+                        ),
+                      ],
+                      onChanged: (value) => setLocal(() => type = value),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String?>(
+                      value: category,
+                      decoration: InputDecoration(
+                        border: const OutlineInputBorder(),
+                        labelText: I18n.tr(context, 'tx.categories'),
+                      ),
+                      items: [
+                        DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text(I18n.tr(context, 'tx.allCategories')),
+                        ),
+                        ..._categories.map(
+                          (item) => DropdownMenuItem<String?>(
+                            value: item,
+                            child: Text(item),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) => setLocal(() => category = value),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<int?>(
+                      value: projectId,
+                      decoration: InputDecoration(
+                        border: const OutlineInputBorder(),
+                        labelText: I18n.tr(context, 'tx.projects'),
+                      ),
+                      items: [
+                        DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text(I18n.tr(context, 'tx.allProjects')),
+                        ),
+                        ..._projects.map(
+                          (project) => DropdownMenuItem<int?>(
+                            value: project.id,
+                            child: Text(project.name),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) => setLocal(() => projectId = value),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Text(
+                          I18n.tr(context, 'tx.accounts'),
+                          style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed:
+                              () => setLocal(
+                                () =>
+                                    accountIds
+                                      ..clear()
+                                      ..addAll(
+                                        _accounts.map((account) => account.id),
+                                      ),
+                              ),
+                          child: Text(I18n.tr(context, 'tx.allAccounts')),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children:
+                          _accounts.map((account) {
+                            final selected = accountIds.contains(account.id);
+                            return FilterChip(
+                              selected: selected,
+                              label: Text(account.name),
+                              onSelected:
+                                  (value) => setLocal(() {
+                                    if (value) {
+                                      accountIds.add(account.id);
+                                    } else {
+                                      accountIds.remove(account.id);
+                                    }
+                                  }),
+                            );
+                          }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            readOnly: true,
+                            controller: TextEditingController(
+                              text: start == null ? '' : formatDate(start!),
+                            ),
+                            decoration: InputDecoration(
+                              labelText: I18n.tr(context, 'tx.startDate'),
+                              border: const OutlineInputBorder(),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.calendar_today_outlined),
+                                onPressed: pickStart,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            readOnly: true,
+                            controller: TextEditingController(
+                              text: end == null ? '' : formatDate(end!),
+                            ),
+                            decoration: InputDecoration(
+                              labelText: I18n.tr(context, 'tx.endDate'),
+                              border: const OutlineInputBorder(),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.calendar_today_outlined),
+                                onPressed: pickEnd,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            setLocal(() {
+                              type = null;
+                              category = null;
+                              projectId = null;
+                              start = null;
+                              end = null;
+                              accountIds
+                                ..clear()
+                                ..addAll(
+                                  _accounts.map((account) => account.id),
+                                );
+                            });
+                          },
+                          child: Text(I18n.tr(context, 'label.clear')),
+                        ),
+                        const Spacer(),
+                        FilledButton(
+                          onPressed: () {
+                            if (accountIds.isEmpty) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    I18n.tr(context, 'tx.reportSelectAccount'),
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
+                            Navigator.pop(
+                              ctx,
+                              _ReportConfig(
+                                type: type,
+                                category: category,
+                                projectId: projectId,
+                                start: start,
+                                end: end,
+                                accountIds: Set<int>.from(accountIds),
+                              ),
+                            );
+                          },
+                          child: Text(I18n.tr(context, 'tx.generateReport')),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                const Divider(height: 1),
-                Flexible(
-                  child: ListView.builder(
-                    itemCount: displayMonths.length,
-                    itemBuilder: (ctx, index) {
-                      final month = displayMonths[index];
-                      final isSelected =
-                          selectedMonth != null &&
-                          month.year == selectedMonth.year &&
-                          month.month == selectedMonth.month;
-                      return ListTile(
-                        title: Text(monthFmt.format(month)),
-                        trailing: isSelected ? const Icon(Icons.check) : null,
-                        selected: isSelected,
-                        onTap: () => Navigator.pop(ctx, month),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
   }
 
-  List<TransactionItem> _reportTransactions(DateTime month) {
-    Iterable<TransactionItem> list = _all;
-    if (_type != null) list = list.where((t) => t.type == _type);
-    if (_category != null && _category!.isNotEmpty) {
-      list = list.where((t) => (t.effectiveCategory ?? '') == _category);
-    }
-    if (_accountId != null) list = list.where((t) => t.accountId == _accountId);
-    if (_projectId != null) {
-      final p = _projects.firstWhere(
-        (x) => x.id == _projectId,
-        orElse:
-            () => Project(
-              id: -1,
-              name: '',
-              description: null,
-              budget: 0,
-              spent: 0,
-              status: 'Active',
-            ),
-      );
-      if (p.id != -1) list = list.where((t) => (t.projectName ?? '') == p.name);
-    }
-    list = list.where(
-      (t) => t.date.year == month.year && t.date.month == month.month,
-    );
-    final result = list.toList()..sort((a, b) => a.date.compareTo(b.date));
-    return result;
+  List<Account> _reportAccounts(_ReportConfig config) {
+    if (config.accountIds.isEmpty) return List<Account>.from(_accounts);
+    return _accounts
+        .where((account) => config.accountIds.contains(account.id))
+        .toList();
   }
 
-  String _reportFileName(DateTime month) {
-    final mm = month.month.toString().padLeft(2, '0');
-    return 'FinSight_Transactions_${month.year}_$mm.pdf';
+  String _reportDateLabel(
+    _ReportConfig config,
+    DateFormat dateFmt,
+    String allDatesLabel,
+  ) {
+    final start = config.start;
+    final end = config.end;
+    if (start == null && end == null) return allDatesLabel;
+    if (start != null && end != null) {
+      return '${dateFmt.format(start)} - ${dateFmt.format(end)}';
+    }
+    if (start != null)
+      return '${I18n.tr(context, 'tx.startDate')}: ${dateFmt.format(start)}';
+    return '${I18n.tr(context, 'tx.endDate')}: ${dateFmt.format(end!)}';
+  }
+
+  String _reportFileName(_ReportConfig config) {
+    final fmt = DateFormat('yyyy_MM_dd');
+    if (config.start != null && config.end != null) {
+      return 'FinSight_Transactions_${fmt.format(config.start!)}_${fmt.format(config.end!)}.pdf';
+    }
+    if (config.start != null) {
+      return 'FinSight_Transactions_from_${fmt.format(config.start!)}.pdf';
+    }
+    if (config.end != null) {
+      return 'FinSight_Transactions_until_${fmt.format(config.end!)}.pdf';
+    }
+    return 'FinSight_Transactions_${fmt.format(DateTime.now())}.pdf';
   }
 
   Future<Uint8List> _buildReportPdf(
-    DateTime month,
+    _ReportConfig config,
     List<TransactionItem> txs,
+    List<Account> reportAccounts,
   ) async {
     final logoBytes = await rootBundle.load('assets/finsight-icon.png');
     final logo = pw.MemoryImage(logoBytes.buffer.asUint8List());
     final locale = Localizations.localeOf(context).toString();
-    final monthLabel = DateFormat('MMMM yyyy', locale).format(month);
     final dateFmt = DateFormat('dd/MM/yyyy', locale);
     final moneyFmt = NumberFormat.currency(symbol: '\$');
 
     final reportTitle = I18n.tr(context, 'tx.reportTitle');
-    final reportMonth = I18n.tr(context, 'tx.reportMonth');
+    final reportPeriod = I18n.tr(context, 'tx.reportPeriod');
+    final reportAccountsIncluded = I18n.tr(
+      context,
+      'tx.reportAccountsIncluded',
+    );
+    final reportAllDates = I18n.tr(context, 'tx.reportAllDates');
     final reportIncome = I18n.tr(context, 'tx.reportIncome');
     final reportExpense = I18n.tr(context, 'tx.reportExpense');
     final reportNet = I18n.tr(context, 'tx.reportNet');
@@ -694,6 +831,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
     final noDescription = I18n.tr(context, 'tx.noDescription');
     final totalBalanceLabel = I18n.tr(context, 'kpi.totalBalance');
+    final allAccountsLabel = I18n.tr(context, 'tx.allAccounts');
+    final periodLabel = _reportDateLabel(config, dateFmt, reportAllDates);
+    final accountSummary =
+        reportAccounts.isEmpty
+            ? allAccountsLabel
+            : reportAccounts.map((account) => account.name).join(', ');
 
     final headers = [
       I18n.tr(context, 'tx.date'),
@@ -711,7 +854,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
     final accountNameById = <int, String>{};
     final accountBalanceById = <int, double>{};
-    for (final account in _accounts) {
+    for (final account in reportAccounts) {
       accountNameById[account.id] = account.name;
       accountBalanceById[account.id] = account.displayBalance;
     }
@@ -741,8 +884,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             .toList();
     if (balanceRows.isNotEmpty) {
       final totalBalance =
-          _accounts.isNotEmpty
-              ? _accounts.fold<double>(
+          reportAccounts.isNotEmpty
+              ? reportAccounts.fold<double>(
                 0,
                 (sum, account) => sum + account.displayBalance,
               )
@@ -830,7 +973,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ),
             pw.SizedBox(height: 10),
             pw.Text(
-              '$reportMonth: $monthLabel',
+              '$reportPeriod: $periodLabel',
+              style: const pw.TextStyle(fontSize: 11),
+            ),
+            pw.Text(
+              '$reportAccountsIncluded: $accountSummary',
               style: const pw.TextStyle(fontSize: 11),
             ),
             pw.SizedBox(height: 16),
@@ -963,9 +1110,17 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     if (_reportBusy) return;
     setState(() => _reportBusy = true);
     try {
-      final month = await _pickReportMonth(selected: _resolveReportMonth());
-      if (month == null) return;
-      final txs = _reportTransactions(month);
+      final config = await _openReportOptionsSheet();
+      if (config == null) return;
+      final txs = _filterTransactions(
+        _all,
+        start: config.start,
+        end: config.end,
+        type: config.type,
+        category: config.category,
+        accountIds: config.accountIds,
+        projectId: config.projectId,
+      )..sort((a, b) => a.date.compareTo(b.date));
       if (txs.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -973,9 +1128,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         );
         return;
       }
-      final pdfBytes = await _buildReportPdf(month, txs);
+      final reportAccounts = _reportAccounts(config);
+      final pdfBytes = await _buildReportPdf(config, txs, reportAccounts);
       if (!mounted) return;
-      final filename = _reportFileName(month);
+      final filename = _reportFileName(config);
       try {
         await Printing.layoutPdf(
           name: filename,
@@ -1074,6 +1230,24 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       ),
     );
   }
+}
+
+class _ReportConfig {
+  const _ReportConfig({
+    required this.accountIds,
+    this.start,
+    this.end,
+    this.type,
+    this.category,
+    this.projectId,
+  });
+
+  final Set<int> accountIds;
+  final DateTime? start;
+  final DateTime? end;
+  final String? type;
+  final String? category;
+  final int? projectId;
 }
 
 class _TxCard extends StatelessWidget {

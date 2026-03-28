@@ -273,11 +273,23 @@ class I18n {
       'en': 'Transactions Report',
       'es': 'Reporte de transacciones',
     },
+    'tx.reportOptions': {'en': 'Report options', 'es': 'Opciones del reporte'},
     'tx.reportPickMonth': {'en': 'Select month', 'es': 'Selecciona mes'},
     'tx.reportMonth': {'en': 'Month', 'es': 'Mes'},
+    'tx.reportPeriod': {'en': 'Period', 'es': 'Periodo'},
+    'tx.reportAccountsIncluded': {
+      'en': 'Accounts included',
+      'es': 'Cuentas incluidas',
+    },
+    'tx.reportAllDates': {'en': 'All dates', 'es': 'Todas las fechas'},
+    'tx.reportSelectAccount': {
+      'en': 'Select at least one account',
+      'es': 'Selecciona al menos una cuenta',
+    },
+    'tx.generateReport': {'en': 'Generate report', 'es': 'Generar reporte'},
     'tx.reportEmpty': {
-      'en': 'No transactions for the selected month',
-      'es': 'Sin transacciones para el mes seleccionado',
+      'en': 'No transactions for the selected report filters',
+      'es': 'Sin transacciones para los filtros seleccionados del reporte',
     },
     'tx.reportFailed': {
       'en': 'Failed to generate report',
@@ -314,6 +326,7 @@ class I18n {
       'es': 'Todas las categor\u00EDas',
     },
     'tx.accounts': {'en': 'Accounts', 'es': 'Cuentas'},
+    'tx.projects': {'en': 'Projects', 'es': 'Proyectos'},
     'tx.allAccounts': {'en': 'All Accounts', 'es': 'Todas las cuentas'},
     'tx.allProjects': {'en': 'All Projects', 'es': 'Todos los proyectos'},
     'tx.startDate': {'en': 'Start date', 'es': 'Fecha inicio'},
