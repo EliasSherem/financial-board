@@ -85,6 +85,10 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
+  windows:
+    generate: true
+    image_path: assets/finsight-icon.png
+    icon_size: 256
   # Launcher icons need raster images; export your finsight.svg to a square PNG
   # (1024x1024 recommended) and point to it here.
   image_path: assets/finsight-icon.png
