@@ -1,16 +1,21 @@
-# mobile
+# FinSight Mobile
 
-A new Flutter project.
+Flutter mobile app for Financial Board / FinSight.
 
-## Getting Started
+## iOS Testing
 
-This project is a starting point for a Flutter application.
+This app now targets iOS 15.0+ because the current Firebase iOS SDK requires it.
 
-A few resources to get you started if this is your first Flutter project:
+1. Install Flutter and Xcode.
+2. Install CocoaPods if needed: `brew install cocoapods`
+3. Fetch Dart packages: `flutter pub get`
+4. Install iOS pods: `cd ios && pod install`
+5. Run on the iOS simulator: `flutter run -d "iPhone 17"`
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Build-only check:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter build ios --simulator
+```
+
+If you want to test on a physical iPhone, open `ios/Runner.xcworkspace` in Xcode and set your signing team for the `Runner` app target and the `FinancialBoardWidgetExtension` target.
