@@ -9,6 +9,7 @@ plugins {
 
 import java.util.Properties
 import java.io.FileInputStream
+import org.gradle.api.GradleException
 
 // Load signing credentials from android/key.properties (do not commit real secrets)
 val keystoreProperties = Properties()
@@ -16,6 +17,13 @@ val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
+
+val releaseStoreFile = keystoreProperties.getProperty("storeFile")?.takeIf { it.isNotBlank() }
+val hasReleaseSigning =
+    releaseStoreFile != null &&
+    keystoreProperties.getProperty("storePassword")?.isNotBlank() == true &&
+    keystoreProperties.getProperty("keyAlias")?.isNotBlank() == true &&
+    keystoreProperties.getProperty("keyPassword")?.isNotBlank() == true
 
 android {
     namespace = "com.example.mobile"
@@ -42,19 +50,26 @@ android {
         versionCode = 38
         versionName = flutter.versionName
     }
-
+    
     signingConfigs {
         create("release") {
-            val store = keystoreProperties.getProperty("storeFile")
-            if (!store.isNullOrEmpty()) storeFile = file(store)
-            storePassword = keystoreProperties.getProperty("storePassword") ?: ""
-            keyAlias = keystoreProperties.getProperty("keyAlias") ?: ""
-            keyPassword = keystoreProperties.getProperty("keyPassword") ?: ""
+            if (hasReleaseSigning) {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
         }
     }
 
     buildTypes {
         getByName("release") {
+            if (!hasReleaseSigning) {
+                throw GradleException(
+                    "Missing Android release signing config. Add mobile/android/key.properties " +
+                        "with storeFile, storePassword, keyAlias, and keyPassword."
+                )
+            }
             signingConfig = signingConfigs.getByName("release")
 
             // Keep simple for first upload; enable later if needed
