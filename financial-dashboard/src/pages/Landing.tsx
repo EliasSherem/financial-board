@@ -4,6 +4,19 @@ import AppCarousel from '../components/AppCarousel';
 import { useEffect } from 'react';
 import { useI18n } from '../contexts/I18nContext';
 
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.finsight.finsight&pcampaignid=web_share';
+
+function PlayStoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+      <path d="M3 2.5v19l10.5-9.5L3 2.5Z" fill="#00C853" />
+      <path d="M13.5 12 18 7.9 7.2 2 13.5 12Z" fill="#00B0FF" />
+      <path d="M13.5 12 7.2 22 18 16.1 13.5 12Z" fill="#FFAB00" />
+      <path d="M18 7.9 13.5 12 18 16.1 21.5 14c1-.6 1-1.5 0-2.1L18 7.9Z" fill="#FF5252" />
+    </svg>
+  );
+}
+
 export default function Landing() {
   const { language, setLanguage } = useI18n();
   const L = (key: keyof typeof STR, vars?: Record<string, string>) => {
@@ -48,6 +61,17 @@ export default function Landing() {
       {/* Hero Section */}
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
+          <a
+            href={PLAY_STORE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="mb-4 inline-flex items-center justify-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-800 transition-colors hover:bg-green-100"
+          >
+            <span className="rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+              {L('news_label')}
+            </span>
+            <span>{L('news_androidRelease')}</span>
+          </a>
           <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 mb-4">
             <Zap className="w-3 h-3" /> {L('hero_badge')}
           </span>
@@ -57,6 +81,15 @@ export default function Landing() {
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">{L('hero_subtitle')}</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/signup" className="inline-flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-lg px-8 py-3">{L('cta_getStarted')}</Link>
+            <a
+              href={PLAY_STORE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-8 py-3 text-lg font-medium text-gray-900 hover:bg-gray-50"
+            >
+              <PlayStoreIcon />
+              {L('cta_downloadAndroid')}
+            </a>
           </div>
         </div>
       </section>
@@ -179,6 +212,15 @@ export default function Landing() {
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">{L('cta_sub')}</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/signup" className="inline-flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-lg px-8 py-3">{L('cta_getStarted')}</Link>
+            <a
+              href={PLAY_STORE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-8 py-3 text-lg font-medium text-gray-900 hover:bg-gray-50"
+            >
+              <PlayStoreIcon />
+              {L('cta_downloadAndroid')}
+            </a>
           </div>
           <p className="text-sm text-gray-500 mt-4">{L('cta_note')}</p>
         </div>
@@ -214,6 +256,8 @@ const STR = {
   nav_about: { en: 'About', es: 'Acerca de' },
   nav_signin: { en: 'Sign In', es: 'Iniciar sesión' },
   nav_getStarted: { en: 'Get Started', es: 'Comenzar' },
+  news_label: { en: 'New', es: 'Nuevo' },
+  news_androidRelease: { en: 'FinSight has just launched on Android. Download it on Google Play.', es: 'FinSight acaba de lanzarse en Android. Descárgala en Google Play.' },
   hero_badge: { en: 'Financial Intelligence Platform', es: 'Plataforma de inteligencia financiera' },
   hero_title_1: { en: 'Master Your Financial', es: 'Domina tu' },
   hero_title_2: { en: 'Overview', es: 'Panorama financiero' },
@@ -222,6 +266,7 @@ const STR = {
     es: 'Obtén visibilidad completa de tus finanzas con analíticas en tiempo real, insights inteligentes y potentes tableros para la gestión moderna.'
   },
   cta_getStarted: { en: 'Get Started Now', es: 'Comenzar ahora' },
+  cta_downloadAndroid: { en: 'Download on Google Play', es: 'Descargar en Google Play' },
   preview_title: { en: "Explore FinSight's Powerful Features", es: 'Explora las funciones de FinSight' },
   preview_sub: { en: 'See how FinSight transforms your financial management experience', es: 'Mira cómo FinSight transforma la gestión de tus finanzas' },
   about_title: { en: 'About FinSight', es: 'Sobre FinSight' },
