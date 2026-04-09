@@ -13,12 +13,10 @@ import 'screens/investments_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/guide_screen.dart';
 import 'screens/settings_screen.dart';
-import 'screens/update_profile_screen.dart';
 import 'screens/manage_categories_screen.dart';
 import 'screens/ai_chat_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/lock_screen.dart';
-import 'screens/signup_screen.dart';
 import 'services/api.dart';
 import 'services/data_service.dart';
 import 'widgets/new_transaction_dialog.dart';
@@ -26,14 +24,11 @@ import 'state/auth_store.dart';
 import 'state/refresh_bus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'widgets/pro_widgets.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'lang_store.dart';
 import 'i18n.dart';
 import 'widgets/quick_create_dialogs.dart';
-import 'widgets/onboarding_coach.dart';
 
 import 'services/push_service.dart';
 import 'services/widget_service.dart';
@@ -125,13 +120,6 @@ class _HomeShellState extends State<HomeShell> {
   StreamSubscription<Uri>? _widgetSubscription;
   StreamSubscription<PushAction>? _pushSubscription;
   bool _processingWidgetAction = false;
-  OnboardingStep _onboardingStep = OnboardingStep.done;
-  bool _onboardingStarted = false;
-  Completer<void>? _accountCompleter;
-  Completer<void>? _categoriesCompleter;
-  Completer<void>? _transactionCompleter;
-  bool _transactionPromptOpen = false;
-  OnboardingStep? _dismissedCoachStep;
   final GlobalKey<PopupMenuButtonState<String>> _profileMenuKey =
       GlobalKey<PopupMenuButtonState<String>>();
 
@@ -148,17 +136,11 @@ class _HomeShellState extends State<HomeShell> {
       case 3:
         return const PaymentsScreen();
       case 4:
-        final onboardingAccount = _onboardingStep == OnboardingStep.account;
-        return AccountsScreenNew(
-          forceCreate: onboardingAccount,
-          onAccountCreated: onboardingAccount ? _handleAccountCreated : null,
-        );
+        return const AccountsScreenNew();
       default:
         return const DashboardScreen();
     }
   }
-
-  bool get _isOnboarding => _onboardingStep != OnboardingStep.done;
 
   void _setTab(int index) {
     setState(() => _currentIndex = index);
@@ -176,19 +158,7 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _onTab(int index) {
-    if (_isOnboarding) {
-      final required = _requiredOnboardingTab();
-      if (required == null || index != required) {
-        _showOnboardingBlocked();
-        return;
-      }
-    }
     _setTab(index);
-    if (_onboardingStep == OnboardingStep.transaction && index == 1) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _promptTransactionCreate(),
-      );
-    }
   }
 
   @override
@@ -213,7 +183,6 @@ class _HomeShellState extends State<HomeShell> {
           }
         } catch (_) {}
       } catch (_) {}
-      await _maybeStartOnboarding();
     });
     _widgetSubscription = NativeWidgetBridge.widgetEvents.listen(
       _handleWidgetUri,
@@ -241,288 +210,6 @@ class _HomeShellState extends State<HomeShell> {
     super.dispose();
   }
 
-  void _showOnboardingBlocked() {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_onboardingBlockedMessage())),
-    );
-  }
-
-  int? _requiredOnboardingTab() {
-    switch (_onboardingStep) {
-      case OnboardingStep.account:
-        return 4;
-      case OnboardingStep.transaction:
-        return 1;
-      default:
-        return null;
-    }
-  }
-
-  String _onboardingBlockedMessage() {
-    switch (_onboardingStep) {
-      case OnboardingStep.account:
-        return I18n.t(context, 'onboarding.tapAccount');
-      case OnboardingStep.categories:
-        return I18n.t(context, 'onboarding.tapCategories');
-      case OnboardingStep.transaction:
-        return I18n.t(context, 'onboarding.tapTransactions');
-      default:
-        return I18n.t(context, 'onboarding.finishSetup');
-    }
-  }
-
-  PreferredSizeWidget? _onboardingBanner() {
-    if (!_isOnboarding || _dismissedCoachStep != _onboardingStep) {
-      return null;
-    }
-    String? message;
-    switch (_onboardingStep) {
-      case OnboardingStep.account:
-        message = I18n.t(context, 'onboarding.tapAccount');
-        break;
-      case OnboardingStep.categories:
-        message = I18n.t(context, 'onboarding.tapCategories');
-        break;
-      case OnboardingStep.transaction:
-        message = I18n.t(context, 'onboarding.tapTransactions');
-        break;
-      default:
-        message = null;
-    }
-    if (message == null) return null;
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(42),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-          border: Border(
-            bottom: BorderSide(
-              color: Theme.of(context).dividerColor.withOpacity(0.35),
-            ),
-          ),
-        ),
-        child: Text(
-          message,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.primary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-
-  String? _onboardingCoachMessage() {
-    if (!_isOnboarding || _dismissedCoachStep == _onboardingStep) return null;
-    switch (_onboardingStep) {
-      case OnboardingStep.account:
-        return I18n.t(context, 'onboarding.tapAccount');
-      case OnboardingStep.categories:
-        return I18n.t(context, 'onboarding.tapCategories');
-      case OnboardingStep.transaction:
-        return I18n.t(context, 'onboarding.tapTransactions');
-      default:
-        return null;
-    }
-  }
-
-  Widget _buildOnboardingCoach() {
-    final message = _onboardingCoachMessage();
-    if (message == null) return const SizedBox.shrink();
-    return OnboardingCoach(
-      message: message,
-      onOk: () => setState(() => _dismissedCoachStep = _onboardingStep),
-    );
-  }
-
-  String _onboardingKey(String suffix, int userId) =>
-      'onboarding_${suffix}_$userId';
-
-  Future<String?> _promptLanguageSelection() async {
-    return showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (ctx) => WillPopScope(
-            onWillPop: () async => false,
-            child: AlertDialog(
-              title: const Text('Choose your language'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Select the language for the app.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () => Navigator.pop(ctx, 'en'),
-                      child: const Text('English'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx, 'es'),
-                      child: const Text('Espanol'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-    );
-  }
-
-  void _handleAccountCreated() {
-    final completer = _accountCompleter;
-    if (completer != null && !completer.isCompleted) {
-      completer.complete();
-    }
-  }
-
-  Future<void> _handleCategoriesUpdated() async {
-    if (_onboardingStep != OnboardingStep.categories) return;
-    await _checkCategoriesCompletion();
-  }
-
-  Future<void> _checkCategoriesCompletion() async {
-    final completer = _categoriesCompleter;
-    if (completer == null || completer.isCompleted || !mounted) return;
-    final auth = context.read<AuthStore>();
-    if (!auth.isAuthenticated) return;
-    final api = ApiClient()..setToken(auth.token);
-    final data = DataService(api);
-    try {
-      final categories = await data.getExpenseCategories();
-      final done =
-          categories.isNotEmpty &&
-          categories.any((c) => c.subcategories.isNotEmpty);
-      if (!done) return;
-      final sp = await SharedPreferences.getInstance();
-      final userId = auth.userId ?? 0;
-      await sp.setBool(_onboardingKey('categories', userId), true);
-      if (!completer.isCompleted) completer.complete();
-    } catch (_) {}
-  }
-
-  Future<void> _promptTransactionCreate() async {
-    if (_transactionPromptOpen) return;
-    final completer = _transactionCompleter;
-    if (completer == null || completer.isCompleted) return;
-    _transactionPromptOpen = true;
-    try {
-      bool? ok;
-      while (mounted && ok != true) {
-        ok = await showNewTransactionDialog(context, null, forceCreate: true);
-      }
-      if (ok == true && mounted) {
-        final sp = await SharedPreferences.getInstance();
-        final userId = context.read<AuthStore>().userId ?? 0;
-        await sp.setBool(_onboardingKey('tx', userId), true);
-        if (!completer.isCompleted) completer.complete();
-      }
-    } finally {
-      _transactionPromptOpen = false;
-    }
-  }
-
-  Future<void> _maybeStartOnboarding() async {
-    if (_onboardingStarted || !mounted) return;
-    _onboardingStarted = true;
-    final auth = context.read<AuthStore>();
-    if (!auth.isAuthenticated) return;
-    final sp = await SharedPreferences.getInstance();
-    final userId = auth.userId ?? 0;
-    final langKey = _onboardingKey('lang', userId);
-    final accountKey = _onboardingKey('account', userId);
-    final categoriesKey = _onboardingKey('categories', userId);
-    final txKey = _onboardingKey('tx', userId);
-
-    var langDone = sp.getBool(langKey) ?? false;
-    if (!langDone) {
-      if (!mounted) return;
-      setState(() => _onboardingStep = OnboardingStep.language);
-      final selected = await _promptLanguageSelection();
-      if (!mounted || selected == null) return;
-      await context.read<LangStore>().setLang(selected);
-      await sp.setBool(langKey, true);
-      langDone = true;
-    }
-
-    final api = ApiClient()..setToken(auth.token);
-    final data = DataService(api);
-
-    var accountDone = sp.getBool(accountKey) ?? false;
-    if (!accountDone) {
-      try {
-        final accounts = await data.getAccounts();
-        accountDone = accounts.isNotEmpty;
-        if (accountDone) await sp.setBool(accountKey, true);
-      } catch (_) {}
-    }
-    if (!accountDone) {
-      if (!mounted) return;
-      setState(() => _onboardingStep = OnboardingStep.account);
-      _accountCompleter = Completer<void>();
-      await _accountCompleter!.future;
-      _accountCompleter = null;
-      await sp.setBool(accountKey, true);
-    }
-
-    var categoriesDone = sp.getBool(categoriesKey) ?? false;
-    if (!categoriesDone) {
-      try {
-        final categories = await data.getExpenseCategories();
-        categoriesDone =
-            categories.isNotEmpty &&
-            categories.any((c) => c.subcategories.isNotEmpty);
-        if (categoriesDone) await sp.setBool(categoriesKey, true);
-      } catch (_) {}
-    }
-    if (!categoriesDone) {
-      if (!mounted) return;
-      setState(() => _onboardingStep = OnboardingStep.categories);
-      _categoriesCompleter = Completer<void>();
-      await _checkCategoriesCompletion();
-      await _categoriesCompleter!.future;
-      _categoriesCompleter = null;
-      await sp.setBool(categoriesKey, true);
-    }
-
-    var txDone = sp.getBool(txKey) ?? false;
-    if (!txDone) {
-      try {
-        final txs = await data.getTransactions();
-        txDone = txs.isNotEmpty;
-        if (txDone) await sp.setBool(txKey, true);
-      } catch (_) {}
-    }
-    if (!txDone) {
-      if (!mounted) return;
-      setState(() => _onboardingStep = OnboardingStep.transaction);
-      _transactionCompleter = Completer<void>();
-      if (_currentIndex == 1) {
-        WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _promptTransactionCreate(),
-        );
-      }
-      await _transactionCompleter!.future;
-      _transactionCompleter = null;
-      await sp.setBool(txKey, true);
-    }
-
-    if (mounted) {
-      setState(() => _onboardingStep = OnboardingStep.done);
-    }
-  }
-
   void _handleRouteChanged(String? name) {
     final next = (name == null || name.isEmpty) ? '/root' : name;
     if (!mounted || next == _currentRouteName) return;
@@ -533,12 +220,6 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   List<Widget> _buildAppBarActions() {
-    if (_isOnboarding) {
-      if (_onboardingStep == OnboardingStep.categories) {
-        return [_buildProfileMenu(highlight: true)];
-      }
-      return [];
-    }
     return [
       IconButton(
         onPressed: _openNotifications,
@@ -557,13 +238,6 @@ class _HomeShellState extends State<HomeShell> {
         color: highlight ? cs.primary : null,
       ),
       onSelected: (value) async {
-        if (_isOnboarding) {
-          if (_onboardingStep != OnboardingStep.categories ||
-              value != 'categories') {
-            _showOnboardingBlocked();
-            return;
-          }
-        }
         switch (value) {
           case 'guide':
             Navigator.of(context).push(
@@ -682,20 +356,13 @@ class _HomeShellState extends State<HomeShell> {
   Future<void> _openManageCategories() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder:
-            (_) => ManageCategoriesScreen(
-              forceCreate: _onboardingStep == OnboardingStep.categories,
-              onCategoryCreated: _handleCategoriesUpdated,
-              onSubcategoryCreated: _handleCategoriesUpdated,
-            ),
+        builder: (_) => const ManageCategoriesScreen(),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Tie ApiClient token to AuthStore
-    final auth = context.watch<AuthStore>();
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -706,13 +373,9 @@ class _HomeShellState extends State<HomeShell> {
           ],
         ),
         actions: _buildAppBarActions(),
-        bottom: _onboardingBanner(),
       ),
       // Left-side drawer menu with entries moved from bottom nav
-      drawer:
-          _isOnboarding
-              ? null
-              : Drawer(
+      drawer: Drawer(
         child: SafeArea(
           child: ListView(
             padding: EdgeInsets.zero,
@@ -836,16 +499,14 @@ class _HomeShellState extends State<HomeShell> {
               }
             },
           ),
-          if (_isOnboarding) _buildOnboardingCoach(),
         ],
       ),
       bottomNavigationBar: _BottomNavBar(
         current: _currentIndex,
         onTap: _onTab,
-        highlightIndex: _requiredOnboardingTab(),
       ),
       floatingActionButton:
-          _isOnboarding || _currentRouteName == '/ai-chat'
+          _currentRouteName == '/ai-chat'
               ? null
               : FloatingActionButton(
                 onPressed: () => _openAddMenu(),
@@ -856,7 +517,6 @@ class _HomeShellState extends State<HomeShell> {
 
   void _handleWidgetUri(Uri uri) {
     if (!mounted) return;
-    if (_isOnboarding) return;
     final action = NativeWidgetBridge.actionFromUri(uri);
     if (action == null) return;
     switch (action) {
@@ -899,90 +559,6 @@ class _HomeShellState extends State<HomeShell> {
       _processingWidgetAction = false;
     }
   }
-
-  Future<void> _openUpdateProfile() async {
-    final sp = await SharedPreferences.getInstance();
-    String userJson = sp.getString('user') ?? '{}';
-    Map<String, dynamic> user;
-    try {
-      user =
-          userJson.isNotEmpty
-              ? (jsonDecode(userJson) as Map<String, dynamic>)
-              : {};
-    } catch (_) {
-      user = {};
-    }
-    final nameCtrl = TextEditingController(
-      text: (user['username'] as String?) ?? '',
-    );
-    final emailCtrl = TextEditingController(
-      text: (user['email'] as String?) ?? '',
-    );
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  I18n.t(context, 'title.updateProfile'),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: InputDecoration(
-                    labelText: I18n.t(context, 'profile.username'),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: emailCtrl,
-                  decoration: InputDecoration(
-                    labelText: I18n.t(context, 'profile.email'),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton(
-                    onPressed: () async {
-                      final updated = {
-                        ...user,
-                        'username': nameCtrl.text.trim(),
-                        'email': emailCtrl.text.trim(),
-                      };
-                      await sp.setString('user', jsonEncode(updated));
-                      if (mounted) Navigator.pop(ctx);
-                    },
-                    child: Text(I18n.t(context, 'label.save')),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-    if (mounted) setState(() {});
-  }
-
-  // Drawer helper removed
 
   void _openAddMenu() async {
     final api = ApiClient()..setToken(context.read<AuthStore>().token);
@@ -1183,7 +759,7 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _handlePushAction(PushAction action) {
-    if (!mounted || _isOnboarding) return;
+    if (!mounted) return;
     switch (action.targetType) {
       case 'payment':
         _openPaymentFromNotification(action.targetId);
@@ -1234,14 +810,11 @@ class _HomeShellState extends State<HomeShell> {
 
 class _BottomNavBar extends StatelessWidget {
   const _BottomNavBar({
-    super.key,
     required this.current,
     required this.onTap,
-    this.highlightIndex,
   });
   final int current;
   final ValueChanged<int> onTap;
-  final int? highlightIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -1266,11 +839,10 @@ class _BottomNavBar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           child: Row(
             children: List.generate(items.length, (i) {
-              final icon = items[i].$1 as IconData;
-              final label = items[i].$2 as String;
+              final icon = items[i].$1;
+              final label = items[i].$2;
               final isHome = i == 2; // Home is at index 2 now
               final selected = current == i;
-              final highlight = highlightIndex == i;
               return Expanded(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -1282,7 +854,7 @@ class _BottomNavBar extends StatelessWidget {
                         icon: icon,
                         isHome: isHome,
                         selected: selected,
-                        highlight: highlight,
+                        highlight: false,
                         colorScheme: cs,
                       ),
                       const SizedBox(height: 4),
@@ -1395,5 +967,3 @@ class _ContentNavObserver extends NavigatorObserver {
     super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
   }
 }
-
-enum OnboardingStep { language, account, categories, transaction, done }

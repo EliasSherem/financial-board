@@ -11,11 +11,12 @@ class PurchaseService {
   factory PurchaseService() => _instance;
   PurchaseService._internal();
 
-  // Update this to your Play Console product id(s).
-  // You can include multiple ids; the first found will be used.
+  // Store product ids across Android and iOS.
+  // The first product returned by the current store will be used.
   static const Set<String> kIds = {
     'finsight_monthly',
     'finsight_pro_monthly',
+    '7T8M8X5R46',
   };
   StreamSubscription<List<PurchaseDetails>>? _sub;
 
@@ -60,7 +61,7 @@ class PurchaseService {
     final resp = await InAppPurchase.instance.queryProductDetails(kIds);
     if (resp.error != null || resp.productDetails.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product not found. Configure Play Console product id.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product not found. Configure the store product id.')));
       }
       return;
     }
