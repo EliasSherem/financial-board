@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -15,7 +16,12 @@ class ApiClient {
   static String _resolveBaseUrl() {
     final env = const String.fromEnvironment('API_BASE_URL', defaultValue: '');
     if (env.isNotEmpty) return env;
-    return kReleaseMode ? 'https://api.finsight.com.mx' : 'http://10.0.2.2:3001';
+    if (kReleaseMode) return 'https://api.finsight.com.mx';
+    if (kIsWeb) return 'http://localhost:3001';
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => 'http://10.0.2.2:3001',
+      _ => 'http://127.0.0.1:3001',
+    };
   }
 
   final String baseUrl;
@@ -25,57 +31,148 @@ class ApiClient {
     _token = token;
   }
 
-  Uri _uri(String path, [Map<String, dynamic>? query]) => Uri.parse('$baseUrl$path').replace(queryParameters: query?.map((k, v) => MapEntry(k, '$v')));
+  Uri _uri(String path, [Map<String, dynamic>? query]) => Uri.parse(
+    '$baseUrl$path',
+  ).replace(queryParameters: query?.map((k, v) => MapEntry(k, '$v')));
 
-  Future<dynamic> get(String path, {Map<String, dynamic>? query, Headers? headers}) async {
-    final res = await http.get(_uri(path, query), headers: _mergeHeaders(headers));
+  Future<dynamic> get(
+    String path, {
+    Map<String, dynamic>? query,
+    Headers? headers,
+  }) async {
+    final res = await _send(
+      () => http.get(_uri(path, query), headers: _mergeHeaders(headers)),
+    );
     return _decode(res);
   }
 
   Future<dynamic> post(String path, {Object? body, Headers? headers}) async {
-    final mergedHeaders = {'Content-Type': 'application/json', ...?_mergeHeaders(headers)};
-    final res = await http.post(_uri(path), body: jsonEncode(body), headers: mergedHeaders);
+    final mergedHeaders = {
+      'Content-Type': 'application/json',
+      ..._mergeHeaders(headers),
+    };
+    final res = await _send(
+      () =>
+          http.post(_uri(path), body: jsonEncode(body), headers: mergedHeaders),
+    );
     final decoded = _decode(res);
     _notifyMutation(path);
     return decoded;
   }
 
   Future<dynamic> put(String path, {Object? body, Headers? headers}) async {
-    final mergedHeaders = {'Content-Type': 'application/json', ...?_mergeHeaders(headers)};
-    final res = await http.put(_uri(path), body: jsonEncode(body), headers: mergedHeaders);
+    final mergedHeaders = {
+      'Content-Type': 'application/json',
+      ..._mergeHeaders(headers),
+    };
+    final res = await _send(
+      () =>
+          http.put(_uri(path), body: jsonEncode(body), headers: mergedHeaders),
+    );
     final decoded = _decode(res);
     _notifyMutation(path);
     return decoded;
   }
 
   Future<dynamic> delete(String path, {Headers? headers}) async {
-    final res = await http.delete(_uri(path), headers: _mergeHeaders(headers));
+    final res = await _send(
+      () => http.delete(_uri(path), headers: _mergeHeaders(headers)),
+    );
     final decoded = _decode(res);
     _notifyMutation(path);
     return decoded;
   }
 
   Headers _mergeHeaders(Headers? headers) {
-    final h = <String, String>{...?(headers ?? const {})};
+    final h = <String, String>{...(headers ?? const {})};
     if (_token != null && _token!.isNotEmpty) {
       h['Authorization'] = 'Bearer $_token';
     }
     return h;
   }
 
+  Future<http.Response> _send(Future<http.Response> Function() request) async {
+    try {
+      return await request().timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      throw Exception(
+        'Unable to connect to ${_hostLabel()}. The request timed out.',
+      );
+    } on http.ClientException catch (e) {
+      throw Exception(_transportMessage(e.toString()));
+    } catch (e) {
+      final raw = e.toString();
+      if (_looksLikeTransportError(raw)) {
+        throw Exception(_transportMessage(raw));
+      }
+      rethrow;
+    }
+  }
+
   dynamic _decode(http.Response res) {
     if (res.statusCode >= 200 && res.statusCode < 300) {
       return res.body.isEmpty ? null : jsonDecode(res.body);
     }
+    String? message;
+    if (res.body.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(res.body);
+        if (decoded is Map<String, dynamic>) {
+          final candidate = decoded['message'] ?? decoded['error'];
+          if (candidate is String && candidate.trim().isNotEmpty) {
+            message = candidate.trim();
+          }
+        }
+      } catch (_) {
+        final text = res.body.trim();
+        if (text.isNotEmpty) {
+          message = text;
+        }
+      }
+    }
     if (kDebugMode) {
       debugPrint('API error ${res.statusCode}: ${res.body}');
     }
-    throw Exception('API error ${res.statusCode}');
+    throw Exception(message ?? 'API error ${res.statusCode}');
   }
 
   void _notifyMutation(String path) {
     final bus = RefreshBus.instance;
     if (bus == null) return;
     bus.notifyFromPath(path);
+  }
+
+  bool _looksLikeTransportError(String raw) {
+    return raw.contains('SocketException') ||
+        raw.contains('Failed host lookup') ||
+        raw.contains('Connection refused') ||
+        raw.contains('Connection reset by peer') ||
+        raw.contains('Network is unreachable');
+  }
+
+  String _transportMessage(String raw) {
+    final host = _hostLabel();
+    if (raw.contains('Failed host lookup')) {
+      return 'Unable to find $host. Check your internet connection or DNS settings.';
+    }
+    if (raw.contains('Connection refused')) {
+      return 'Unable to connect to $host. The server refused the connection.';
+    }
+    if (raw.contains('Connection reset by peer')) {
+      return 'Connection to $host was interrupted. Please try again.';
+    }
+    if (raw.contains('Network is unreachable')) {
+      return 'Unable to reach $host. Check your internet connection and try again.';
+    }
+    return 'Unable to connect to $host. Check your internet connection and try again.';
+  }
+
+  String _hostLabel() {
+    try {
+      final host = Uri.parse(baseUrl).host;
+      return host.isEmpty ? baseUrl : host;
+    } catch (_) {
+      return baseUrl;
+    }
   }
 }

@@ -590,6 +590,12 @@ class I18n {
       'en': 'Username or password is incorrect',
       'es': 'Usuario o contrase\u00F1a incorrectos',
     },
+    'auth.unreachable': {
+      'en':
+          'Unable to connect to the server. Check your internet connection and try again.',
+      'es':
+          'No se puede conectar al servidor. Revisa tu internet e intentalo de nuevo.',
+    },
     'auth.or': {'en': 'or', 'es': 'o'},
     'auth.signupCta': {
       'en': "Don't have an account?",

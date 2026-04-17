@@ -62,6 +62,52 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     }
   }
 
+  Future<void> _deletePayment(
+    BuildContext screenContext,
+    DataService data,
+    PaymentItem payment,
+  ) async {
+    final deleteLabel = I18n.tr(screenContext, 'label.delete');
+    final cancelLabel = I18n.tr(screenContext, 'label.cancel');
+    final failedLabel = I18n.tr(screenContext, 'label.failed');
+    final deletedLabel = I18n.tr(screenContext, 'projects.deleted');
+    final messenger = ScaffoldMessenger.of(screenContext);
+    final refreshBus = _refreshBus;
+
+    final shouldDelete = await showDialog<bool>(
+      context: screenContext,
+      useRootNavigator: false,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text('$deleteLabel?'),
+            content: Text('$deleteLabel ${payment.name}?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(cancelLabel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(deleteLabel),
+              ),
+            ],
+          ),
+    );
+
+    if (shouldDelete != true) return;
+
+    try {
+      await data.deletePayment(payment.id);
+      if (!mounted) return;
+      refreshBus.notifyPayments();
+      setState(() {});
+      messenger.showSnackBar(SnackBar(content: Text(deletedLabel)));
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('$failedLabel: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final api = ApiClient()..setToken(context.watch<AuthStore>().token);
@@ -346,51 +392,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                                   Icons.delete_outline,
                                   color: Colors.redAccent,
                                 ),
-                                onPressed: () async {
-                                  final yes = await showDialog<bool>(
-                                    context: context,
-                                    builder:
-                                        (_) => AlertDialog(
-                                          title: Text(
-                                            I18n.t(context, 'label.delete') +
-                                                '?',
-                                          ),
-                                          content: Text(
-                                            I18n.t(context, 'label.delete') +
-                                                ' ${p.name}?',
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed:
-                                                  () => Navigator.pop(
-                                                    context,
-                                                    false,
-                                                  ),
-                                              child: Text(
-                                                I18n.t(context, 'label.cancel'),
-                                              ),
-                                            ),
-                                            FilledButton(
-                                              onPressed:
-                                                  () => Navigator.pop(
-                                                    context,
-                                                    true,
-                                                  ),
-                                              child: Text(
-                                                I18n.t(context, 'label.delete'),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                  );
-                                  if (yes == true) {
-                                    await data.deletePayment(p.id);
-                                    if (context.mounted) {
-                                      context.read<RefreshBus>().notifyPayments();
-                                      setState(() {});
-                                    }
-                                  }
-                                },
+                                onPressed:
+                                    () => _deletePayment(context, data, p),
                               ),
                             ],
                           ),
