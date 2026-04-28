@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyDtPz5eByMmeElf1a61HGEHyD6v54ZtuMg</string>
+	<string>AIzaSyBofWcPS9r2ln5BxMafAAKlh32Ok07gWDA</string>
 	<key>GCM_SENDER_ID</key>
-	<string>815225659371</string>
+	<string>363708896594</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.finsight.finsight</string>
+	<string>mx.com.finsight</string>
 	<key>PROJECT_ID</key>
-	<string>finsight-8b0ec</string>
+	<string>finsight-2b791</string>
 	<key>STORAGE_BUCKET</key>
-	<string>finsight-8b0ec.firebasestorage.app</string>
+	<string>finsight-2b791.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:815225659371:ios:8797ab1ec1b2a78907c3ae</string>
+	<string>1:363708896594:ios:963be478d0a26e683bd68b</string>
 </dict>
 </plist>

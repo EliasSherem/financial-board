@@ -9,6 +9,8 @@ import crypto from 'crypto';
 import OpenAI from 'openai';
 
 const router = Router();
+const APPLE_VERIFY_RECEIPT_PRODUCTION_URL = 'https://buy.itunes.apple.com/verifyReceipt';
+const APPLE_VERIFY_RECEIPT_SANDBOX_URL = 'https://sandbox.itunes.apple.com/verifyReceipt';
 
 let openaiClient: OpenAI | null = null;
 
@@ -140,6 +142,132 @@ function invoiceLabel(invoiceId: number, numberValue: string | null | undefined)
   const raw = String(numberValue || '').trim();
   if (!raw || raw === '#') return `#${invoiceId}`;
   return raw.startsWith('#') ? raw : `#${raw}`;
+}
+
+function getAppleSharedSecret() {
+  return (
+    process.env.APPLE_SHARED_SECRET?.trim() ||
+    process.env.APPLE_APP_SHARED_SECRET?.trim() ||
+    process.env.APPLE_IAP_SHARED_SECRET?.trim() ||
+    ''
+  );
+}
+
+function parseAppleDateMs(value: unknown): Date | null {
+  if (value == null) return null;
+  const asNumber = Number(value);
+  if (!Number.isFinite(asNumber) || asNumber <= 0) return null;
+  return new Date(asNumber);
+}
+
+async function verifyReceiptWithApple(
+  url: string,
+  receiptData: string,
+  sharedSecret: string
+) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      'receipt-data': receiptData,
+      password: sharedSecret,
+      'exclude-old-transactions': false,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Apple receipt validation failed with HTTP ${response.status}`);
+  }
+  return response.json() as Promise<any>;
+}
+
+async function verifyAppStoreReceipt(receiptData: string) {
+  const sharedSecret = getAppleSharedSecret();
+  if (!sharedSecret) {
+    throw new Error('APPLE_SHARED_SECRET is not configured');
+  }
+
+  let payload = await verifyReceiptWithApple(
+    APPLE_VERIFY_RECEIPT_PRODUCTION_URL,
+    receiptData,
+    sharedSecret
+  );
+  if (payload?.status === 21007) {
+    payload = await verifyReceiptWithApple(
+      APPLE_VERIFY_RECEIPT_SANDBOX_URL,
+      receiptData,
+      sharedSecret
+    );
+  }
+
+  return {
+    status: Number(payload?.status ?? -1),
+    environment:
+      typeof payload?.environment === 'string' && payload.environment.trim()
+        ? payload.environment.trim()
+        : 'Production',
+    latestReceipt: payload?.latest_receipt || receiptData,
+    latestReceiptInfo: Array.isArray(payload?.latest_receipt_info)
+      ? payload.latest_receipt_info
+      : Array.isArray(payload?.receipt?.in_app)
+        ? payload.receipt.in_app
+        : [],
+    pendingRenewalInfo: Array.isArray(payload?.pending_renewal_info)
+      ? payload.pending_renewal_info
+      : [],
+  };
+}
+
+function summarizeAppStoreSubscription(
+  latestReceiptInfo: any[],
+  pendingRenewalInfo: any[],
+  preferredProductId?: string
+) {
+  const matchingEntries = latestReceiptInfo
+    .filter((entry) => {
+      const productId = String(entry?.product_id || '').trim();
+      return preferredProductId ? productId === preferredProductId : !!productId;
+    })
+    .sort((a, b) => {
+      const aExpiry = Number(a?.expires_date_ms || 0);
+      const bExpiry = Number(b?.expires_date_ms || 0);
+      return bExpiry - aExpiry;
+    });
+
+  const latest = matchingEntries[0];
+  if (!latest) return null;
+
+  const expiry = parseAppleDateMs(latest.expires_date_ms);
+  const isCanceled = Boolean(latest.cancellation_date_ms || latest.cancellation_date);
+  const isActive = Boolean(!isCanceled && expiry && expiry.getTime() > Date.now());
+  const originalTransactionId = String(
+    latest.original_transaction_id || ''
+  ).trim();
+  const latestTransactionId = String(latest.transaction_id || '').trim();
+  const renewalInfo = pendingRenewalInfo.find((item) => {
+    const itemOriginal = String(item?.original_transaction_id || '').trim();
+    const itemProductId = String(item?.product_id || '').trim();
+    return (
+      (originalTransactionId && itemOriginal === originalTransactionId) ||
+      itemProductId === String(latest.product_id || '').trim()
+    );
+  });
+  const autoRenewStatusRaw = String(renewalInfo?.auto_renew_status || '').trim();
+  const autoRenewStatus =
+    autoRenewStatusRaw === '1'
+      ? true
+      : autoRenewStatusRaw === '0'
+        ? false
+        : null;
+
+  return {
+    productId: String(latest.product_id || preferredProductId || '').trim(),
+    originalTransactionId: originalTransactionId || latestTransactionId,
+    latestTransactionId: latestTransactionId || originalTransactionId || null,
+    expiry,
+    state: isCanceled ? 'CANCELED' : isActive ? 'ACTIVE' : expiry ? 'EXPIRED' : 'UNKNOWN',
+    isActive,
+    autoRenewStatus,
+  };
 }
 
 function formatInvoiceDate(value: unknown) {
@@ -479,6 +607,51 @@ async function deleteInvestmentContributionByTransaction(userId: number, transac
 
 // Access control helpers
 const EXEMPT_USER_IDS = new Set([1, 3]);
+
+async function refreshUserProFlag(userId: number): Promise<boolean> {
+  if (EXEMPT_USER_IDS.has(userId)) {
+    await db.query('UPDATE users SET is_pro = 1 WHERE id = ?', [userId]);
+    return true;
+  }
+
+  const [userRows] = await db.query(
+    'SELECT stripe_subscription_status, stripe_current_period_end FROM users WHERE id = ? LIMIT 1',
+    [userId]
+  );
+  const user = (userRows as any[])[0] || {};
+  const stripeStatus = String(user?.stripe_subscription_status || '').trim().toLowerCase();
+  const stripePeriodEnd =
+    user?.stripe_current_period_end != null ? new Date(user.stripe_current_period_end) : null;
+  const stripeActive =
+    stripeStatus === 'active' ||
+    stripeStatus === 'trialing' ||
+    Boolean(stripePeriodEnd && stripePeriodEnd.getTime() > Date.now());
+
+  const [playRows] = await db.query(
+    `SELECT 1
+       FROM play_subscriptions
+      WHERE user_id = ?
+        AND (last_state = 'SUBSCRIPTION_STATE_ACTIVE' OR (expiry_time IS NOT NULL AND expiry_time > NOW()))
+      LIMIT 1`,
+    [userId]
+  );
+  const [appStoreRows] = await db.query(
+    `SELECT 1
+       FROM app_store_subscriptions
+      WHERE user_id = ?
+        AND last_state = 'ACTIVE'
+        AND (expiry_time IS NULL OR expiry_time > NOW())
+      LIMIT 1`,
+    [userId]
+  );
+
+  const isPro =
+    stripeActive ||
+    (playRows as any[]).length > 0 ||
+    (appStoreRows as any[]).length > 0;
+  await db.query('UPDATE users SET is_pro = ? WHERE id = ?', [isPro ? 1 : 0, userId]);
+  return isPro;
+}
 
 async function userIsPro(userId: number): Promise<boolean> {
   if (EXEMPT_USER_IDS.has(userId)) return true;
@@ -3614,11 +3787,8 @@ router.post('/api/play/link', authenticateToken, async (req: Request, res: Respo
       [req.user?.id, productId, purchaseToken, null, expiry, state]
     );
 
-    // If active (or expiry in future), turn on Pro immediately
-    const isActive = state === 'SUBSCRIPTION_STATE_ACTIVE' || (expiry && expiry.getTime() > Date.now());
-    if (isActive) await db.query('UPDATE users SET is_pro = 1 WHERE id = ?', [req.user?.id]);
-
-    res.json({ success: true, state, expiry });
+    const isPro = await refreshUserProFlag(req.user!.id);
+    res.json({ success: true, state, expiry, is_pro: isPro });
   } catch (e) {
     console.error('play/link error:', e);
     res.status(500).json({ message: 'Failed to link purchase' });
@@ -3631,27 +3801,165 @@ router.post('/api/play/sync', authenticateToken, async (req: Request, res: Respo
     const [rows] = await db.query('SELECT purchase_token FROM play_subscriptions WHERE user_id = ?', [req.user?.id]);
     const tokens = (rows as any[]).map(r => r.purchase_token as string);
     if (tokens.length === 0) {
-      await db.query('UPDATE users SET is_pro = 0 WHERE id = ?', [req.user?.id]);
-      return res.json({ success: true, tokens: 0, is_pro: false });
+      const isPro = await refreshUserProFlag(req.user!.id);
+      return res.json({ success: true, tokens: 0, is_pro: isPro });
     }
-    let anyActive = false;
     for (const t of tokens) {
       const ver = await verifyPlaySub(t);
       if (ver.ok) {
-        const active = ver.state === 'SUBSCRIPTION_STATE_ACTIVE' || (ver.expiry && ver.expiry.getTime() > Date.now());
-        anyActive = anyActive || active;
         await db.query('UPDATE play_subscriptions SET expiry_time = ?, last_state = ? WHERE purchase_token = ?', [ver.expiry ?? null, ver.state ?? null, t]);
       }
     }
-    // Do not downgrade exempt user IDs
-    const exempt = EXEMPT_USER_IDS.has(req.user!.id);
-    if (!exempt) await db.query('UPDATE users SET is_pro = ? WHERE id = ?', [anyActive ? 1 : 0, req.user?.id]);
-    res.json({ success: true, tokens: tokens.length, is_pro: anyActive });
+    const isPro = await refreshUserProFlag(req.user!.id);
+    res.json({ success: true, tokens: tokens.length, is_pro: isPro });
   } catch (e) {
     console.error('play/sync error:', e);
     res.status(500).json({ message: 'Failed to sync subscription' });
   }
 });
 
+router.post('/api/appstore/link', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { productId, receiptData } = req.body || {};
+    if (!productId || !receiptData) {
+      return res.status(400).json({ message: 'productId and receiptData are required' });
+    }
 
+    const verification = await verifyAppStoreReceipt(String(receiptData));
+    if (verification.status !== 0) {
+      return res.status(400).json({
+        message: 'Receipt validation failed',
+        status: verification.status,
+      });
+    }
 
+    const summary = summarizeAppStoreSubscription(
+      verification.latestReceiptInfo,
+      verification.pendingRenewalInfo,
+      String(productId)
+    );
+    if (!summary?.originalTransactionId || !summary.productId) {
+      return res.status(400).json({
+        message: 'No matching App Store subscription found in receipt',
+      });
+    }
+
+    await db.query(
+      `INSERT INTO app_store_subscriptions (
+         user_id,
+         product_id,
+         original_transaction_id,
+         latest_transaction_id,
+         auto_renew_status,
+         expiry_time,
+         last_state,
+         environment,
+         receipt_data
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         user_id = VALUES(user_id),
+         product_id = VALUES(product_id),
+         latest_transaction_id = VALUES(latest_transaction_id),
+         auto_renew_status = VALUES(auto_renew_status),
+         expiry_time = VALUES(expiry_time),
+         last_state = VALUES(last_state),
+         environment = VALUES(environment),
+         receipt_data = VALUES(receipt_data)`,
+      [
+        req.user?.id,
+        summary.productId,
+        summary.originalTransactionId,
+        summary.latestTransactionId,
+        summary.autoRenewStatus,
+        summary.expiry,
+        summary.state,
+        verification.environment,
+        verification.latestReceipt,
+      ]
+    );
+
+    const isPro = await refreshUserProFlag(req.user!.id);
+    res.json({
+      success: true,
+      state: summary.state,
+      expiry: summary.expiry,
+      environment: verification.environment,
+      is_pro: isPro,
+    });
+  } catch (e) {
+    console.error('appstore/link error:', e);
+    res.status(500).json({ message: 'Failed to link App Store purchase' });
+  }
+});
+
+router.post('/api/appstore/sync', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT product_id, receipt_data
+         FROM app_store_subscriptions
+        WHERE user_id = ?
+          AND receipt_data IS NOT NULL
+          AND receipt_data != ''`,
+      [req.user?.id]
+    );
+    const subscriptions = rows as any[];
+    if (subscriptions.length === 0) {
+      const isPro = await refreshUserProFlag(req.user!.id);
+      return res.json({ success: true, receipts: 0, is_pro: isPro });
+    }
+
+    for (const subscription of subscriptions) {
+      const verification = await verifyAppStoreReceipt(
+        String(subscription.receipt_data)
+      );
+      if (verification.status !== 0) continue;
+
+      const summary = summarizeAppStoreSubscription(
+        verification.latestReceiptInfo,
+        verification.pendingRenewalInfo,
+        String(subscription.product_id || '')
+      );
+      if (!summary?.originalTransactionId || !summary.productId) continue;
+
+      await db.query(
+        `INSERT INTO app_store_subscriptions (
+           user_id,
+           product_id,
+           original_transaction_id,
+           latest_transaction_id,
+           auto_renew_status,
+           expiry_time,
+           last_state,
+           environment,
+           receipt_data
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           user_id = VALUES(user_id),
+           product_id = VALUES(product_id),
+           latest_transaction_id = VALUES(latest_transaction_id),
+           auto_renew_status = VALUES(auto_renew_status),
+           expiry_time = VALUES(expiry_time),
+           last_state = VALUES(last_state),
+           environment = VALUES(environment),
+           receipt_data = VALUES(receipt_data)`,
+        [
+          req.user?.id,
+          summary.productId,
+          summary.originalTransactionId,
+          summary.latestTransactionId,
+          summary.autoRenewStatus,
+          summary.expiry,
+          summary.state,
+          verification.environment,
+          verification.latestReceipt,
+        ]
+      );
+    }
+
+    const isPro = await refreshUserProFlag(req.user!.id);
+    res.json({ success: true, receipts: subscriptions.length, is_pro: isPro });
+  } catch (e) {
+    console.error('appstore/sync error:', e);
+    res.status(500).json({ message: 'Failed to sync App Store subscription' });
+  }
+});

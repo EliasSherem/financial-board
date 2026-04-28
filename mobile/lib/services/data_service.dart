@@ -702,6 +702,29 @@ class DataService {
     await api.post('/api/play/sync', body: {});
   }
 
+  Future<void> linkAppStorePurchase({
+    required String productId,
+    required String receiptData,
+    String? transactionId,
+    String? originalTransactionId,
+  }) async {
+    await api.post(
+      '/api/appstore/link',
+      body: {
+        'productId': productId,
+        'receiptData': receiptData,
+        if (transactionId != null && transactionId.isNotEmpty)
+          'transactionId': transactionId,
+        if (originalTransactionId != null && originalTransactionId.isNotEmpty)
+          'originalTransactionId': originalTransactionId,
+      },
+    );
+  }
+
+  Future<void> syncAppStore() async {
+    await api.post('/api/appstore/sync', body: {});
+  }
+
   Future<void> stripeSync() async {
     await api.post('/api/stripe/sync', body: {});
   }

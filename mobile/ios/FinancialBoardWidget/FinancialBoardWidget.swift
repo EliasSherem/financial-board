@@ -1,7 +1,7 @@
 import WidgetKit
 import SwiftUI
 
-private let appGroupId = "group.com.finsight.finsight"
+private let appGroupId = "group.mx.com.finsight"
 private let widgetDeepLink = URL(string: "financialboard://widget/create-transaction")!
 private let widgetRecurringDeepLink = URL(string: "financialboard://widget/create-recurring-payment")!
 

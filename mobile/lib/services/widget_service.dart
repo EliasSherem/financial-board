@@ -10,7 +10,7 @@ class NativeWidgetBridge {
   static const String _androidQualifiedName =
       'com.example.mobile.FinancialBoardWidgetProvider';
   static const String _iosWidgetName = 'FinancialBoardWidget';
-  static const String _appGroupId = 'group.com.finsight.finsight';
+  static const String _appGroupId = 'group.mx.com.finsight';
 
   static const String actionCreateTransaction = 'create-transaction';
   static const String actionCreateRecurringPayment = 'create-recurring-payment';

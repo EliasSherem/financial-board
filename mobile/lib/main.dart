@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -35,18 +36,22 @@ import 'services/widget_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  runApp(const FinancialBoardRoot());
+  unawaited(_initializeStartupServices());
+}
+
+Future<void> _initializeStartupServices() async {
   try {
     await NativeWidgetBridge.ensureInitialized();
   } catch (e, stack) {
     debugPrint('Widget init failed: $e\n$stack');
   }
   try {
-    await PushService.instance.init();
+    await PushService.instance.init().timeout(const Duration(seconds: 12));
   } catch (e) {
-    // Don't block app startup if push init fails
+    // Don't block app startup if push init fails or takes too long.
     debugPrint('Push init failed: $e');
   }
-  runApp(const FinancialBoardRoot());
 }
 
 class FinancialBoardRoot extends StatelessWidget {
@@ -96,10 +101,7 @@ class AppGate extends StatelessWidget {
       return const LoginScreen();
     }
     return Stack(
-      children: [
-        const HomeShell(),
-        if (auth.isLocked) const LockScreen(),
-      ],
+      children: [const HomeShell(), if (auth.isLocked) const LockScreen()],
     );
   }
 }
@@ -116,7 +118,9 @@ class _HomeShellState extends State<HomeShell> {
   int _currentIndex = 2; // Stats, Transfers, Home, Payments, Account
   final GlobalKey<NavigatorState> _contentNavKey = GlobalKey<NavigatorState>();
   String _currentRouteName = '/root';
-  late final _ContentNavObserver _contentObserver = _ContentNavObserver(_handleRouteChanged);
+  late final _ContentNavObserver _contentObserver = _ContentNavObserver(
+    _handleRouteChanged,
+  );
   StreamSubscription<Uri>? _widgetSubscription;
   StreamSubscription<PushAction>? _pushSubscription;
   bool _processingWidgetAction = false;
@@ -170,6 +174,9 @@ class _HomeShellState extends State<HomeShell> {
         final api = ApiClient()..setToken(context.read<AuthStore>().token);
         final data = DataService(api);
         await data.syncPlay();
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+          await data.syncAppStore();
+        }
         // Sync Stripe entitlements too (web upgrades)
         try {
           await data.stripeSync();
@@ -233,21 +240,18 @@ class _HomeShellState extends State<HomeShell> {
     final cs = Theme.of(context).colorScheme;
     final menu = PopupMenuButton<String>(
       key: _profileMenuKey,
-      icon: Icon(
-        Icons.person_outline,
-        color: highlight ? cs.primary : null,
-      ),
+      icon: Icon(Icons.person_outline, color: highlight ? cs.primary : null),
       onSelected: (value) async {
         switch (value) {
           case 'guide':
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const GuideScreen()),
-            );
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const GuideScreen()));
             break;
           case 'settings':
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            );
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
             break;
           case 'categories':
             await _openManageCategories();
@@ -322,11 +326,7 @@ class _HomeShellState extends State<HomeShell> {
               value: 'logout',
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.logout,
-                    size: 20,
-                    color: Colors.redAccent,
-                  ),
+                  const Icon(Icons.logout, size: 20, color: Colors.redAccent),
                   const SizedBox(width: 12),
                   Text(I18n.tr(context, 'menu.logout')),
                 ],
@@ -354,11 +354,9 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _openManageCategories() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ManageCategoriesScreen(),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const ManageCategoriesScreen()));
   }
 
   @override
@@ -501,10 +499,7 @@ class _HomeShellState extends State<HomeShell> {
           ),
         ],
       ),
-      bottomNavigationBar: _BottomNavBar(
-        current: _currentIndex,
-        onTap: _onTab,
-      ),
+      bottomNavigationBar: _BottomNavBar(current: _currentIndex, onTap: _onTab),
       floatingActionButton:
           _currentRouteName == '/ai-chat'
               ? null
@@ -800,19 +795,14 @@ class _HomeShellState extends State<HomeShell> {
   void _openCategoriesFromNotification() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _contentNavKey.currentState?.push(
-        MaterialPageRoute(
-          builder: (_) => const ManageCategoriesScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const ManageCategoriesScreen()),
       );
     });
   }
 }
 
 class _BottomNavBar extends StatelessWidget {
-  const _BottomNavBar({
-    required this.current,
-    required this.onTap,
-  });
+  const _BottomNavBar({required this.current, required this.onTap});
   final int current;
   final ValueChanged<int> onTap;
 
@@ -908,22 +898,26 @@ class _NavIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = isHome
-        ? Container(
-          width: 48,
-          height: 48,
-          decoration: const BoxDecoration(
-            color: Color(0xFF2563EB),
-            shape: BoxShape.circle,
-          ),
-          alignment: Alignment.center,
-          child: Icon(icon, color: Colors.white, size: 26),
-        )
-        : Icon(
-          icon,
-          size: 22,
-          color: selected ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
-        );
+    final base =
+        isHome
+            ? Container(
+              width: 48,
+              height: 48,
+              decoration: const BoxDecoration(
+                color: Color(0xFF2563EB),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: Colors.white, size: 26),
+            )
+            : Icon(
+              icon,
+              size: 22,
+              color:
+                  selected
+                      ? colorScheme.onSurface
+                      : colorScheme.onSurfaceVariant,
+            );
 
     if (!highlight) return base;
     return Container(

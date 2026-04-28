@@ -1,11 +1,10 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../services/api.dart';
-import '../services/data_service.dart';
 import '../i18n.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../state/auth_store.dart';
@@ -19,20 +18,17 @@ class UpdateProfileScreen extends StatefulWidget {
 
 class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
   final _form = GlobalKey<FormState>();
-  late final DataService _data;
   late TextEditingController _name;
   late TextEditingController _email;
   final _current = TextEditingController();
   final _new = TextEditingController();
   final _confirm = TextEditingController();
   bool _saving = false;
-  // No in-app cancellation; we direct users to Google Play subscriptions page
+  // No in-app cancellation; we direct users to the store subscriptions page.
 
   @override
   void initState() {
     super.initState();
-    final api = ApiClient()..setToken(context.read<AuthStore>().token);
-    _data = DataService(api);
     _loadUser();
   }
 
@@ -52,15 +48,23 @@ class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
     if (!_form.currentState!.validate()) return;
     if (_new.text.isNotEmpty) {
       if (_new.text.length < 6) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(I18n.tr(context, 'error.passwordMin6'))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(I18n.tr(context, 'error.passwordMin6'))),
+        );
         return;
       }
       if (_new.text != _confirm.text) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(I18n.tr(context, 'error.passwordsDontMatch'))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(I18n.tr(context, 'error.passwordsDontMatch'))),
+        );
         return;
       }
       if (_current.text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(I18n.tr(context, 'error.currentPasswordRequired'))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(I18n.tr(context, 'error.currentPasswordRequired')),
+          ),
+        );
         return;
       }
       // Optional: call server to change password. Not implemented in API yet.
@@ -78,18 +82,34 @@ class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
       user['email'] = _email.text.trim();
       await sp.setString('user', jsonEncode(user));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(I18n.tr(context, 'feedback.profileUpdated'))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(I18n.tr(context, 'feedback.profileUpdated'))),
+      );
       Navigator.pop(context);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  Future<void> _openPlaySubscriptions() async {
-    final uri = Uri.parse('https://play.google.com/store/account/subscriptions');
+  Future<void> _openSubscriptionManagement() async {
+    final isIos = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    final uri = Uri.parse(
+      isIos
+          ? 'https://apps.apple.com/account/subscriptions'
+          : 'https://play.google.com/store/account/subscriptions',
+    );
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(I18n.tr(context, 'error.unableOpenPlay'))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              I18n.tr(
+                context,
+                isIos ? 'error.unableOpenAppStore' : 'error.unableOpenPlay',
+              ),
+            ),
+          ),
+        );
       }
     }
   }
@@ -109,43 +129,99 @@ class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
             children: [
               TextFormField(
                 controller: _name,
-                decoration: InputDecoration(labelText: I18n.t(context, 'profile.username')), // web parity key name
-                validator: (v) => (v==null || v.trim().isEmpty) ? I18n.t(context, 'validation.required') : null,
+                decoration: InputDecoration(
+                  labelText: I18n.t(context, 'profile.username'),
+                ), // web parity key name
+                validator:
+                    (v) =>
+                        (v == null || v.trim().isEmpty)
+                            ? I18n.t(context, 'validation.required')
+                            : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _email,
-                decoration: InputDecoration(labelText: I18n.t(context, 'profile.email'), border: const OutlineInputBorder()),
+                decoration: InputDecoration(
+                  labelText: I18n.t(context, 'profile.email'),
+                  border: const OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 16),
-              Text(I18n.t(context, 'profile.changePassword'), style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                I18n.t(context, 'profile.changePassword'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 8),
-              TextField(controller: _current, obscureText: true, decoration: InputDecoration(labelText: I18n.t(context, 'profile.currentPassword'), border: const OutlineInputBorder())),
+              TextField(
+                controller: _current,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: I18n.t(context, 'profile.currentPassword'),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
               const SizedBox(height: 8),
-              TextField(controller: _new, obscureText: true, decoration: InputDecoration(labelText: I18n.t(context, 'profile.newPassword'), border: const OutlineInputBorder())),
+              TextField(
+                controller: _new,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: I18n.t(context, 'profile.newPassword'),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
               const SizedBox(height: 8),
-              TextField(controller: _confirm, obscureText: true, decoration: InputDecoration(labelText: I18n.t(context, 'profile.confirmNewPassword'), border: const OutlineInputBorder())),
+              TextField(
+                controller: _confirm,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: I18n.t(context, 'profile.confirmNewPassword'),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
               const SizedBox(height: 16),
-              Text(I18n.t(context, 'profile.subscription'), style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                I18n.t(context, 'profile.subscription'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 6),
-              Text(isPro ? I18n.t(context, 'profile.proPlanText') : I18n.t(context, 'profile.freePlanText')),
+              Text(
+                isPro
+                    ? I18n.t(context, 'profile.proPlanText')
+                    : I18n.t(context, 'profile.freePlanText'),
+              ),
               if (isPro) ...[
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: _openPlaySubscriptions,
+                  onPressed: _openSubscriptionManagement,
                   icon: const Icon(Icons.open_in_new),
-                  label: Text(I18n.t(context, 'label.manageInPlay')),
+                  label: Text(
+                    I18n.t(
+                      context,
+                      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+                          ? 'label.manageInAppStore'
+                          : 'label.manageInPlay',
+                    ),
+                  ),
                 ),
               ],
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(onPressed: _saving ? null : ()=>Navigator.pop(context), child: Text(I18n.t(context, 'label.cancel'))),
+                  TextButton(
+                    onPressed: _saving ? null : () => Navigator.pop(context),
+                    child: Text(I18n.t(context, 'label.cancel')),
+                  ),
                   const SizedBox(width: 8),
-                  FilledButton(onPressed: _saving ? null : _save, child: _saving ? Text(I18n.t(context, 'label.updating')) : Text(I18n.t(context, 'label.update'))),
+                  FilledButton(
+                    onPressed: _saving ? null : _save,
+                    child:
+                        _saving
+                            ? Text(I18n.t(context, 'label.updating'))
+                            : Text(I18n.t(context, 'label.update')),
+                  ),
                 ],
-              )
+              ),
             ],
           ),
         ),

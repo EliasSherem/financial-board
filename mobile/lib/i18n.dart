@@ -77,6 +77,10 @@ class I18n {
       'en': 'Manage in Google Play',
       'es': 'Gestionar en Google Play',
     },
+    'label.manageInAppStore': {
+      'en': 'Manage in App Store',
+      'es': 'Gestionar en App Store',
+    },
     'label.updating': {'en': 'Updating...', 'es': 'Actualizando...'},
     'label.failed': {'en': 'Failed', 'es': 'Error'},
     'label.createAccount': {'en': 'Create Account', 'es': 'Crear cuenta'},
@@ -773,6 +777,10 @@ class I18n {
     'error.unableOpenPlay': {
       'en': 'Unable to open Google Play',
       'es': 'No se pudo abrir Google Play',
+    },
+    'error.unableOpenAppStore': {
+      'en': 'Unable to open App Store',
+      'es': 'No se pudo abrir App Store',
     },
     'categories.manageTitle': {
       'en': 'Manage Categories',

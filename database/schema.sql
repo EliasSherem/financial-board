@@ -315,6 +315,24 @@ CREATE TABLE IF NOT EXISTS play_subscriptions (
     INDEX idx_user (user_id)
 );
 
+-- App Store subscriptions linkage table
+CREATE TABLE IF NOT EXISTS app_store_subscriptions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    product_id VARCHAR(128) NOT NULL,
+    original_transaction_id VARCHAR(128) NOT NULL,
+    latest_transaction_id VARCHAR(128) NULL,
+    auto_renew_status BOOLEAN NULL,
+    expiry_time DATETIME NULL,
+    last_state VARCHAR(64) NULL,
+    environment VARCHAR(32) NULL,
+    receipt_data MEDIUMTEXT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY uniq_original_transaction (original_transaction_id),
+    INDEX idx_user (user_id)
+);
+
 -- Salary rules (automated income)
 CREATE TABLE IF NOT EXISTS salary_rules (
     id INT AUTO_INCREMENT PRIMARY KEY,
