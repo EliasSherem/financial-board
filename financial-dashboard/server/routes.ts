@@ -153,6 +153,17 @@ function getAppleSharedSecret() {
   );
 }
 
+function getAppleReceiptVerificationMode() {
+  const mode = String(
+    process.env.APPLE_RECEIPT_VERIFICATION_MODE ||
+      process.env.APPLE_VERIFY_RECEIPT_MODE ||
+      'auto'
+  )
+    .trim()
+    .toLowerCase();
+  return mode === 'sandbox' || mode === 'production' ? mode : 'auto';
+}
+
 function parseAppleDateMs(value: unknown): Date | null {
   if (value == null) return null;
   const asNumber = Number(value);
@@ -186,14 +197,22 @@ async function verifyAppStoreReceipt(receiptData: string) {
     throw new Error('APPLE_SHARED_SECRET is not configured');
   }
 
-  let payload = await verifyReceiptWithApple(
-    APPLE_VERIFY_RECEIPT_PRODUCTION_URL,
-    receiptData,
-    sharedSecret
-  );
-  if (payload?.status === 21007) {
+  const mode = getAppleReceiptVerificationMode();
+  const primaryUrl =
+    mode === 'sandbox'
+      ? APPLE_VERIFY_RECEIPT_SANDBOX_URL
+      : APPLE_VERIFY_RECEIPT_PRODUCTION_URL;
+  const secondaryUrl =
+    primaryUrl === APPLE_VERIFY_RECEIPT_PRODUCTION_URL
+      ? APPLE_VERIFY_RECEIPT_SANDBOX_URL
+      : APPLE_VERIFY_RECEIPT_PRODUCTION_URL;
+  const secondaryStatus =
+    primaryUrl === APPLE_VERIFY_RECEIPT_PRODUCTION_URL ? 21007 : 21008;
+
+  let payload = await verifyReceiptWithApple(primaryUrl, receiptData, sharedSecret);
+  if (mode === 'auto' && payload?.status === secondaryStatus) {
     payload = await verifyReceiptWithApple(
-      APPLE_VERIFY_RECEIPT_SANDBOX_URL,
+      secondaryUrl,
       receiptData,
       sharedSecret
     );
@@ -204,7 +223,9 @@ async function verifyAppStoreReceipt(receiptData: string) {
     environment:
       typeof payload?.environment === 'string' && payload.environment.trim()
         ? payload.environment.trim()
-        : 'Production',
+        : mode === 'sandbox'
+          ? 'Sandbox'
+          : 'Production',
     latestReceipt: payload?.latest_receipt || receiptData,
     latestReceiptInfo: Array.isArray(payload?.latest_receipt_info)
       ? payload.latest_receipt_info
