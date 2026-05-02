@@ -58,19 +58,25 @@ class DataService {
     required DateTime date,
     required String description,
     required double amount,
-    required String type, // 'Income' | 'Expense'
+    required String type, // 'Income' | 'Expense' | 'Transfer'
     String? category,
     int? categoryId,
     int? subcategoryId,
     int? projectId,
   }) async {
+    final normalizedAmount =
+        type == 'Expense'
+            ? -amount.abs()
+            : type == 'Income'
+            ? amount.abs()
+            : amount;
     final res = await api.post(
       '/api/transactions',
       body: {
         'account_id': accountId,
         'date': date.toIso8601String().substring(0, 10),
         'description': description,
-        'amount': type == 'Expense' ? -amount.abs() : amount.abs(),
+        'amount': normalizedAmount,
         'type': type,
         if (category != null) 'category': category,
         if (categoryId != null) 'category_id': categoryId,
@@ -95,18 +101,18 @@ class DataService {
       accountId: fromAccount.id,
       date: date,
       description: 'Transfer to ${toAccount.name}: $transferLabel',
-      amount: amount,
-      type: 'Expense',
-      category: 'Transfer',
+      amount: -amount.abs(),
+      type: 'Transfer',
+      category: 'Fund transfer',
     );
 
     await createTransaction(
       accountId: toAccount.id,
       date: date,
       description: 'Transfer from ${fromAccount.name}: $transferLabel',
-      amount: amount,
-      type: 'Income',
-      category: 'Transfer',
+      amount: amount.abs(),
+      type: 'Transfer',
+      category: 'Fund transfer',
     );
   }
 
@@ -116,19 +122,25 @@ class DataService {
     required DateTime date,
     required String description,
     required double amount,
-    required String type, // 'Income' | 'Expense'
+    required String type, // 'Income' | 'Expense' | 'Transfer'
     String? category,
     int? categoryId,
     int? subcategoryId,
     int? projectId,
   }) async {
+    final normalizedAmount =
+        type == 'Expense'
+            ? -amount.abs()
+            : type == 'Income'
+            ? amount.abs()
+            : amount;
     final res = await api.put(
       '/api/transactions/$id',
       body: {
         'account_id': accountId,
         'date': date.toIso8601String().substring(0, 10),
         'description': description,
-        'amount': type == 'Expense' ? -amount.abs() : amount.abs(),
+        'amount': normalizedAmount,
         'type': type,
         if (category != null) 'category': category,
         if (categoryId != null) 'category_id': categoryId,
@@ -141,6 +153,11 @@ class DataService {
 
   Future<void> deleteTransaction(int id) async {
     await api.delete('/api/transactions/$id');
+  }
+
+  Future<Map<String, dynamic>> repairPastTransfers() async {
+    final res = await api.post('/api/transactions/repair-transfers', body: {});
+    return (res as Map).cast<String, dynamic>();
   }
 
   Future<List<ExpenseCategory>> getExpenseCategories() async {

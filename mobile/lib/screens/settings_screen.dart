@@ -8,11 +8,10 @@ import '../lang_store.dart';
 import '../state/auth_store.dart';
 import '../models.dart';
 import '../services/biometric_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import '../utils/links.dart';
 import '../utils/format.dart';
 import '../utils/savings_goal.dart';
+import '../state/refresh_bus.dart';
 
 const String _supportGptUrl =
     'https://chatgpt.com/g/g-68f9371179548191a018ea1e1ff99727-finsight-assistant';
@@ -30,6 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _biometricSupported = false;
   bool _biometricEnrolled = false;
   bool _biometricChecked = false;
+  bool _repairingTransfers = false;
   final _biometric = BiometricService();
 
   @override
@@ -59,6 +59,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _biometricEnrolled = availability.hasEnrollment;
       _biometricChecked = true;
     });
+  }
+
+  Future<void> _repairPastTransfers(
+    DataService data,
+    String Function(String en, String es) L,
+  ) async {
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder:
+              (ctx) => AlertDialog(
+                title: Text(
+                  L('Repair past transfers?', '¿Corregir transferencias pasadas?'),
+                ),
+                content: Text(
+                  L(
+                    'This will convert old transfer records that were saved as income or expense into the Transfer type so analytics no longer counts them incorrectly.',
+                    'Esto convertirá transferencias antiguas guardadas como ingreso o gasto al tipo Transfer para que la analítica deje de contarlas incorrectamente.',
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: Text(L('Cancel', 'Cancelar')),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: Text(L('Repair', 'Corregir')),
+                  ),
+                ],
+              ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+
+    setState(() => _repairingTransfers = true);
+    try {
+      final result = await data.repairPastTransfers();
+      RefreshBus.instance?.notifyTransactions();
+      RefreshBus.instance?.notifyProjects();
+      if (!mounted) return;
+      final updated = (result['updated'] as num?)?.toInt() ?? 0;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            L(
+              updated == 0
+                  ? 'No past transfers needed repair.'
+                  : 'Repaired $updated past transfer records.',
+              updated == 0
+                  ? 'No había transferencias pasadas por corregir.'
+                  : 'Se corrigieron $updated transferencias pasadas.',
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${L('Failed', 'Error')}: $e',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _repairingTransfers = false);
+    }
   }
 
   String _goalInputValue() {
@@ -335,6 +403,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }
             },
           ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.swap_horiz_outlined),
+            title: Text(
+              L('Repair past transfers', 'Corregir transferencias pasadas'),
+            ),
+            subtitle: Text(
+              L(
+                'Fix old transfers that were counted as income or expense',
+                'Corrige transferencias antiguas que se contaron como ingreso o gasto',
+              ),
+            ),
+            trailing:
+                _repairingTransfers
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : null,
+            onTap:
+                _repairingTransfers
+                    ? null
+                    : () => _repairPastTransfers(data, L),
+          ),
           ListTile(
             leading: const Icon(Icons.auto_graph_outlined),
             title: Text(
@@ -497,7 +590,14 @@ class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
                                 final isInvestment =
                                     (a.type ?? '').toLowerCase() ==
                                     'investment';
-                                final label = isInvestment ? ' ()' : a.name;
+                                final baseName =
+                                    a.name.trim().isEmpty
+                                        ? widget.L('Account', 'Cuenta')
+                                        : a.name;
+                                final label =
+                                    isInvestment
+                                        ? '$baseName (${widget.L('Investment', 'Inversión')})'
+                                        : baseName;
                                 return DropdownMenuItem<int>(
                                   value: a.id,
                                   child: Text(label),

@@ -574,9 +574,11 @@ class _TxCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTransfer = item.isTransfer;
     final isIncome = item.amount >= 0;
     final amountStr = (isIncome ? '+' : '-') + fmt.format(item.amount.abs());
-    final color = isIncome ? Colors.green : Colors.red;
+    final color =
+        isTransfer ? Colors.blue : (isIncome ? Colors.green : Colors.red);
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final iconKey =
         (item.subcategoryIcon?.trim().isNotEmpty ?? false)
@@ -587,9 +589,11 @@ class _TxCard extends StatelessWidget {
     final iconData =
         iconKey != null
             ? iconDataFromKey(iconKey)
-            : (isIncome
-                ? Icons.trending_up_outlined
-                : Icons.receipt_long_outlined);
+            : (isTransfer
+                ? Icons.swap_horiz
+                : (isIncome
+                    ? Icons.trending_up_outlined
+                    : Icons.receipt_long_outlined));
     final iconFg =
         isDark
             ? Theme.of(context).colorScheme.onSurface
@@ -600,8 +604,14 @@ class _TxCard extends StatelessWidget {
             : Colors.white.withValues(alpha: 0.82);
     final Color bg =
         isDark
-            ? (isIncome ? const Color(0xFF103521) : const Color(0xFF3A1C1C))
-            : (isIncome ? Colors.green.shade50 : Colors.red.shade50);
+            ? (isTransfer
+                ? const Color(0xFF1D2A44)
+                : (isIncome
+                    ? const Color(0xFF103521)
+                    : const Color(0xFF3A1C1C)))
+            : (isTransfer
+                ? Colors.blue.shade50
+                : (isIncome ? Colors.green.shade50 : Colors.red.shade50));
     return Card(
       color: bg,
       elevation: 6,

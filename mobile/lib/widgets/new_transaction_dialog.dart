@@ -209,6 +209,10 @@ class _TransactionFormState extends State<_TransactionForm> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.initial != null;
+    final typeOptions =
+        type == 'Transfer'
+            ? const ['Expense', 'Income', 'Transfer']
+            : const ['Expense', 'Income'];
     final double dropdownItemWidth = (MediaQuery.of(context).size.width * 0.7)
         .clamp(200.0, 360.0);
 
@@ -283,7 +287,7 @@ class _TransactionFormState extends State<_TransactionForm> {
                               DropdownButtonFormField<String>(
                                 value: type,
                                 items:
-                                    const ['Expense', 'Income']
+                                    typeOptions
                                         .map(
                                           (t) => DropdownMenuItem(
                                             value: t,
@@ -292,7 +296,9 @@ class _TransactionFormState extends State<_TransactionForm> {
                                                 context,
                                                 t == 'Expense'
                                                     ? 'tx.expense'
-                                                    : 'tx.income',
+                                                    : t == 'Income'
+                                                    ? 'tx.income'
+                                                    : 'tx.transfer',
                                               ),
                                             ),
                                           ),

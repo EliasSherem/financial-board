@@ -1265,7 +1265,7 @@ class _TxCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTransfer = item.isTransfer;
-    final isIncome = item.amount >= 0;
+    final isIncome = !isTransfer && item.amount >= 0;
     final amountStr = (isIncome ? '+' : '-') + fmt.format(item.amount.abs());
     final color =
         isTransfer ? Colors.blue : (isIncome ? Colors.green : Colors.red);

@@ -145,9 +145,21 @@ class TransactionItem {
   String? get effectiveCategory => subcategoryName ?? categoryName ?? category;
 
   bool get isTransfer {
-    final labels = <String?>[type, category, categoryName, subcategoryName];
+    final labels = <String?>[
+      type,
+      category,
+      categoryName,
+      subcategoryName,
+      description,
+    ];
+    const transferLabels = {'transfer', 'fund transfer'};
     for (final label in labels) {
-      if ((label ?? '').trim().toLowerCase() == 'transfer') {
+      final normalized = (label ?? '').trim().toLowerCase();
+      if (transferLabels.contains(normalized)) {
+        return true;
+      }
+      if (normalized.startsWith('transfer from ') ||
+          normalized.startsWith('transfer to ')) {
         return true;
       }
     }

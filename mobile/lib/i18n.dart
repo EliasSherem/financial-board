@@ -667,6 +667,14 @@ class I18n {
     },
     'invoices.customer': {'en': 'Customer', 'es': 'Cliente'},
     'invoices.markPaid': {'en': 'Mark paid', 'es': 'Marcar pagada'},
+    'invoices.recordPayment': {
+      'en': 'Record payment',
+      'es': 'Registrar pago',
+    },
+    'invoices.recordPaymentFor': {
+      'en': 'Record payment for',
+      'es': 'Registrar pago de',
+    },
     'invoices.paid': {'en': 'paid', 'es': 'pagada'},
     'invoices.date': {'en': 'Date', 'es': 'Fecha'},
     'invoices.due': {'en': 'Due', 'es': 'Vence'},
