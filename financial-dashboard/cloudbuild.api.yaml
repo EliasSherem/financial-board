@@ -1,0 +1,12 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile.api
+      - -t
+      - us-central1-docker.pkg.dev/finsight-472418/containers/financial-api:manual-transfer-fix
+      - .
+
+images:
+  - us-central1-docker.pkg.dev/finsight-472418/containers/financial-api:manual-transfer-fix

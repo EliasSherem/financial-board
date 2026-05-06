@@ -514,6 +514,26 @@ async function fetchExpenseCategory(userId: number, categoryId: number): Promise
 }
 
 let investmentAccountSchemaEnsured = false;
+let transactionTransferTypeSchemaEnsured = false;
+
+async function ensureTransactionTransferTypeSchema() {
+  if (transactionTransferTypeSchemaEnsured) return;
+  try {
+    await db.query(
+      "ALTER TABLE transactions MODIFY COLUMN type ENUM('Income', 'Expense', 'Transfer') NOT NULL"
+    );
+  } catch (error: any) {
+    const message = String(error?.message || '').toLowerCase();
+    if (
+      error?.code !== 'ER_BAD_FIELD_ERROR' &&
+      !message.includes("enum('income','expense','transfer')") &&
+      !message.includes("enum('income', 'expense', 'transfer')")
+    ) {
+      console.warn('Transactions schema warning (type enum):', error?.message || error);
+    }
+  }
+  transactionTransferTypeSchemaEnsured = true;
+}
 
 async function ensureInvestmentAccountSchema() {
   if (investmentAccountSchemaEnsured) return;
@@ -1609,10 +1629,78 @@ router.get('/api/transactions', authenticateToken, async (req: Request, res: Res
   }
 });
 
+router.post('/api/transactions/repair-transfers', authenticateToken, async (req: Request, res: Response) => {
+  const uid = req.user!.id;
+  const transferLabels = ['transfer', 'fund transfer'];
+
+  try {
+    await ensureTransactionTransferTypeSchema();
+    await db.query('START TRANSACTION');
+
+    try {
+      const [projectRows] = await db.query(
+        `SELECT project_id, type, amount
+         FROM transactions
+         WHERE user_id = ?
+           AND project_id IS NOT NULL
+           AND LOWER(TRIM(COALESCE(category, ''))) IN (?, ?)
+           AND type IN ('Income', 'Expense')`,
+        [uid, ...transferLabels]
+      );
+
+      const projectAdjustments = new Map<number, number>();
+      for (const row of projectRows as any[]) {
+        const projectId = Number(row.project_id);
+        if (!Number.isFinite(projectId)) continue;
+        const amount = Math.abs(Number(row.amount || 0));
+        const priorSpentEffect = row.type === 'Expense' ? amount : -amount;
+        projectAdjustments.set(
+          projectId,
+          (projectAdjustments.get(projectId) ?? 0) - priorSpentEffect
+        );
+      }
+
+      for (const [projectId, delta] of projectAdjustments.entries()) {
+        if (delta === 0) continue;
+        await db.query(
+          'UPDATE projects SET spent = spent + ? WHERE id = ? AND user_id = ?',
+          [delta, projectId, uid]
+        );
+      }
+
+      const [result] = await db.query(
+        `UPDATE transactions
+         SET type = 'Transfer',
+             category = 'Fund transfer',
+             category_id = NULL,
+             subcategory_id = NULL
+         WHERE user_id = ?
+           AND LOWER(TRIM(COALESCE(category, ''))) IN (?, ?)
+           AND type IN ('Income', 'Expense', 'Transfer')`,
+        [uid, ...transferLabels]
+      );
+
+      await db.query('COMMIT');
+      res.json({
+        success: true,
+        updated: (result as any).affectedRows ?? 0,
+        repaired_projects: projectAdjustments.size,
+      });
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Transfer repair error:', error);
+    res.status(500).json({ message: 'Failed to repair past transfers' });
+  }
+});
+
 router.post('/api/transactions', authenticateToken, async (req: Request, res: Response) => {
   try {
     const uid = req.user!.id;
     await ensureInvestmentAccountSchema();
+    await ensureTransactionTransferTypeSchema();
     const {
       account_id,
       project_id,
@@ -1684,11 +1772,18 @@ router.post('/api/transactions', authenticateToken, async (req: Request, res: Re
       );
 
       if (project_id) {
-        const spentAmount = type === 'Expense' ? Math.abs(amount) : -Math.abs(amount);
-        await db.query(
-          'UPDATE projects SET spent = spent + ? WHERE id = ? AND user_id = ?',
-          [spentAmount, project_id, uid]
-        );
+        const spentAmount =
+          type === 'Expense'
+            ? Math.abs(amount)
+            : type === 'Income'
+            ? -Math.abs(amount)
+            : 0;
+        if (spentAmount !== 0) {
+          await db.query(
+            'UPDATE projects SET spent = spent + ? WHERE id = ? AND user_id = ?',
+            [spentAmount, project_id, uid]
+          );
+        }
       }
 
       const transactionDate = new Date(date);
@@ -1726,6 +1821,7 @@ router.put('/api/transactions/:id', authenticateToken, async (req: Request, res:
   try {
     const uid = req.user!.id;
     await ensureInvestmentAccountSchema();
+    await ensureTransactionTransferTypeSchema();
     const transactionId = Number(req.params.id);
     const {
       account_id,
@@ -1820,19 +1916,33 @@ router.put('/api/transactions/:id', authenticateToken, async (req: Request, res:
       }
 
       if (oldTrans.project_id) {
-        const oldSpentAmount = oldTrans.type === 'Expense' ? Math.abs(oldTrans.amount) : -Math.abs(oldTrans.amount);
-        await db.query(
-          'UPDATE projects SET spent = spent - ? WHERE id = ? AND user_id = ?',
-          [oldSpentAmount, oldTrans.project_id, uid]
-        );
+        const oldSpentAmount =
+          oldTrans.type === 'Expense'
+            ? Math.abs(oldTrans.amount)
+            : oldTrans.type === 'Income'
+            ? -Math.abs(oldTrans.amount)
+            : 0;
+        if (oldSpentAmount !== 0) {
+          await db.query(
+            'UPDATE projects SET spent = spent - ? WHERE id = ? AND user_id = ?',
+            [oldSpentAmount, oldTrans.project_id, uid]
+          );
+        }
       }
 
       if (project_id) {
-        const newSpentAmount = type === 'Expense' ? Math.abs(amount) : -Math.abs(amount);
-        await db.query(
-          'UPDATE projects SET spent = spent + ? WHERE id = ? AND user_id = ?',
-          [newSpentAmount, project_id, uid]
-        );
+        const newSpentAmount =
+          type === 'Expense'
+            ? Math.abs(amount)
+            : type === 'Income'
+            ? -Math.abs(amount)
+            : 0;
+        if (newSpentAmount !== 0) {
+          await db.query(
+            'UPDATE projects SET spent = spent + ? WHERE id = ? AND user_id = ?',
+            [newSpentAmount, project_id, uid]
+          );
+        }
       }
 
       await syncInvestmentContribution(uid, account_id, transactionId, amount, date);
@@ -1877,11 +1987,18 @@ router.delete('/api/transactions/:id', authenticateToken, async (req: Request, r
       
       // Reverse the transaction effect on project spent amount if it was linked to a project
       if (trans.project_id) {
-        const spentAmount = trans.type === 'Expense' ? Math.abs(trans.amount) : -Math.abs(trans.amount);
-        await db.query(
-          'UPDATE projects SET spent = spent - ? WHERE id = ? AND user_id = ?',
-          [spentAmount, trans.project_id, req.user?.id]
-        );
+        const spentAmount =
+          trans.type === 'Expense'
+            ? Math.abs(trans.amount)
+            : trans.type === 'Income'
+            ? -Math.abs(trans.amount)
+            : 0;
+        if (spentAmount !== 0) {
+          await db.query(
+            'UPDATE projects SET spent = spent - ? WHERE id = ? AND user_id = ?',
+            [spentAmount, trans.project_id, req.user?.id]
+          );
+        }
       }
       
       // Delete the transaction

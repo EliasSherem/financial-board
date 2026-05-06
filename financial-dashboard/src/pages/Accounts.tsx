@@ -102,8 +102,8 @@ export default function Accounts() {
         date: transferDate,
         description: `Transfer to ${toAccount.name}: ${transferData.description || 'Fund transfer'}`,
         amount: -transferData.amount,
-        type: 'Expense',
-        category: 'Transfer'
+        type: 'Transfer',
+        category: 'Fund transfer'
       });
 
       await api.createTransaction({
@@ -111,8 +111,8 @@ export default function Accounts() {
         date: transferDate,
         description: `Transfer from ${fromAccount.name}: ${transferData.description || 'Fund transfer'}`,
         amount: transferData.amount,
-        type: 'Income',
-        category: 'Transfer'
+        type: 'Transfer',
+        category: 'Fund transfer'
       });
 
       await loadAccounts();

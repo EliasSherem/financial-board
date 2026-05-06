@@ -5,6 +5,7 @@ import { initializeDatabase } from './db.js';
 import { startNotificationCron } from './notification_cron.js';
 import routes from './routes.js';
 import { stripeWebhookHandler } from './stripe.js';
+import { inboundEmailWebhookHandler } from './email.js';
 
 dotenv.config();
 
@@ -42,6 +43,7 @@ app.options('*', cors(corsOptions));
 
 // Stripe webhook must use raw body to validate signature; register before JSON parser
 app.post('/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhookHandler);
+app.post('/api/webhook', express.raw({ type: 'application/json' }), inboundEmailWebhookHandler);
 
 // JSON parser for all other routes
 app.use(express.json());

@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     date DATE NOT NULL,
     description VARCHAR(255) NOT NULL,
     amount DECIMAL(15, 2) NOT NULL,
-    type ENUM('Income', 'Expense') NOT NULL,
+    type ENUM('Income', 'Expense', 'Transfer') NOT NULL,
     category VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -118,6 +118,7 @@ ALTER TABLE expense_subcategories ADD COLUMN budget DECIMAL(15, 2) NOT NULL DEFA
 -- Upgrade transactions table to reference structured categories
 ALTER TABLE transactions ADD COLUMN category_id INT NULL;
 ALTER TABLE transactions ADD COLUMN subcategory_id INT NULL;
+ALTER TABLE transactions MODIFY COLUMN type ENUM('Income', 'Expense', 'Transfer') NOT NULL;
 ALTER TABLE transactions ADD CONSTRAINT fk_transactions_category FOREIGN KEY (category_id) REFERENCES expense_categories(id) ON DELETE SET NULL;
 ALTER TABLE transactions ADD CONSTRAINT fk_transactions_subcategory FOREIGN KEY (subcategory_id) REFERENCES expense_subcategories(id) ON DELETE SET NULL;
 ALTER TABLE transactions ADD INDEX idx_category_id (category_id);
@@ -331,6 +332,31 @@ CREATE TABLE IF NOT EXISTS app_store_subscriptions (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE KEY uniq_original_transaction (original_transaction_id),
     INDEX idx_user (user_id)
+);
+
+-- Inbound emails received via webhook providers such as Resend
+CREATE TABLE IF NOT EXISTS inbound_emails (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    provider VARCHAR(32) NOT NULL DEFAULT 'resend',
+    event_type VARCHAR(64) NOT NULL,
+    provider_email_id VARCHAR(128) NULL,
+    sender VARCHAR(255) NULL,
+    subject VARCHAR(255) NULL,
+    message_id VARCHAR(255) NULL,
+    to_addresses JSON NULL,
+    cc_addresses JSON NULL,
+    bcc_addresses JSON NULL,
+    html LONGTEXT NULL,
+    text LONGTEXT NULL,
+    headers_json LONGTEXT NULL,
+    attachments_json LONGTEXT NULL,
+    raw_download_url TEXT NULL,
+    payload_json LONGTEXT NOT NULL,
+    provider_created_at DATETIME NULL,
+    received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_provider_email (provider, provider_email_id),
+    INDEX idx_event_type (event_type),
+    INDEX idx_received_at (received_at)
 );
 
 -- Salary rules (automated income)

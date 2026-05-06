@@ -52,6 +52,14 @@ interface Payment {
   category: string;
 }
 
+const isTransferTransaction = (
+  transaction: Pick<Transaction, 'type' | 'category'>
+) => {
+  const labels = [transaction.type, transaction.category]
+    .map((value) => (value ?? '').trim().toLowerCase());
+  return labels.includes('transfer') || labels.includes('fund transfer');
+};
+
 const isInvestmentAccount = (account: Pick<Account, 'type'>) =>
   (account?.type ?? '').toLowerCase() === 'investment';
 
@@ -152,11 +160,21 @@ export default function Dashboard() {
   const lastMonthStr = lastMonth.toISOString().slice(0, 7); // YYYY-MM format
   
   const monthlyExpenses = transactions
-    .filter(t => t.date.startsWith(currentMonth) && t.amount < 0)
+    .filter(
+      (t) =>
+        t.date.startsWith(currentMonth) &&
+        t.amount < 0 &&
+        !isTransferTransaction(t)
+    )
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
     
   const lastMonthExpenses = transactions
-    .filter(t => t.date.startsWith(lastMonthStr) && t.amount < 0)
+    .filter(
+      (t) =>
+        t.date.startsWith(lastMonthStr) &&
+        t.amount < 0 &&
+        !isTransferTransaction(t)
+    )
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
     
   // Calculate expense percentage change
@@ -389,4 +407,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
