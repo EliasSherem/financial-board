@@ -1,7 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../services/purchase_service.dart';
 import '../utils/links.dart';
+
+const String _kProTitle = 'FinSight Pro';
+const String _kProLength = 'Monthly subscription';
+const String _kProPrice = 'MX\$235/month';
+const String _kProRenewal = 'Auto-renews monthly until canceled.';
 
 class ProBlock extends StatelessWidget {
   const ProBlock({super.key, required this.feature});
@@ -9,34 +14,62 @@ class ProBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Card(
-        elevation: 8,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                '$feature is a Pro feature',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Card(
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 28,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          '$feature is a Pro feature',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Upgrade to unlock this feature and more.',
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20),
+                        const _ProSubscriptionDetails(centered: true),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed:
+                              () => PurchaseService().purchasePro(context),
+                          child: const Text('Upgrade to Pro'),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Includes analytics, projects, invoices, and unlimited accounts.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(height: 8),
-              const Text('Upgrade to unlock this feature and more. \$235 MXN /month', textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => PurchaseService().purchasePro(context),
-                child: const Text('Upgrade to Pro'),
-              ),
-              const SizedBox(height: 8),
-              const Text('Includes analytics, projects, invoices, and unlimited accounts.', textAlign: TextAlign.center),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -48,8 +81,18 @@ class ProMiniChip extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(top: 2),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: const Color(0xFFE6F0FF), borderRadius: BorderRadius.circular(6)),
-      child: const Text('PRO', style: TextStyle(color: Color(0xFF2563EB), fontSize: 9, fontWeight: FontWeight.w700)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE6F0FF),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Text(
+        'PRO',
+        style: TextStyle(
+          color: Color(0xFF2563EB),
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
@@ -62,28 +105,151 @@ class UpgradeBanner extends StatelessWidget {
       elevation: 8,
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            const Icon(Icons.stars, color: Color(0xFF2563EB)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text('Upgrade to Pro', style: TextStyle(fontWeight: FontWeight.w700)),
-                  SizedBox(height: 2),
-                  Text('Unlock analytics, projects & invoices — \$235 MXN/mo'),
-                ],
-              ),
-            ),
-            FilledButton(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 520;
+            final details = const Expanded(child: _ProBannerDetails());
+            final button = FilledButton(
               onPressed: () => PurchaseService().purchasePro(context),
               child: const Text('Upgrade'),
-            )
-          ],
+            );
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (compact) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(Icons.stars, color: Color(0xFF2563EB)),
+                      ),
+                      const SizedBox(width: 12),
+                      details,
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  button,
+                ] else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(Icons.stars, color: Color(0xFF2563EB)),
+                      ),
+                      const SizedBox(width: 12),
+                      details,
+                      const SizedBox(width: 12),
+                      button,
+                    ],
+                  ),
+                const SizedBox(height: 4),
+                const _PurchaseLegalActions(),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 }
 
+class _ProSubscriptionDetails extends StatelessWidget {
+  const _ProSubscriptionDetails({
+    required this.centered,
+    this.showLegalActions = true,
+  });
+
+  final bool centered;
+  final bool showLegalActions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment:
+          centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      children: [
+        Text(
+          _kProTitle,
+          textAlign: centered ? TextAlign.center : TextAlign.start,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _kProLength,
+          textAlign: centered ? TextAlign.center : TextAlign.start,
+          style: theme.textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _kProPrice,
+          textAlign: centered ? TextAlign.center : TextAlign.start,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _kProRenewal,
+          textAlign: centered ? TextAlign.center : TextAlign.start,
+          style: theme.textTheme.bodySmall,
+        ),
+        if (showLegalActions) ...[
+          const SizedBox(height: 4),
+          _PurchaseLegalActions(centered: centered),
+        ],
+      ],
+    );
+  }
+}
+
+class _ProBannerDetails extends StatelessWidget {
+  const _ProBannerDetails();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _ProSubscriptionDetails(
+      centered: false,
+      showLegalActions: false,
+    );
+  }
+}
+
+class _PurchaseLegalActions extends StatelessWidget {
+  const _PurchaseLegalActions({this.centered = false});
+
+  final bool centered;
+
+  @override
+  Widget build(BuildContext context) {
+    final isIos = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    return Wrap(
+      alignment: centered ? WrapAlignment.center : WrapAlignment.start,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 4,
+      runSpacing: 0,
+      children: [
+        TextButton(
+          onPressed: () => openLink(context, kPurchasePrivacyPolicyUrl),
+          child: const Text('Privacy Policy'),
+        ),
+        if (isIos)
+          TextButton(
+            onPressed: () => openLink(context, kPurchaseTermsOfUseUrl),
+            child: const Text('Terms of Use (EULA)'),
+          ),
+        if (isIos)
+          TextButton(
+            onPressed: () => PurchaseService().restorePurchases(context),
+            child: const Text('Restore Purchases'),
+          ),
+      ],
+    );
+  }
+}

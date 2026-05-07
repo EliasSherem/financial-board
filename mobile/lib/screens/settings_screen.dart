@@ -71,7 +71,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           builder:
               (ctx) => AlertDialog(
                 title: Text(
-                  L('Repair past transfers?', '¿Corregir transferencias pasadas?'),
+                  L(
+                    'Repair past transfers?',
+                    '¿Corregir transferencias pasadas?',
+                  ),
                 ),
                 content: Text(
                   L(
@@ -117,13 +120,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${L('Failed', 'Error')}: $e',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${L('Failed', 'Error')}: $e')));
     } finally {
       if (mounted) setState(() => _repairingTransfers = false);
     }
@@ -148,7 +147,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: Text(L('Monthly savings goal', 'Meta de ahorro mensual')),
             content: TextFormField(
               initialValue: draft,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: InputDecoration(
                 labelText: L('Amount', 'Monto'),
                 border: const OutlineInputBorder(),
@@ -176,10 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     messenger.showSnackBar(
                       SnackBar(
                         content: Text(
-                          L(
-                            'Enter a valid amount',
-                            'Ingresa un monto valido',
-                          ),
+                          L('Enter a valid amount', 'Ingresa un monto valido'),
                         ),
                       ),
                     );
@@ -210,6 +208,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final biometricEnabled = auth.biometricEnabled;
     final canEnableBiometric = biometricReady;
     final canToggleBiometric = biometricEnabled || canEnableBiometric;
+    final isIos = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
     final biometricSubtitle =
         !_biometricChecked
             ? L(
@@ -235,7 +234,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Not available on this device',
               'No disponible en este dispositivo',
             );
-    final showLock = auth.isAuthenticated && auth.biometricEnabled && biometricReady;
+    final showLock =
+        auth.isAuthenticated && auth.biometricEnabled && biometricReady;
     return Scaffold(
       appBar: AppBar(title: Text(L('Settings', 'Ajustes'))),
       body: ListView(
@@ -267,6 +267,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
           ),
           const Divider(),
+          if (isIos) ...[
+            ListTile(
+              leading: const Icon(Icons.person_remove_outlined),
+              title: Text(L('Delete account', 'Eliminar cuenta')),
+              subtitle: Text(
+                L(
+                  'Open the secure account deletion page',
+                  'Abrir la página segura para eliminar la cuenta',
+                ),
+              ),
+              trailing: const Icon(Icons.open_in_new),
+              onTap: () => openLink(context, kDeleteAccountUrl),
+            ),
+            const Divider(),
+          ],
           ListTile(
             leading: const Icon(Icons.fingerprint),
             title: Text(L('Biometric login', 'Inicio con biometr\u00EDa')),
@@ -305,7 +320,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }
                       : null,
               child: Text(
-                biometricEnabled ? L('Disable', 'Desactivar') : L('Enable', 'Activar'),
+                biometricEnabled
+                    ? L('Disable', 'Desactivar')
+                    : L('Enable', 'Activar'),
               ),
             ),
           ),
@@ -362,12 +379,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.help_outline),
             title: Text(L('Finsight Assistant', 'Asistente Finsight')),
-            subtitle: Text(
-              L(
-                'Open the support chat',
-                'Abrir chat de ayuda',
-              ),
-            ),
+            subtitle: Text(L('Open the support chat', 'Abrir chat de ayuda')),
             onTap: () => openLink(context, _supportGptUrl),
           ),
           const Divider(),

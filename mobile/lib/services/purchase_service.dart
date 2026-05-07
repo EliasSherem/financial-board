@@ -23,6 +23,11 @@ class PurchaseService {
   };
   StreamSubscription<List<PurchaseDetails>>? _sub;
 
+  void _showSnackBar(ScaffoldMessengerState messenger, String message) {
+    if (!messenger.mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _deliverPurchase(
     String? authToken,
     PurchaseDetails purchase,
@@ -63,9 +68,7 @@ class PurchaseService {
     );
   }
 
-  void _attach(BuildContext context) {
-    final authStore = context.read<AuthStore>();
-    final messenger = ScaffoldMessenger.of(context);
+  void _attach(AuthStore authStore, ScaffoldMessengerState messenger) {
     _sub ??= InAppPurchase.instance.purchaseStream.listen(
       (purchases) async {
         for (final p in purchases) {
@@ -85,13 +88,21 @@ class PurchaseService {
                 await authStore.setLocalPro(true);
                 authStore.setServerPro(true);
                 messenger.showSnackBar(
-                  const SnackBar(content: Text('Pro activated. Thanks!')),
+                  SnackBar(
+                    content: Text(
+                      p.status == PurchaseStatus.restored
+                          ? 'Purchases restored. Pro is active.'
+                          : 'Pro activated. Thanks!',
+                    ),
+                  ),
                 );
               } else {
                 messenger.showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text(
-                      'Purchase received. Your subscription is still syncing.',
+                      p.status == PurchaseStatus.restored
+                          ? 'Restore received. Your subscription is still syncing.'
+                          : 'Purchase received. Your subscription is still syncing.',
                     ),
                   ),
                 );
@@ -124,31 +135,46 @@ class PurchaseService {
   }
 
   Future<void> purchasePro(BuildContext context) async {
-    final available = await InAppPurchase.instance.isAvailable();
-    if (!available) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Store unavailable on this device')),
-        );
+    final authStore = context.read<AuthStore>();
+    final messenger = ScaffoldMessenger.of(context);
+    _attach(authStore, messenger);
+    try {
+      final available = await InAppPurchase.instance.isAvailable();
+      if (!available) {
+        _showSnackBar(messenger, 'Store unavailable on this device');
+        return;
       }
-      return;
-    }
-    if (!context.mounted) return;
-    _attach(context);
-    final resp = await InAppPurchase.instance.queryProductDetails(kIds);
-    if (resp.error != null || resp.productDetails.isEmpty) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Product not found. Configure the store product id.'),
-          ),
+      final resp = await InAppPurchase.instance.queryProductDetails(kIds);
+      if (resp.error != null || resp.productDetails.isEmpty) {
+        _showSnackBar(
+          messenger,
+          'Subscription product not found. Please try again later.',
         );
+        return;
       }
-      return;
+      final product = resp.productDetails.first;
+      final param = PurchaseParam(productDetails: product);
+      await InAppPurchase.instance.buyNonConsumable(purchaseParam: param);
+    } catch (e) {
+      _showSnackBar(messenger, 'Unable to start purchase: $e');
     }
-    final product = resp.productDetails.first;
-    final param = PurchaseParam(productDetails: product);
-    await InAppPurchase.instance.buyNonConsumable(purchaseParam: param);
+  }
+
+  Future<void> restorePurchases(BuildContext context) async {
+    final authStore = context.read<AuthStore>();
+    final messenger = ScaffoldMessenger.of(context);
+    _attach(authStore, messenger);
+    try {
+      final available = await InAppPurchase.instance.isAvailable();
+      if (!available) {
+        _showSnackBar(messenger, 'Store unavailable on this device');
+        return;
+      }
+      _showSnackBar(messenger, 'Restoring purchases...');
+      await InAppPurchase.instance.restorePurchases();
+    } catch (e) {
+      _showSnackBar(messenger, 'Could not restore purchases: $e');
+    }
   }
 
   Future<void> _acknowledge(PurchaseDetails p) async {
