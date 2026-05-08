@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'theme.dart';
@@ -32,10 +33,18 @@ import 'i18n.dart';
 import 'widgets/quick_create_dialogs.dart';
 
 import 'services/push_service.dart';
+import 'services/purchase_service.dart';
 import 'services/widget_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+    // The backend validates legacy App Store receipts via verifyReceipt.
+    // StoreKit 2 returns transaction JWS data instead, so keep iOS on StoreKit 1
+    // until the server supports App Store Server API/JWS validation.
+    // ignore: deprecated_member_use
+    await InAppPurchaseStoreKitPlatform.enableStoreKit1();
+  }
   runApp(const FinancialBoardRoot());
   unawaited(_initializeStartupServices());
 }
@@ -171,7 +180,9 @@ class _HomeShellState extends State<HomeShell> {
     // One-time Play Billing sync after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
-        final api = ApiClient()..setToken(context.read<AuthStore>().token);
+        final authStore = context.read<AuthStore>();
+        await PurchaseService().initialize(context);
+        final api = ApiClient()..setToken(authStore.token);
         final data = DataService(api);
         await data.syncPlay();
         if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
@@ -186,7 +197,7 @@ class _HomeShellState extends State<HomeShell> {
           final me = await data.getMe();
           final pro = (me['is_pro'] == true) || (me['is_pro'] == 1);
           if (context.mounted) {
-            context.read<AuthStore>().setServerPro(pro);
+            authStore.setServerPro(pro);
           }
         } catch (_) {}
       } catch (_) {}
