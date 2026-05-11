@@ -12,6 +12,14 @@ const router = Router();
 const APPLE_VERIFY_RECEIPT_PRODUCTION_URL = 'https://buy.itunes.apple.com/verifyReceipt';
 const APPLE_VERIFY_RECEIPT_SANDBOX_URL = 'https://sandbox.itunes.apple.com/verifyReceipt';
 
+type NormalizedAppleVerification = {
+  status: number;
+  environment: string;
+  latestReceipt: string;
+  latestReceiptInfo: any[];
+  pendingRenewalInfo: any[];
+};
+
 let openaiClient: OpenAI | null = null;
 
 function getOpenAiClient(): OpenAI | null {
@@ -171,6 +179,62 @@ function parseAppleDateMs(value: unknown): Date | null {
   return new Date(asNumber);
 }
 
+function decodeBase64UrlJson(value: string): any | null {
+  try {
+    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(
+      normalized.length + ((4 - (normalized.length % 4)) % 4),
+      '='
+    );
+    return JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function normalizeStoreKit2Transaction(
+  signedTransaction: string
+): NormalizedAppleVerification | null {
+  const parts = signedTransaction.split('.');
+  if (parts.length !== 3) return null;
+  const payload = decodeBase64UrlJson(parts[1]);
+  if (!payload || typeof payload !== 'object') return null;
+
+  const productId = String(payload.productId || '').trim();
+  const originalTransactionId = String(payload.originalTransactionId || '').trim();
+  const transactionId = String(payload.transactionId || '').trim();
+  if (!productId || (!originalTransactionId && !transactionId)) return null;
+
+  const entry = {
+    product_id: productId,
+    original_transaction_id: originalTransactionId || transactionId,
+    transaction_id: transactionId || originalTransactionId,
+    expires_date_ms: payload.expiresDate != null ? String(payload.expiresDate) : undefined,
+    cancellation_date_ms: payload.revocationDate != null ? String(payload.revocationDate) : undefined,
+    cancellation_date: payload.revocationDate != null ? String(payload.revocationDate) : undefined,
+  };
+
+  const renewalInfo =
+    payload.autoRenewStatus != null
+      ? [
+          {
+            original_transaction_id: originalTransactionId || transactionId,
+            product_id: productId,
+            auto_renew_status:
+              payload.autoRenewStatus === true || payload.autoRenewStatus === 1 ? '1' : '0',
+          },
+        ]
+      : [];
+
+  return {
+    status: 0,
+    environment: String(payload.environment || 'Production'),
+    latestReceipt: signedTransaction,
+    latestReceiptInfo: [entry],
+    pendingRenewalInfo: renewalInfo,
+  };
+}
+
 async function verifyReceiptWithApple(
   url: string,
   receiptData: string,
@@ -191,7 +255,10 @@ async function verifyReceiptWithApple(
   return response.json() as Promise<any>;
 }
 
-async function verifyAppStoreReceipt(receiptData: string) {
+async function verifyAppStoreReceipt(receiptData: string): Promise<NormalizedAppleVerification> {
+  const storeKit2Verification = normalizeStoreKit2Transaction(receiptData);
+  if (storeKit2Verification) return storeKit2Verification;
+
   const sharedSecret = getAppleSharedSecret();
   if (!sharedSecret) {
     throw new Error('APPLE_SHARED_SECRET is not configured');

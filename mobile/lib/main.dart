@@ -198,6 +198,7 @@ class _HomeShellState extends State<HomeShell> {
           final pro = (me['is_pro'] == true) || (me['is_pro'] == 1);
           if (context.mounted) {
             authStore.setServerPro(pro);
+            if (!pro) await authStore.setLocalPro(false);
           }
         } catch (_) {}
       } catch (_) {}

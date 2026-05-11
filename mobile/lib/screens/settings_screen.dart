@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
+import '../services/purchase_service.dart';
 import 'update_profile_screen.dart';
 import '../lang_store.dart';
 import '../state/auth_store.dart';
@@ -268,6 +269,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(),
           if (isIos) ...[
+            ListTile(
+              leading: const Icon(Icons.restore_outlined),
+              title: Text(L('Restore purchases', 'Restaurar compras')),
+              subtitle: Text(
+                L(
+                  'Sync your App Store subscription',
+                  'Sincronizar tu suscripción de App Store',
+                ),
+              ),
+              onTap: () => PurchaseService().restorePurchases(context),
+            ),
+            const Divider(),
             ListTile(
               leading: const Icon(Icons.person_remove_outlined),
               title: Text(L('Delete account', 'Eliminar cuenta')),
