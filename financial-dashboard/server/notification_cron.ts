@@ -188,6 +188,31 @@ async function resolveSubcategoryBudgetEvents(userId: number, overBudgetIds: str
   );
 }
 
+async function claimNotificationEvent(
+  userId: number,
+  type: string,
+  entityId: string,
+  eventKey: string
+): Promise<boolean> {
+  const [result] = await db.query(
+    'INSERT IGNORE INTO notification_events (user_id, type, entity_id, event_key) VALUES (?, ?, ?, ?)',
+    [userId, type, entityId, eventKey]
+  );
+  return Number((result as any).affectedRows || 0) > 0;
+}
+
+async function releaseNotificationEvent(
+  userId: number,
+  type: string,
+  entityId: string,
+  eventKey: string
+) {
+  await db.query(
+    'DELETE FROM notification_events WHERE user_id = ? AND type = ? AND entity_id = ? AND event_key = ?',
+    [userId, type, entityId, eventKey]
+  );
+}
+
 async function processUser(
   userId: number,
   email: string | null,
@@ -379,17 +404,27 @@ async function processUser(
     const normalizedEmail = email.trim().toLowerCase();
     if (normalizedEmail == 'root@example.com') return;
     for (const event of pendingEmailEvents) {
+      const claimed = await claimNotificationEvent(
+        userId,
+        event.type,
+        event.entityId,
+        event.eventKey
+      );
+      if (!claimed) continue;
       const sent = await sendResendEmail({
         to: email,
         subject: event.subject,
         text: event.text,
         html: event.html,
       });
-      if (!sent) continue;
-      await db.query(
-        'INSERT IGNORE INTO notification_events (user_id, type, entity_id, event_key) VALUES (?, ?, ?, ?)',
-        [userId, event.type, event.entityId, event.eventKey]
-      );
+      if (!sent) {
+        await releaseNotificationEvent(
+          userId,
+          event.type,
+          event.entityId,
+          event.eventKey
+        );
+      }
     }
   }
 
@@ -399,12 +434,22 @@ async function processUser(
     if (tokens.length === 0) return;
 
     for (const event of pendingEvents) {
-      const sent = await sendFcmNotification(tokens, event.note, event.data);
-      if (sent === 0) continue;
-      await db.query(
-        'INSERT IGNORE INTO notification_events (user_id, type, entity_id, event_key) VALUES (?, ?, ?, ?)',
-        [userId, event.type, event.entityId, event.eventKey]
+      const claimed = await claimNotificationEvent(
+        userId,
+        event.type,
+        event.entityId,
+        event.eventKey
       );
+      if (!claimed) continue;
+      const sent = await sendFcmNotification(tokens, event.note, event.data);
+      if (sent === 0) {
+        await releaseNotificationEvent(
+          userId,
+          event.type,
+          event.entityId,
+          event.eventKey
+        );
+      }
     }
   }
 }
