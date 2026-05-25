@@ -44,11 +44,8 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  acquireTimeout: 60000,
-  timeout: 60000,
-  reconnect: true,
+  connectTimeout: 60000,
   idleTimeout: 300000,
-  maxReconnects: 3,
   multipleStatements: false,
   // Some providers require this with MySQL 8 when not using SSL
   // Only enabled if explicitly requested

@@ -22,7 +22,7 @@
     "googleapis": "^139.0.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.542.0",
-    "mysql2": "^3.14.4",
+    "mysql2": "^3.22.3",
     "openai": "^4.104.0",
     "postcss": "^8.5.6",
     "react": "^19.1.1",

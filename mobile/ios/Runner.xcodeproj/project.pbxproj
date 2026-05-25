@@ -664,7 +664,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = FinancialBoardWidgetExtension.entitlements;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = "";
 				MARKETING_VERSION = 1.0.3;
 				PRODUCT_NAME = FinancialBoardWidgetExtension;
@@ -838,7 +838,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = FinancialBoardWidget/FinancialBoardWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = 7T8M8X5R46;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = FinancialBoardWidget/Info.plist;
@@ -865,7 +865,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = FinancialBoardWidget/FinancialBoardWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = 7T8M8X5R46;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = FinancialBoardWidget/Info.plist;
