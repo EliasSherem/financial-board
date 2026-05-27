@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useI18n } from '../contexts/I18nContext';
 
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.finsight.finsight&pcampaignid=web_share';
+const APP_STORE_URL = 'https://apps.apple.com/mx/app/finsight/id6761848896';
 
 function PlayStoreIcon() {
   return (
@@ -13,6 +14,17 @@ function PlayStoreIcon() {
       <path d="M13.5 12 18 7.9 7.2 2 13.5 12Z" fill="#00B0FF" />
       <path d="M13.5 12 7.2 22 18 16.1 13.5 12Z" fill="#FFAB00" />
       <path d="M18 7.9 13.5 12 18 16.1 21.5 14c1-.6 1-1.5 0-2.1L18 7.9Z" fill="#FF5252" />
+    </svg>
+  );
+}
+
+function AppStoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+      <path
+        fill="currentColor"
+        d="M16.1 2.2c.1 1-.3 2-1 2.8-.7.8-1.8 1.4-2.8 1.3-.1-1 .3-2 1-2.7.7-.8 1.9-1.4 2.8-1.4Zm3.4 15.5c-.5 1.1-.8 1.6-1.5 2.6-1 1.4-2.4 3.1-4.1 3.1-1.5 0-1.9-1-3.9-1s-2.5 1-3.9 1c-1.7 0-3-1.5-4.1-3-2.8-4-3.1-8.7-1.4-11.1 1.2-1.7 3-2.7 4.8-2.7 1.8 0 3 1 4.5 1 1.4 0 2.3-1 4.4-1 1.6 0 3.3.9 4.5 2.4-4 2.2-3.3 7.9.7 8.7Z"
+      />
     </svg>
   );
 }
@@ -61,17 +73,14 @@ export default function Landing() {
       {/* Hero Section */}
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <a
-            href={PLAY_STORE_URL}
-            target="_blank"
-            rel="noreferrer"
+          <div
             className="mb-4 inline-flex items-center justify-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-800 transition-colors hover:bg-green-100"
           >
             <span className="rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
               {L('news_label')}
             </span>
             <span>{L('news_androidRelease')}</span>
-          </a>
+          </div>
           <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 mb-4">
             <Zap className="w-3 h-3" /> {L('hero_badge')}
           </span>
@@ -89,6 +98,15 @@ export default function Landing() {
             >
               <PlayStoreIcon />
               {L('cta_downloadAndroid')}
+            </a>
+            <a
+              href={APP_STORE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-8 py-3 text-lg font-medium text-gray-900 hover:bg-gray-50"
+            >
+              <AppStoreIcon />
+              {L('cta_downloadIos')}
             </a>
           </div>
         </div>
@@ -189,10 +207,16 @@ export default function Landing() {
                   <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-white bg-amber-500/80 px-2 py-0.5 rounded">Popular</div>
                 </div>
                 <div className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-white">{L('price_pro')} <span className="text-sm font-medium text-gray-500">/{L('per_month')}</span></div>
+                <div className="mt-2 space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                  <div>{L('price_web')}</div>
+                  <div>{L('price_googlePlay')}</div>
+                  <div>{L('price_appStore')}</div>
+                </div>
                 <ul className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
                   <li>{L('pro_unlimited')}</li>
                   <li>{L('pro_analytics')}</li>
                   <li>{L('pro_projects')}</li>
+                  <li>{L('pro_ai')}</li>
                   <li>{L('pro_support')}</li>
                 </ul>
                 <Link to="/signup" className="mt-5 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white font-semibold hover:bg-blue-700">{L('btn_upgrade')}</Link>
@@ -220,6 +244,15 @@ export default function Landing() {
             >
               <PlayStoreIcon />
               {L('cta_downloadAndroid')}
+            </a>
+            <a
+              href={APP_STORE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-8 py-3 text-lg font-medium text-gray-900 hover:bg-gray-50"
+            >
+              <AppStoreIcon />
+              {L('cta_downloadIos')}
             </a>
           </div>
           <p className="text-sm text-gray-500 mt-4">{L('cta_note')}</p>
@@ -257,7 +290,7 @@ const STR = {
   nav_signin: { en: 'Sign In', es: 'Iniciar sesión' },
   nav_getStarted: { en: 'Get Started', es: 'Comenzar' },
   news_label: { en: 'New', es: 'Nuevo' },
-  news_androidRelease: { en: 'FinSight has just launched on Android. Download it on Google Play.', es: 'FinSight acaba de lanzarse en Android. Descárgala en Google Play.' },
+  news_androidRelease: { en: 'FinSight is now available on the App Store and Google Play.', es: 'FinSight ya está disponible en App Store y Google Play.' },
   hero_badge: { en: 'Financial Intelligence Platform', es: 'Plataforma de inteligencia financiera' },
   hero_title_1: { en: 'Master Your Financial', es: 'Domina tu' },
   hero_title_2: { en: 'Overview', es: 'Panorama financiero' },
@@ -267,6 +300,7 @@ const STR = {
   },
   cta_getStarted: { en: 'Get Started Now', es: 'Comenzar ahora' },
   cta_downloadAndroid: { en: 'Download on Google Play', es: 'Descargar en Google Play' },
+  cta_downloadIos: { en: 'Download on the App Store', es: 'Descargar en App Store' },
   preview_title: { en: "Explore FinSight's Powerful Features", es: 'Explora las funciones de FinSight' },
   preview_sub: { en: 'See how FinSight transforms your financial management experience', es: 'Mira cómo FinSight transforma la gestión de tus finanzas' },
   about_title: { en: 'About FinSight', es: 'Sobre FinSight' },
@@ -281,17 +315,21 @@ const STR = {
   features_sub: { en: 'Comprehensive tools and insights to manage, analyze, and optimize your financial portfolio.', es: 'Herramientas e insights para gestionar, analizar y optimizar tus finanzas.' },
   pricing_title: { en: 'Simple pricing', es: 'Precios simples' },
   pricing_sub: { en: 'Start free. Upgrade anytime.', es: 'Comienza gratis. Mejora cuando quieras.' },
-  price_pro: { en: '200 MXN', es: '200 MXN' },
+  price_pro: { en: '200 MXN + tax', es: '200 MXN + impuestos' },
+  price_web: { en: 'Web: 200 MXN + tax/month', es: 'Web: 200 MXN + impuestos/mes' },
+  price_googlePlay: { en: 'Google Play: 235 MXN/month', es: 'Google Play: 235 MXN/mes' },
+  price_appStore: { en: 'App Store: 249 MXN/month', es: 'App Store: 249 MXN/mes' },
   per_month: { en: 'month', es: 'mes' },
   plan_free: { en: 'Free', es: 'Gratis' },
   plan_pro: { en: 'Pro', es: 'Pro' },
   free_core: { en: 'Core budgeting tools', es: 'Herramientas básicas de presupuesto' },
-  free_accounts: { en: 'Up to 2 accounts', es: 'Hasta 2 cuentas' },
+  free_accounts: { en: 'Up to 3 accounts', es: 'Hasta 3 cuentas' },
   free_secure: { en: 'Secure by design', es: 'Seguro por diseño' },
   btn_createFree: { en: 'Create free account', es: 'Crear cuenta gratis' },
   pro_unlimited: { en: 'Unlimited accounts', es: 'Cuentas ilimitadas' },
   pro_analytics: { en: 'Analytics & charts', es: 'Analíticas y gráficos' },
   pro_projects: { en: 'Projects & invoices', es: 'Proyectos y facturas' },
+  pro_ai: { en: 'AI financial consultant', es: 'Consultor financiero con IA' },
   pro_support: { en: 'Priority support', es: 'Soporte prioritario' },
   btn_upgrade: { en: 'Upgrade to Pro', es: 'Mejorar a Pro' },
   pricing_note: { en: 'Cancel anytime. Stripe-secured payments.', es: 'Cancela cuando quieras. Pagos seguros con Stripe.' },

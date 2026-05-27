@@ -5,8 +5,14 @@ import '../utils/links.dart';
 
 const String _kProTitle = 'FinSight Pro';
 const String _kProLength = 'Monthly subscription';
-const String _kProPrice = 'MX\$235/month';
 const String _kProRenewal = 'Auto-renews monthly until canceled.';
+
+String _proPrice() {
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+    return 'MX\$249/month on App Store';
+  }
+  return 'MX\$235/month on Google Play';
+}
 
 class ProBlock extends StatelessWidget {
   const ProBlock({super.key, required this.feature});
@@ -58,7 +64,7 @@ class ProBlock extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Includes analytics, projects, invoices, and unlimited accounts.',
+                          'Includes analytics, projects, invoices, the AI financial consultant, and unlimited accounts.',
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -187,7 +193,7 @@ class _ProSubscriptionDetails extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          _kProPrice,
+          _proPrice(),
           textAlign: centered ? TextAlign.center : TextAlign.start,
           style: theme.textTheme.headlineSmall?.copyWith(
             color: theme.colorScheme.primary,

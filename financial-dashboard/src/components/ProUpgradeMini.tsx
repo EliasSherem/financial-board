@@ -46,7 +46,7 @@ export default function ProUpgradeMini({ open, onClose }: Props) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Upgrade to Pro</h3>
-          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Unlock everything for just <span className="font-semibold text-slate-900 dark:text-slate-100">MX$200</span> <span className="text-slate-500 dark:text-slate-400">/month</span>.</p>
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Unlock everything for <span className="font-semibold text-slate-900 dark:text-slate-100">MX$200 + tax</span> <span className="text-slate-500 dark:text-slate-400">/month on web</span>.</p>
         </div>
         <button aria-label="Close" onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">
           ✕
@@ -57,6 +57,7 @@ export default function ProUpgradeMini({ open, onClose }: Props) {
         <li className="flex items-start gap-2"><span className="text-green-600">•</span> Analytics dashboards and charts</li>
         <li className="flex items-start gap-2"><span className="text-green-600">•</span> Projects planning and budgets</li>
         <li className="flex items-start gap-2"><span className="text-green-600">•</span> Invoices with payments tracking</li>
+        <li className="flex items-start gap-2"><span className="text-green-600">•</span> AI financial consultant</li>
         <li className="flex items-start gap-2"><span className="text-green-600">•</span> Unlimited accounts</li>
       </ul>
 

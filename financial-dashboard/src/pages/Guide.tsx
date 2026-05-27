@@ -111,7 +111,7 @@ const STR = {
   s7_li2: { en: 'Refine with filters to find savings opportunities.', es: 'Refina con filtros para hallar oportunidades de ahorro.' },
   s8: { en: 'Upgrade to Pro & Billing', es: 'Mejorar a Pro y facturación' },
   s8_li1: { en: 'Start checkout from Upgrade to Pro or Pro banners.', es: 'Inicia el pago desde “Mejorar a Pro” o banners Pro.' },
-  s8_li2: { en: 'Pricing: MX$200/month. After payment your account becomes Pro.', es: 'Precio: MX$200/mes. Tras el pago, tu cuenta pasa a Pro.' },
+  s8_li2: { en: 'Web pricing: MX$200 + tax/month. After payment your account becomes Pro.', es: 'Precio web: MX$200 + impuestos/mes. Tras el pago, tu cuenta pasa a Pro.' },
   s8_li3: { en: 'Manage your subscription from Payments (billing portal).', es: 'Gestiona tu suscripción desde Pagos (portal de facturación).' },
   tips: { en: 'Tips & Support', es: 'Consejos y soporte' },
   tips_li1: { en: 'Reconcile accounts by matching real statements.', es: 'Concilia cuentas ajustando al estado real.' },

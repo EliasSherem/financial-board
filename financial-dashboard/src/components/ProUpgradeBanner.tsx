@@ -29,8 +29,8 @@ export default function ProUpgradeBanner({ featureLabel = 'this feature', varian
 
   const Price = () => (
     <span className="inline-flex items-baseline gap-1 align-middle">
-      <span className="font-semibold text-slate-900 dark:text-slate-100">$10</span>
-      <span className="text-xs text-slate-500 dark:text-slate-400">/month</span>
+      <span className="font-semibold text-slate-900 dark:text-slate-100">MX$200 + tax</span>
+      <span className="text-xs text-slate-500 dark:text-slate-400">/month on web</span>
     </span>
   );
 
@@ -61,7 +61,7 @@ export default function ProUpgradeBanner({ featureLabel = 'this feature', varian
         >
           Upgrade to Pro
         </button>
-        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Includes analytics, projects, invoices, and unlimited accounts.</p>
+        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Includes analytics, projects, invoices, the AI financial consultant, and unlimited accounts.</p>
       </div>
     </div>
   );
