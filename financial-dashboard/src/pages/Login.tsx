@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, UserPlus } from 'lucide-react';
 import { useI18n } from '../contexts/I18nContext';
 import { resolveApi } from '../utils/api';
+import AuthShell, { authVisualIcons } from '../components/auth/AuthShell';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -116,24 +117,25 @@ export default function Login() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-start sm:items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-center mb-8">
-          <div className="bg-blue-600 p-3 rounded-full">
-            <img src="/finsight-icon.svg" alt="FinSight" className="h-8 w-8 text-white" />
-          </div>
-        </div>
-        
-        <h2 className="text-3xl font-bold text-center text-gray-900 mb-2">
-          FinSight
-        </h2>
-        <p className="text-center text-gray-600 mb-8">
-          {t('login.title')}
-        </p>
-
+    <AuthShell
+      title={t('login.heading')}
+      subtitle={t('login.subtitlePremium')}
+      visualTitle={t('login.visualTitle')}
+      visualBody={t('login.visualBody')}
+      backLabel={t('auth.backToLanding')}
+      platformLabel={t('auth.platformLabel')}
+      workspaceLabel={t('auth.workspaceLabel')}
+      statusLabel={t('auth.statusLive')}
+      visualCards={[
+        { label: t('auth.card.cashFlow'), value: '+18%', icon: authVisualIcons.cashFlow },
+        { label: t('auth.card.budgets'), value: '72%', icon: authVisualIcons.budgets },
+        { label: t('auth.card.insights'), value: '4', icon: authVisualIcons.insights },
+        { label: t('auth.card.subscriptions'), value: '$96', icon: authVisualIcons.subscriptions },
+      ]}
+    >
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="username" className="mb-2 block text-sm font-semibold text-slate-700">
               {t('login.username')}
             </label>
             <input
@@ -142,14 +144,14 @@ export default function Login() {
               required
               value={credentials.username}
               onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-slate-950 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
               placeholder={t('login.placeholder.username')}
               disabled={loading}
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="password" className="mb-2 block text-sm font-semibold text-slate-700">
               {t('login.password')}
             </label>
             <input
@@ -158,14 +160,14 @@ export default function Login() {
               required
               value={credentials.password}
               onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-slate-950 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
               placeholder={t('login.placeholder.password')}
               disabled={loading}
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
+            <div role="alert" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               {error}
             </div>
           )}
@@ -173,7 +175,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-blue-600/30 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? (
               <>
@@ -189,10 +191,10 @@ export default function Login() {
           </button>
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center" aria-hidden="true">
-              <div className="w-full border-t border-gray-200" />
+              <div className="w-full border-t border-slate-200" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="bg-white px-2 text-gray-500">or</span>
+              <span className="bg-white px-3 text-slate-500">or</span>
             </div>
           </div>
           <div className="flex justify-center">
@@ -201,25 +203,24 @@ export default function Login() {
         </form>
 
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-slate-600">
             {t('login.noAccount')}
           </p>
           <Link
             to="/signup"
-            className="inline-flex items-center gap-2 mt-2 text-blue-600 hover:text-blue-700 font-medium"
+            className="mt-2 inline-flex items-center gap-2 font-semibold text-blue-600 transition-colors hover:text-blue-700"
           >
             <UserPlus className="h-4 w-4" />
             {t('login.signupFree')}
           </Link>
         </div>
 
-        <div className="mt-6 text-center text-xs text-gray-500">
+        <div className="mt-6 text-center text-xs leading-6 text-slate-500">
           By using FinSight, you agree to our{' '}
           <Link to="/terms" className="text-blue-600 hover:text-blue-700">Terms &amp; Conditions</Link>
           {' '}and{' '}
           <Link to="/privacy" className="text-blue-600 hover:text-blue-700">Privacy Policy</Link>.
         </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 }

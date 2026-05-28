@@ -18,18 +18,38 @@ const corsOrigins = (process.env.CORS_ORIGIN || '')
   .map(o => o.trim())
   .filter(Boolean);
 
+function isAllowedOrigin(origin: string): boolean {
+  const allowList = corsOrigins.length
+    ? corsOrigins
+    : ['http://localhost:3000','http://localhost:5173','http://localhost:5174','http://localhost:5175','http://localhost:5176','http://localhost:8081'];
+
+  if (allowList.includes(origin)) return true;
+
+  try {
+    const { hostname, protocol } = new URL(origin);
+    const isHttp = protocol === 'http:' || protocol === 'https:';
+    if (!isHttp) return false;
+
+    const isLocalDevHost =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname === '192' ||
+      /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+      /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname);
+
+    if (isLocalDevHost) return true;
+    if (hostname.endsWith('.a.run.app') || hostname.endsWith('.appspot.com')) return true;
+    if (hostname === 'finsight.com.mx' || hostname === 'www.finsight.com.mx') return true;
+  } catch {}
+  return false;
+}
+
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    const allowList = corsOrigins.length
-      ? corsOrigins
-      : ['http://localhost:3000','http://localhost:5173','http://localhost:5174','http://localhost:5175','http://localhost:5176','http://localhost:8081'];
-    let ok = allowList.includes(origin);
-    try {
-      const h = new URL(origin).hostname;
-      if (h.endsWith('.a.run.app') || h.endsWith('.appspot.com') || h === 'finsight.com.mx' || h === 'www.finsight.com.mx') ok = true;
-    } catch {}
-    return callback(null, ok);
+    return callback(null, isAllowedOrigin(origin));
   },
   credentials: true,
   methods: ['GET','HEAD','POST','PUT','PATCH','DELETE','OPTIONS'],

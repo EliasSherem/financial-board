@@ -65,7 +65,21 @@ const dict: Dict = {
   'profile.err.tooShort': { en: 'Password must be at least 6 characters', es: 'La contraseña debe tener al menos 6 caracteres' },
   'profile.err.currentRequired': { en: 'Current password is required to change password', es: 'Se requiere la contraseña actual para cambiarla' },
 
+  // Auth shell
+  'auth.backToLanding': { en: 'Back to landing', es: 'Volver al inicio' },
+  'auth.platformLabel': { en: 'Financial intelligence platform', es: 'Plataforma de inteligencia financiera' },
+  'auth.workspaceLabel': { en: 'FinSight workspace', es: 'Espacio FinSight' },
+  'auth.statusLive': { en: 'Live', es: 'Activo' },
+  'auth.card.cashFlow': { en: 'Cash flow', es: 'Flujo de efectivo' },
+  'auth.card.budgets': { en: 'Budgets', es: 'Presupuestos' },
+  'auth.card.insights': { en: 'Insights', es: 'Insights' },
+  'auth.card.subscriptions': { en: 'Subscriptions', es: 'Suscripciones' },
+
   // Login
+  'login.heading': { en: 'Welcome back', es: 'Bienvenido de nuevo' },
+  'login.subtitlePremium': { en: 'Sign in to manage your finances with clarity.', es: 'Inicia sesión para gestionar tus finanzas con claridad.' },
+  'login.visualTitle': { en: 'Your financial overview, always within reach.', es: 'Tu panorama financiero, siempre a la mano.' },
+  'login.visualBody': { en: 'Track accounts, transactions, budgets, projects, and subscriptions from one clean dashboard.', es: 'Da seguimiento a cuentas, transacciones, presupuestos, proyectos y suscripciones desde un tablero claro.' },
   'login.title': { en: 'Sign in to manage your finances', es: 'Inicia sesión para gestionar tus finanzas' },
   'login.username': { en: 'Username', es: 'Nombre de usuario' },
   'login.password': { en: 'Password', es: 'Contraseña' },
@@ -79,6 +93,10 @@ const dict: Dict = {
   'login.err.unreachable': { en: 'Unable to connect to server', es: 'No se puede conectar al servidor' },
 
   // Signup
+  'signup.heading': { en: 'Create your FinSight account', es: 'Crea tu cuenta de FinSight' },
+  'signup.subtitlePremium': { en: 'Start organizing your finances in one clean workspace.', es: 'Empieza a ordenar tus finanzas en un espacio claro.' },
+  'signup.visualTitle': { en: 'Start with clarity. Grow with control.', es: 'Empieza con claridad. Crece con control.' },
+  'signup.visualBody': { en: 'Create a workspace for your money, expenses, budgets, and decisions.', es: 'Crea un espacio para tu dinero, gastos, presupuestos y decisiones.' },
   'signup.createAccount': { en: 'Create Account', es: 'Crear cuenta' },
   'signup.subtitle': { en: 'Join us to manage your finances', es: 'Únete para gestionar tus finanzas' },
   'signup.username': { en: 'Username', es: 'Nombre de usuario' },
@@ -381,5 +399,4 @@ export function useI18n() {
   if (!ctx) throw new Error('useI18n must be used within I18nProvider');
   return ctx;
 }
-
 
