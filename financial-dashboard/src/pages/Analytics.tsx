@@ -15,6 +15,8 @@ import {
 import { api } from "../utils/api";
 import ProUpgradeBanner from "../components/ProUpgradeBanner";
 import { useI18n } from "../contexts/I18nContext";
+import { BarChart3, CreditCard, DollarSign, TrendingUp } from "lucide-react";
+import { AppCard, EmptyState, LoadingState, PageHeader, StatCard, cn } from "../components/ui";
 
 interface Transaction {
   id: number;
@@ -246,91 +248,102 @@ export default function Analytics() {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
-        </div>
-      </div>
+      <LoadingState
+        className="min-h-[60vh]"
+        label={`${t("common.loading")} ${t("analytics.title").toLowerCase()}...`}
+      />
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t("analytics.title")}</h1>
+    <div className="space-y-8">
+      <PageHeader title={t("analytics.title")} />
+
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <StatCard
+          title="Current Total Balance"
+          value={`$${totalBalance.toLocaleString(locale, { minimumFractionDigits: 2 })}`}
+          icon={<DollarSign className="h-5 w-5" />}
+          accent="green"
+        />
+
+        <StatCard
+          title="Highest Balance Account"
+          value={highestAccount?.name ?? "—"}
+          subtitle={`$${Number(highestAccount?.balance ?? 0).toLocaleString(locale, { minimumFractionDigits: 2 })}`}
+          icon={<CreditCard className="h-5 w-5" />}
+          accent="blue"
+        />
+
+        <StatCard
+          title="Balance Growth"
+          value={`${balanceGrowth >= 0 ? "+" : ""}${balanceGrowth.toFixed(1)}%`}
+          icon={<TrendingUp className="h-5 w-5" />}
+          accent={balanceGrowth >= 0 ? "green" : "red"}
+        />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Current Total Balance</h3>
-          <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-            ${totalBalance.toLocaleString(locale, { minimumFractionDigits: 2 })}
-          </p>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Highest Balance Account</h3>
-          <p className="text-xl font-semibold text-blue-600 dark:text-blue-400">{highestAccount?.name ?? "—"}</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            ${Number(highestAccount?.balance ?? 0).toLocaleString(locale, { minimumFractionDigits: 2 })}
-          </p>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Balance Growth</h3>
-          <p
-            className={`text-2xl font-bold ${
-              balanceGrowth >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-            }`}
-          >
-            {balanceGrowth >= 0 ? "+" : ""}{balanceGrowth.toFixed(1)}%
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t("analytics.totalBalanceOverTime")}</h3>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <AppCard variant="elevated" className="min-w-0">
+          <div className="mb-5 flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/20">
+              <TrendingUp className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <h3 className="text-lg font-semibold text-slate-950 dark:text-white">{t("analytics.totalBalanceOverTime")}</h3>
+          </div>
           {totalBalanceData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={totalBalanceData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={formatAxisNumber} width={90} tickMargin={8} />
+              <LineChart data={totalBalanceData} margin={{ top: 8, right: 12, left: 4, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#CBD5E1" opacity={0.55} />
+                <XAxis dataKey="month" tick={{ fill: "#64748B", fontSize: 12 }} tickLine={false} axisLine={false} />
+                <YAxis tickFormatter={formatAxisNumber} width={90} tickMargin={8} tick={{ fill: "#64748B", fontSize: 12 }} tickLine={false} axisLine={false} />
                 <Tooltip
                   formatter={(value: any) => [
                     `$${Number(value).toLocaleString(locale, { minimumFractionDigits: 2 })}`,
                     t("analytics.balance"),
                   ]}
                   labelFormatter={(label) => `${t("analytics.month")}: ${label}`}
+                  contentStyle={{
+                    borderRadius: "12px",
+                    border: "1px solid rgba(148, 163, 184, 0.35)",
+                    boxShadow: "0 18px 45px rgba(15, 23, 42, 0.14)",
+                  }}
                 />
-                <Legend />
-                <Line type="monotone" dataKey="balance" stroke="#10B981" strokeWidth={2} name="Total Balance" />
+                <Legend wrapperStyle={{ paddingTop: 12, color: "#64748B" }} />
+                <Line type="monotone" dataKey="balance" stroke="#10B981" strokeWidth={3} dot={false} activeDot={{ r: 5 }} name="Total Balance" />
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-              {t("analytics.noBalanceData")}
-            </div>
+            <EmptyState title={t("analytics.noBalanceData")} />
           )}
-        </div>
+        </AppCard>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t("analytics.accountBalancesOverTime")}</h3>
+        <AppCard variant="elevated" className="min-w-0">
+          <div className="mb-5 flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20">
+              <BarChart3 className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <h3 className="text-lg font-semibold text-slate-950 dark:text-white">{t("analytics.accountBalancesOverTime")}</h3>
+          </div>
           {accountBalanceData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={accountBalanceData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={formatAxisNumber} width={90} tickMargin={8} />
+              <LineChart data={accountBalanceData} margin={{ top: 8, right: 12, left: 4, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#CBD5E1" opacity={0.55} />
+                <XAxis dataKey="month" tick={{ fill: "#64748B", fontSize: 12 }} tickLine={false} axisLine={false} />
+                <YAxis tickFormatter={formatAxisNumber} width={90} tickMargin={8} tick={{ fill: "#64748B", fontSize: 12 }} tickLine={false} axisLine={false} />
                 <Tooltip
                   formatter={(value: any) => [
                     `$${Number(value).toLocaleString(locale, { minimumFractionDigits: 2 })}`,
                     t("analytics.balance"),
                   ]}
                   labelFormatter={(label) => `${t("analytics.month")}: ${label}`}
+                  contentStyle={{
+                    borderRadius: "12px",
+                    border: "1px solid rgba(148, 163, 184, 0.35)",
+                    boxShadow: "0 18px 45px rgba(15, 23, 42, 0.14)",
+                  }}
                 />
-                <Legend />
+                <Legend wrapperStyle={{ paddingTop: 12, color: "#64748B" }} />
                 {accounts.map((account, index) => {
                   const key = slugify(account.name);
                   const colors = ["#3B82F6", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6"];
@@ -340,7 +353,9 @@ export default function Analytics() {
                       type="monotone"
                       dataKey={key}
                       stroke={colors[index % colors.length]}
-                      strokeWidth={2}
+                      strokeWidth={2.5}
+                      dot={false}
+                      activeDot={{ r: 5 }}
                       name={account.name}
                     />
                   );
@@ -348,16 +363,19 @@ export default function Analytics() {
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-              {t("analytics.noAccountBalanceData")}
-            </div>
+            <EmptyState title={t("analytics.noAccountBalanceData")} />
           )}
-        </div>
+        </AppCard>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t("analytics.expensesByCategory")}</h3>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <AppCard variant="elevated" className="min-w-0">
+          <div className="mb-5 flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 ring-1 ring-red-100 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-400/20">
+              <DollarSign className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <h3 className="text-lg font-semibold text-slate-950 dark:text-white">{t("analytics.expensesByCategory")}</h3>
+          </div>
           {expenseByCategory.length > 0 ? (
             <ResponsiveContainer width="100%" height={320}>
               <PieChart>
@@ -374,19 +392,29 @@ export default function Analytics() {
                     <Cell key={`expense-${index}-${entry.name}`} fill={pieColors[index % pieColors.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: any) => `$${Number(value).toLocaleString(locale, { minimumFractionDigits: 2 })}`} />
-                <Legend />
+                <Tooltip
+                  formatter={(value: any) => `$${Number(value).toLocaleString(locale, { minimumFractionDigits: 2 })}`}
+                  contentStyle={{
+                    borderRadius: "12px",
+                    border: "1px solid rgba(148, 163, 184, 0.35)",
+                    boxShadow: "0 18px 45px rgba(15, 23, 42, 0.14)",
+                  }}
+                />
+                <Legend wrapperStyle={{ paddingTop: 12, color: "#64748B" }} />
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-              {t("analytics.noExpenseData")}
-            </div>
+            <EmptyState title={t("analytics.noExpenseData")} />
           )}
-        </div>
+        </AppCard>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t("analytics.incomeByCategory")}</h3>
+        <AppCard variant="elevated" className="min-w-0">
+          <div className="mb-5 flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/20">
+              <DollarSign className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <h3 className="text-lg font-semibold text-slate-950 dark:text-white">{t("analytics.incomeByCategory")}</h3>
+          </div>
           {incomeByCategory.length > 0 ? (
             <ResponsiveContainer width="100%" height={320}>
               <PieChart>
@@ -403,33 +431,60 @@ export default function Analytics() {
                     <Cell key={`income-${index}-${entry.name}`} fill={pieColors[index % pieColors.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: any) => `$${Number(value).toLocaleString(locale, { minimumFractionDigits: 2 })}`} />
-                <Legend />
+                <Tooltip
+                  formatter={(value: any) => `$${Number(value).toLocaleString(locale, { minimumFractionDigits: 2 })}`}
+                  contentStyle={{
+                    borderRadius: "12px",
+                    border: "1px solid rgba(148, 163, 184, 0.35)",
+                    boxShadow: "0 18px 45px rgba(15, 23, 42, 0.14)",
+                  }}
+                />
+                <Legend wrapperStyle={{ paddingTop: 12, color: "#64748B" }} />
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-              {t("analytics.noIncomeData")}
-            </div>
+            <EmptyState title={t("analytics.noIncomeData")} />
           )}
-        </div>
+        </AppCard>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t("dashboard.accountSummary")}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <AppCard variant="elevated">
+        <div className="mb-5 flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20">
+            <CreditCard className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <h3 className="text-lg font-semibold text-slate-950 dark:text-white">{t("dashboard.accountSummary")}</h3>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {accounts.map((account) => (
-            <div key={account.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 dark:text-gray-100">{account.name}</h4>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{account.type}</p>
-              <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            <div
+              key={account.id}
+              className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 transition hover:border-blue-200 hover:bg-white hover:shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-blue-400/30 dark:hover:bg-white/[0.06]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h4 className="truncate font-semibold text-slate-950 dark:text-white">{account.name}</h4>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{account.type}</p>
+                </div>
+                <span
+                  className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1",
+                    isInvestmentAccount(account)
+                      ? "bg-violet-50 text-violet-600 ring-violet-100 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-400/20"
+                      : "bg-blue-50 text-blue-600 ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20",
+                  )}
+                  aria-hidden="true"
+                >
+                  <CreditCard className="h-4 w-4" />
+                </span>
+              </div>
+              <p className="mt-4 overflow-hidden text-ellipsis whitespace-nowrap text-xl font-bold tracking-tight text-slate-950 dark:text-white">
                 ${Number(account.balance).toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </p>
             </div>
           ))}
         </div>
-      </div>
+      </AppCard>
     </div>
   );
 }
-

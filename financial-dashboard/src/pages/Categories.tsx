@@ -4,6 +4,7 @@ import { useI18n } from '../contexts/I18nContext';
 import { api } from '../utils/api';
 import type { ExpenseCategory, ExpenseSubcategory } from '../types/expense';
 import { CATEGORY_ICON_OPTIONS, iconForCategory } from '../utils/categoryIcons';
+import { ActionButton, AppCard, EmptyState, LoadingState, PageHeader } from '../components/ui';
 
 const DEFAULT_ICON = 'shopping_cart';
 
@@ -173,6 +174,8 @@ export default function Categories() {
     [categories]
   );
 
+  const fieldClassName = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-400/20';
+
   const renderIconPicker = (selected: string, onSelect: (key: string) => void) => (
     <div className="grid max-h-48 grid-cols-3 gap-2 overflow-y-auto md:grid-cols-4">
       {CATEGORY_ICON_OPTIONS.map((option) => {
@@ -183,13 +186,13 @@ export default function Categories() {
             key={option.key}
             type="button"
             onClick={() => onSelect(option.key)}
-            className={`flex flex-col items-center rounded-md border px-2 py-3 text-xs transition ${
+            className={`flex flex-col items-center rounded-xl border px-2 py-3 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
               isActive
-                ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-400 dark:bg-blue-950/40 dark:text-blue-200'
-                : 'border-gray-200 text-gray-600 hover:border-blue-400 dark:border-gray-700 dark:text-gray-200 dark:hover:border-blue-400'
+                ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm shadow-blue-500/10 dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-200'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-blue-400 hover:bg-blue-50/40 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-blue-400 dark:hover:bg-blue-500/10'
             }`}
           >
-            <Icon className="mb-1 h-5 w-5" />
+            <Icon className="mb-1 h-5 w-5" aria-hidden="true" />
             <span className="text-center leading-tight">{option.label}</span>
           </button>
         );
@@ -198,73 +201,70 @@ export default function Categories() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            {t('categories.title')}
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            {t('categories.subtitle')}
-          </p>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-500">
-            {t('categories.totalSummary', { categories: categories.length, subcategories: totalSubcategories })}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
+    <div className="space-y-8">
+      <PageHeader
+        title={t('categories.title')}
+        subtitle={
+          <>
+            <span>{t('categories.subtitle')}</span>
+            <span className="mt-2 block text-sm text-slate-500 dark:text-slate-500">
+              {t('categories.totalSummary', { categories: categories.length, subcategories: totalSubcategories })}
+            </span>
+          </>
+        }
+        actions={
+          <>
+          <ActionButton
             type="button"
+            variant="outline"
             onClick={() => fetchCategories(false)}
-            className="flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
             disabled={loading || refreshing}
+            iconLeft={<RefreshCcw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />}
           >
-            <RefreshCcw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             {t('categories.refresh')}
-          </button>
-          <button
+          </ActionButton>
+          <ActionButton
             type="button"
             onClick={() => openCategoryModal()}
-            className="flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+            iconLeft={<PlusCircle className="h-4 w-4" />}
           >
-            <PlusCircle className="mr-2 h-4 w-4" />
             {t('categories.addCategory')}
-          </button>
-        </div>
-      </div>
+          </ActionButton>
+          </>
+        }
+      />
 
       {feedback && (
-        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700 dark:border-blue-400/40 dark:bg-blue-950/40 dark:text-blue-200">
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-200">
           {feedback}
         </div>
       )}
 
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-400/40 dark:bg-red-950/40 dark:text-red-200">
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-200">
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
-          <span className="text-sm text-gray-500 dark:text-gray-400">{t('common.loading')}</span>
-        </div>
+        <LoadingState className="min-h-56" label={t('common.loading')} />
       ) : categories.length === 0 ? (
-        <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center dark:border-gray-700">
-          <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">
-            {t('categories.emptyState')}
-          </p>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            {t('categories.emptyStateHint')}
-          </p>
-          <button
-            type="button"
-            onClick={() => openCategoryModal()}
-            className="mt-4 inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            <PlusCircle className="mr-2 h-4 w-4" />
-            {t('categories.addCategory')}
-          </button>
-        </div>
+        <AppCard variant="subtle">
+          <EmptyState
+            icon={<PlusCircle className="h-6 w-6" />}
+            title={t('categories.emptyState')}
+            description={t('categories.emptyStateHint')}
+            action={
+              <ActionButton
+                type="button"
+                onClick={() => openCategoryModal()}
+                iconLeft={<PlusCircle className="h-4 w-4" />}
+              >
+                {t('categories.addCategory')}
+              </ActionButton>
+            }
+          />
+        </AppCard>
       ) : (
         <div className="space-y-4">
           {categories.map((category) => {
@@ -277,53 +277,56 @@ export default function Categories() {
                 ? t('categories.subcategory.single')
                 : t('categories.subcategory.plural', { count: subCount });
             return (
-              <div
+              <AppCard
                 key={category.id}
-                className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                variant="elevated"
               >
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-200">
-                      <Icon className="h-5 w-5" />
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100 dark:bg-blue-500/10 dark:text-blue-200 dark:ring-blue-400/20">
+                      <Icon className="h-5 w-5" aria-hidden="true" />
                     </div>
-                    <div>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    <div className="min-w-0">
+                      <p className="truncate text-lg font-semibold text-slate-950 dark:text-white">
                         {category.name}
                       </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{subLabel}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{subLabel}</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
+                  <div className="flex flex-wrap gap-2">
+                    <ActionButton
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => openSubcategoryModal(category)}
-                      className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                      iconLeft={<PlusCircle className="h-4 w-4" />}
                     >
-                      <PlusCircle className="mr-2 h-4 w-4" />
                       {t('categories.addSubcategory')}
-                    </button>
-                    <button
+                    </ActionButton>
+                    <ActionButton
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => openCategoryModal(category)}
-                      className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                      iconLeft={<Pencil className="h-4 w-4" />}
                     >
-                      <Pencil className="mr-2 h-4 w-4" />
                       {t('categories.editCategory')}
-                    </button>
-                    <button
+                    </ActionButton>
+                    <ActionButton
                       type="button"
+                      variant="danger"
+                      size="sm"
                       onClick={() => deleteCategory(category)}
-                      className="inline-flex items-center rounded-md border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:border-red-400/30 dark:text-red-300 dark:hover:bg-red-900/40"
+                      iconLeft={<Trash2 className="h-4 w-4" />}
                     >
-                      <Trash2 className="mr-2 h-4 w-4" />
                       {t('categories.delete')}
-                    </button>
+                    </ActionButton>
                   </div>
                 </div>
 
-                <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+                <div className="mt-5 border-t border-slate-200/80 pt-5 dark:border-white/10">
                   {category.subcategories.length === 0 ? (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-5 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
                       {t('categories.subcategory.noneLong')}
                     </p>
                   ) : (
@@ -333,32 +336,32 @@ export default function Categories() {
                         return (
                           <div
                             key={subcategory.id}
-                            className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2 dark:border-gray-700"
+                            className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/70 px-3 py-3 transition hover:border-blue-200 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-blue-400/30 dark:hover:bg-white/[0.06]"
                           >
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-100">
-                                <SubIcon className="h-4 w-4" />
+                            <div className="flex min-w-0 items-center gap-2">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-slate-600 ring-1 ring-slate-200 dark:bg-slate-950 dark:text-slate-200 dark:ring-white/10">
+                                <SubIcon className="h-4 w-4" aria-hidden="true" />
                               </div>
-                              <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                              <span className="min-w-0 break-words text-sm font-medium text-slate-800 dark:text-slate-100">
                                 {subcategory.name}
                               </span>
                             </div>
-                            <div className="flex gap-1">
+                            <div className="flex shrink-0 gap-1">
                               <button
                                 type="button"
                                 onClick={() => openSubcategoryModal(category, subcategory)}
-                                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
                                 title={t('categories.editSubcategory')}
                               >
-                                <Pencil className="h-4 w-4" />
+                                <Pencil className="h-4 w-4" aria-hidden="true" />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => deleteSubcategory(subcategory)}
-                                className="rounded-md p-1 text-red-500 hover:bg-red-50 hover:text-red-700 dark:text-red-300 dark:hover:bg-red-900/40"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-red-500 transition hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:text-red-300 dark:hover:bg-red-500/10 dark:hover:text-red-200"
                                 title={t('categories.deleteSubcategory')}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
                               </button>
                             </div>
                           </div>
@@ -367,21 +370,23 @@ export default function Categories() {
                     </div>
                   )}
                 </div>
-              </div>
+              </AppCard>
             );
           })}
         </div>
       )}
 
       {categoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-gray-900">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-              {editingCategory ? t('categories.editCategory') : t('categories.modal.createCategory')}
-            </h2>
-            <form onSubmit={handleCategorySubmit} className="mt-4 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-900 dark:shadow-black/40">
+            <div className="border-b border-slate-200/80 px-5 py-4 dark:border-white/10">
+              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
+                {editingCategory ? t('categories.editCategory') : t('categories.modal.createCategory')}
+              </h2>
+            </div>
+            <form onSubmit={handleCategorySubmit} className="max-h-[calc(100vh-11rem)] space-y-4 overflow-y-auto px-5 py-5">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                   {t('categories.form.name')}
                 </label>
                 <input
@@ -390,31 +395,31 @@ export default function Categories() {
                   onChange={(event) => setCategoryForm({ ...categoryForm, name: event.target.value })}
                   required
                   autoFocus
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  className={fieldClassName}
                   placeholder={t('categories.form.namePlaceholder')}
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                   {t('categories.form.icon')}
                 </label>
                 {renderIconPicker(categoryForm.icon, (key) => setCategoryForm({ ...categoryForm, icon: key }))}
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-200/80 pt-4 dark:border-white/10 sm:flex-row sm:justify-end">
+                <ActionButton
                   type="button"
+                  variant="outline"
                   onClick={closeCategoryModal}
-                  className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                 >
                   {t('common.cancel')}
-                </button>
-                <button
+                </ActionButton>
+                <ActionButton
                   type="submit"
                   disabled={saving}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                  loading={saving}
                 >
                   {saving ? t('categories.form.saving') : t('categories.form.save')}
-                </button>
+                </ActionButton>
               </div>
             </form>
           </div>
@@ -422,17 +427,19 @@ export default function Categories() {
       )}
 
       {subcategoryModalOpen && parentCategory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-gray-900">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-              {editingSubcategory ? t('categories.editSubcategory') : t('categories.modal.createSubcategory')}
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {t('categories.subcategory.forCategory', { name: parentCategory.name })}
-            </p>
-            <form onSubmit={handleSubcategorySubmit} className="mt-4 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-900 dark:shadow-black/40">
+            <div className="border-b border-slate-200/80 px-5 py-4 dark:border-white/10">
+              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
+                {editingSubcategory ? t('categories.editSubcategory') : t('categories.modal.createSubcategory')}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {t('categories.subcategory.forCategory', { name: parentCategory.name })}
+              </p>
+            </div>
+            <form onSubmit={handleSubcategorySubmit} className="max-h-[calc(100vh-11rem)] space-y-4 overflow-y-auto px-5 py-5">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                   {t('categories.form.name')}
                 </label>
                 <input
@@ -443,33 +450,33 @@ export default function Categories() {
                   }
                   required
                   autoFocus
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  className={fieldClassName}
                   placeholder={t('categories.form.subcategoryPlaceholder')}
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                   {t('categories.form.icon')}
                 </label>
                 {renderIconPicker(subcategoryForm.icon, (key) =>
                   setSubcategoryForm({ ...subcategoryForm, icon: key })
                 )}
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-200/80 pt-4 dark:border-white/10 sm:flex-row sm:justify-end">
+                <ActionButton
                   type="button"
+                  variant="outline"
                   onClick={closeSubcategoryModal}
-                  className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
                 >
                   {t('common.cancel')}
-                </button>
-                <button
+                </ActionButton>
+                <ActionButton
                   type="submit"
                   disabled={saving}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                  loading={saving}
                 >
                   {saving ? t('categories.form.saving') : t('categories.form.save')}
-                </button>
+                </ActionButton>
               </div>
             </form>
           </div>

@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { api } from '../utils/api';
 import { useI18n } from '../contexts/I18nContext';
-import { Banknote, TrendingUp, PlusCircle, Trash2, X } from 'lucide-react';
+import { Banknote, Calendar, Percent, PlusCircle, Trash2, TrendingUp, Wallet, X } from 'lucide-react';
 import ProUpgradeBanner from '../components/ProUpgradeBanner';
+import { ActionButton, AppCard, EmptyState, LoadingState, PageHeader, StatCard } from '../components/ui';
 
 type InvestmentRow = {
   id: number;
@@ -203,139 +204,164 @@ export default function Investments() {
 
   if (loading && list.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="text-gray-500">{t('common.loading')}</div>
-      </div>
+      <LoadingState className="min-h-[60vh]" label={t('common.loading')} />
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('investments.title')}</h1>
-      </div>
-
-      <div className="flex justify-end">
-        <div className="text-right">
-          {formSuccess && (
-            <p className="mb-2 text-sm text-green-600 dark:text-green-400">{formSuccess}</p>
-          )}
-          <button
+    <div className="space-y-8">
+      <PageHeader
+        title={t('investments.title')}
+        actions={
+          <ActionButton
             type="button"
             onClick={openModal}
-            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+            iconLeft={<PlusCircle className="h-4 w-4" />}
           >
-            <PlusCircle className="h-4 w-4" />
             {t('investments.addTitle')}
-          </button>
+          </ActionButton>
+        }
+      />
+
+      {formSuccess && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+          {formSuccess}
         </div>
-      </div>
+      )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-          <div className="flex items-center gap-3">
-            <Banknote className="h-8 w-8 text-blue-500" />
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-300">{t('investments.totalInvested')}</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{currency(computed.totals.invested, locale)}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-          <div className="flex items-center gap-3">
-            <PlusCircle className="h-8 w-8 text-blue-500" />
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-300">{t('investments.totalContrib')}</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{currency(computed.totals.contrib, locale)}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-          <div className="flex items-center gap-3">
-            <TrendingUp className="h-8 w-8 text-blue-500" />
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-300">{t('investments.totalValue')}</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{currency(computed.totals.value, locale)}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-          <div className="flex items-center gap-3">
-            <TrendingUp className="h-8 w-8 text-blue-500" />
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-300">{t('investments.totalRevenue')}</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{currency(computed.totals.revenue, locale)}</p>
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title={t('investments.totalInvested')}
+          value={currency(computed.totals.invested, locale)}
+          icon={<Banknote className="h-5 w-5" />}
+          accent="blue"
+        />
+        <StatCard
+          title={t('investments.totalContrib')}
+          value={currency(computed.totals.contrib, locale)}
+          icon={<PlusCircle className="h-5 w-5" />}
+          accent="neutral"
+        />
+        <StatCard
+          title={t('investments.totalValue')}
+          value={currency(computed.totals.value, locale)}
+          icon={<TrendingUp className="h-5 w-5" />}
+          accent="green"
+        />
+        <StatCard
+          title={t('investments.totalRevenue')}
+          value={currency(computed.totals.revenue, locale)}
+          icon={<Wallet className="h-5 w-5" />}
+          accent={computed.totals.revenue >= 0 ? 'green' : 'red'}
+        />
       </div>
 
       {/* List */}
       <div className="space-y-4">
         {computed.rows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 py-12 text-center text-gray-500 dark:border-gray-700 dark:text-gray-400">
-            <TrendingUp className="mb-3 h-10 w-10 text-gray-400 dark:text-gray-500" />
-            <p>{t('investments.empty')}</p>
-          </div>
+          <AppCard variant="subtle">
+            <EmptyState
+              icon={<TrendingUp className="h-6 w-6" />}
+              title={t('investments.empty')}
+              action={
+                <ActionButton
+                  type="button"
+                  onClick={openModal}
+                  iconLeft={<PlusCircle className="h-4 w-4" />}
+                >
+                  {t('investments.addTitle')}
+                </ActionButton>
+              }
+            />
+          </AppCard>
         ) : (
           computed.rows.map((r) => (
-            <div
+            <AppCard
               key={r.id}
-              className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+              variant="interactive"
+              className="overflow-hidden"
             >
-              <div className="flex items-start justify-between gap-4">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{r.name}</h3>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h3 className="truncate text-xl font-semibold text-slate-950 dark:text-white">{r.name}</h3>
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                      {t('investments.start')}: {new Date(r.start_date).toLocaleDateString()}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Percent className="h-3.5 w-3.5" aria-hidden="true" />
+                      {t('investments.rate')}: {Number((r as any).rate ?? (r as any).annual_rate ?? 0).toFixed(2)}%
+                    </span>
+                  </div>
+                </div>
                 <button
+                  type="button"
                   title={t('common.delete')}
                   onClick={() => handleDelete(r.id)}
                   disabled={deletingId === r.id}
-                  className="text-red-500 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-400 dark:hover:text-red-500"
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-red-500 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-300 dark:hover:bg-red-500/10 dark:hover:text-red-200 dark:focus-visible:ring-offset-slate-900"
                 >
-                  <Trash2 className="h-5 w-5" />
+                  <Trash2 className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                {t('investments.start')}: {new Date(r.start_date).toLocaleDateString()} - {t('investments.rate')}: {Number((r as any).rate ?? (r as any).annual_rate ?? 0).toFixed(2)}%
-              </p>
-              <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('investments.amountInvested')}</p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{currency(r.principal + r.contribTotal, locale)}</p>
+
+              <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('investments.amountInvested')}</p>
+                  <p className="mt-2 overflow-hidden text-ellipsis whitespace-nowrap text-lg font-bold tracking-tight text-slate-950 dark:text-white">
+                    {currency(r.principal + r.contribTotal, locale)}
+                  </p>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('investments.estimatedValue')}</p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{currency(r.estimated, locale)}</p>
+                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('investments.estimatedValue')}</p>
+                  <p className="mt-2 overflow-hidden text-ellipsis whitespace-nowrap text-lg font-bold tracking-tight text-slate-950 dark:text-white">
+                    {currency(r.estimated, locale)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('investments.totalRevenue')}</p>
+                  <p className={`mt-2 overflow-hidden text-ellipsis whitespace-nowrap text-lg font-bold tracking-tight ${
+                    r.revenue >= 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'
+                  }`}>
+                    {currency(r.revenue, locale)}
+                  </p>
                 </div>
               </div>
-            </div>
+            </AppCard>
           ))
         )}
       </div>
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-sm"
           onClick={closeModal}
         >
           <div
-            className="w-full max-w-xl rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800"
+            className="w-full max-w-xl rounded-2xl border border-slate-200/80 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-900 dark:shadow-black/40"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{t('investments.addTitle')}</h2>
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200/80 px-5 py-4 dark:border-white/10">
+              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{t('investments.addTitle')}</h2>
               <button
                 type="button"
                 onClick={closeModal}
-                className="rounded-full p-1 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:ring-offset-slate-900"
                 aria-label={t('common.cancel')}
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
-            {formError && <p className="mb-3 text-sm text-red-500">{formError}</p>}
+            <div className="max-h-[calc(100vh-13rem)] overflow-y-auto px-5 py-5">
+            {formError && (
+              <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-400/20 dark:bg-red-500/10 dark:text-red-300">
+                {formError}
+              </p>
+            )}
             <form className="grid gap-4 md:grid-cols-2" onSubmit={handleCreate}>
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   {t('investments.form.name')}
                 </label>
                 <input
@@ -344,12 +370,12 @@ export default function Investments() {
                   onChange={handleFieldChange('name')}
                   disabled={saving}
                   required
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-slate-950 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
                   placeholder={t('investments.form.name')}
                 />
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   {t('investments.form.amount')}
                 </label>
                 <input
@@ -360,12 +386,12 @@ export default function Investments() {
                   onChange={handleFieldChange('principal')}
                   disabled={saving}
                   required
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-slate-950 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
                   placeholder="0.00"
                 />
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   {t('investments.form.rate')}
                 </label>
                 <input
@@ -376,12 +402,12 @@ export default function Investments() {
                   onChange={handleFieldChange('annual_rate')}
                   disabled={saving}
                   required
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-slate-950 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
                   placeholder="0.00"
                 />
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   {t('investments.form.startDate')}
                 </label>
                 <input
@@ -390,38 +416,33 @@ export default function Investments() {
                   onChange={handleFieldChange('start_date')}
                   disabled={saving}
                   required
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-slate-950 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-400/20"
                 />
               </div>
-              <div className="md:col-span-2 flex justify-end gap-3">
-                <button
+              <div className="flex flex-col-reverse gap-2 pt-2 md:col-span-2 sm:flex-row sm:justify-end">
+                <ActionButton
                   type="button"
+                  variant="outline"
                   onClick={closeModal}
-                  className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
                 >
                   {t('common.cancel')}
-                </button>
-                <button
+                </ActionButton>
+                <ActionButton
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  loading={saving}
                 >
                   {saving ? t('common.loading') : t('investments.form.submit')}
-                </button>
+                </ActionButton>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 }
-
-
-
-
-
-
 
 
 

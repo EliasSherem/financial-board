@@ -2,6 +2,7 @@
 import { X, User, Mail, Lock, Save, AlertTriangle } from 'lucide-react';
 import { useI18n } from '../contexts/I18nContext';
 import { api } from '../utils/api';
+import { ActionButton } from './ui';
 
 interface UpdateProfileModalProps {
   isOpen: boolean;
@@ -35,6 +36,10 @@ export default function UpdateProfileModal({ isOpen, onClose }: UpdateProfileMod
   const isPro = Boolean(parsedUser?.is_pro);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelMessage, setCancelMessage] = useState<CancelMessage | null>(null);
+
+  const fieldClassName = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500 dark:disabled:bg-slate-900 dark:disabled:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20';
+  const labelClassName = 'mb-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300';
+  const sectionClassName = 'rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-slate-950/50';
 
   if (!isOpen) return null;
 
@@ -122,193 +127,196 @@ export default function UpdateProfileModal({ isOpen, onClose }: UpdateProfileMod
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            {t('profile.title')}
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-sm">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-modal-title"
+        className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/60 bg-white shadow-2xl shadow-slate-950/20 dark:border-white/10 dark:bg-slate-900 dark:shadow-black/40"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200/80 px-5 py-4 dark:border-white/10">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">
+              FinSight
+            </p>
+            <h2 id="profile-modal-title" className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
+              {t('profile.title')}
+            </h2>
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:ring-offset-slate-900"
+            aria-label="Close profile modal"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
+        <div className="max-h-[calc(100vh-8rem)] overflow-y-auto px-5 py-5">
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-200">
+              {error}
+            </div>
+          )}
 
-        {success && (
-          <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg text-sm">
-            {success}
-          </div>
-        )}
+          {success && (
+            <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+              {success}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              <User className="inline h-4 w-4 mr-1" />
-              {t('profile.username')}
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
-              disabled={loading}
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className={sectionClassName}>
+              <div className="grid gap-4">
+                <div>
+                  <label className={labelClassName}>
+                    <User className="h-4 w-4 text-blue-600 dark:text-blue-300" aria-hidden="true" />
+                    {t('profile.username')}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    className={fieldClassName}
+                    disabled={loading}
+                  />
+                </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              <Mail className="inline h-4 w-4 mr-1" />
-              {t('profile.email')}
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
-              disabled={loading}
-            />
-          </div>
+                <div>
+                  <label className={labelClassName}>
+                    <Mail className="h-4 w-4 text-blue-600 dark:text-blue-300" aria-hidden="true" />
+                    {t('profile.email')}
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className={fieldClassName}
+                    disabled={loading}
+                  />
+                </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('profile.language')}
-            </label>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value as any)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
-              disabled={loading}
-            >
-              <option value="en">{t('profile.lang.en')}</option>
-              <option value="es">{t('profile.lang.es')}</option>
-            </select>
-          </div>
-
-          <div className="border-t dark:border-gray-700 pt-4">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              {t('profile.changePassword')}
-            </h3>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  <Lock className="inline h-4 w-4 mr-1" />
-                  {t('profile.currentPassword')}
-                </label>
-                <input
-                  type="password"
-                  value={formData.currentPassword}
-                  onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
-                  disabled={loading}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  <Lock className="inline h-4 w-4 mr-1" />
-                  {t('profile.newPassword')}
-                </label>
-                <input
-                  type="password"
-                  value={formData.newPassword}
-                  onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
-                  disabled={loading}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  <Lock className="inline h-4 w-4 mr-1" />
-                  {t('profile.confirmNewPassword')}
-                </label>
-                <input
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
-                  disabled={loading}
-                />
+                <div>
+                  <label className={labelClassName}>
+                    {t('profile.language')}
+                  </label>
+                  <select
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value as any)}
+                    className={fieldClassName}
+                    disabled={loading}
+                  >
+                    <option value="en">{t('profile.lang.en')}</option>
+                    <option value="es">{t('profile.lang.es')}</option>
+                  </select>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="border-t dark:border-gray-700 pt-4">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              {t('profile.subscription')}
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {isPro ? t('profile.plan.pro') : t('profile.plan.free')}
-            </p>
-            {isPro && (
-              <div className="mt-3 space-y-3">
-                {cancelMessage && (
-                  <div className={`p-3 rounded-lg text-sm ${cancelMessage.type === 'success' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'}`}>
-                    {cancelMessage.text}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={handleCancelSubscription}
-                  disabled={cancelLoading}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {cancelLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      {t('profile.canceling')}
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle className="h-4 w-4" />
-                      {t('profile.cancelSubscription')}
-                    </>
-                  )}
-                </button>
+            <div className={sectionClassName}>
+              <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">
+                {t('profile.changePassword')}
+              </h3>
+
+              <div className="space-y-3">
+                <div>
+                  <label className={labelClassName}>
+                    <Lock className="h-4 w-4 text-blue-600 dark:text-blue-300" aria-hidden="true" />
+                    {t('profile.currentPassword')}
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.currentPassword}
+                    onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
+                    className={fieldClassName}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClassName}>
+                    <Lock className="h-4 w-4 text-blue-600 dark:text-blue-300" aria-hidden="true" />
+                    {t('profile.newPassword')}
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.newPassword}
+                    onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                    className={fieldClassName}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClassName}>
+                    <Lock className="h-4 w-4 text-blue-600 dark:text-blue-300" aria-hidden="true" />
+                    {t('profile.confirmNewPassword')}
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    className={fieldClassName}
+                    disabled={loading}
+                  />
+                </div>
               </div>
-            )}
-          </div>
+            </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
-              disabled={loading}
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  {t('profile.updating')}
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  {t('profile.title')}
-                </>
+            <div className={sectionClassName}>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                {t('profile.subscription')}
+              </h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                {isPro ? t('profile.plan.pro') : t('profile.plan.free')}
+              </p>
+              {isPro && (
+                <div className="mt-3 space-y-3">
+                  {cancelMessage && (
+                    <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${cancelMessage.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-200' : 'border-red-200 bg-red-50 text-red-700 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-200'}`}>
+                      {cancelMessage.text}
+                    </div>
+                  )}
+                  <ActionButton
+                    type="button"
+                    variant="danger"
+                    onClick={handleCancelSubscription}
+                    loading={cancelLoading}
+                    disabled={cancelLoading}
+                    iconLeft={<AlertTriangle className="h-4 w-4" aria-hidden="true" />}
+                    className="w-full sm:w-auto"
+                  >
+                    {cancelLoading ? t('profile.canceling') : t('profile.cancelSubscription')}
+                  </ActionButton>
+                </div>
               )}
-            </button>
-          </div>
-        </form>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-200/80 pt-4 dark:border-white/10 sm:flex-row sm:justify-end">
+              <ActionButton
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={loading}
+                className="w-full sm:w-auto"
+              >
+                {t('common.cancel')}
+              </ActionButton>
+              <ActionButton
+                type="submit"
+                loading={loading}
+                disabled={loading}
+                iconLeft={<Save className="h-4 w-4" aria-hidden="true" />}
+                className="w-full sm:w-auto"
+              >
+                {loading ? t('profile.updating') : t('profile.title')}
+              </ActionButton>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
 }
-

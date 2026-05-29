@@ -4,6 +4,16 @@ import { CreditCard, TrendingUp, DollarSign, Activity, Plus, ChevronRight, Calen
 import { api } from '../utils/api';
 import { useI18n } from '../contexts/I18nContext';
 import { formatDate } from '../utils/date';
+import {
+  ActionButton,
+  AppCard,
+  EmptyState,
+  LoadingState,
+  PageHeader,
+  StatCard as MetricCard,
+  StatusBadge,
+  cn,
+} from '../components/ui';
 
 interface Account {
   id: number;
@@ -62,23 +72,6 @@ const isTransferTransaction = (
 
 const isInvestmentAccount = (account: Pick<Account, 'type'>) =>
   (account?.type ?? '').toLowerCase() === 'investment';
-
-const StatCard = ({ title, value, icon: Icon, change, t }: any) => (
-  <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</p>
-        <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
-        {change !== undefined && change !== null && (
-          <p className={`text-sm ${change > 0 ? 'text-green-600 dark:text-green-400' : change < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
-            {t('dashboard.changeFromLastMonth', { pct: `${change > 0 ? '+' : ''}${change.toFixed(1)}` })}
-          </p>
-        )}
-      </div>
-      <Icon className="h-12 w-12 text-blue-500 dark:text-blue-400" />
-    </div>
-  </div>
-);
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -193,150 +186,197 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">{t('common.loading')} {t('dashboard.title').toLowerCase()}...</p>
-        </div>
-      </div>
+      <LoadingState
+        className="min-h-[60vh]"
+        label={`${t('common.loading')} ${t('dashboard.title').toLowerCase()}...`}
+      />
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('dashboard.title')}</h1>
-        <p className="text-gray-600 dark:text-gray-400">{t('dashboard.subtitle')}</p>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        title={t('dashboard.title')}
+        subtitle={t('dashboard.subtitle')}
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
           title={t('dashboard.totalBalance')}
           value={`$${totalBalance.toLocaleString(locale, { minimumFractionDigits: 2 })}`}
-          icon={DollarSign}
-          change={balanceChange}
-          t={t}
+          icon={<DollarSign className="h-5 w-5" />}
+          trend={t('dashboard.changeFromLastMonth', { pct: `${balanceChange > 0 ? '+' : ''}${balanceChange.toFixed(1)}` })}
+          trendVariant={balanceChange > 0 ? 'positive' : balanceChange < 0 ? 'negative' : 'neutral'}
+          accent="blue"
         />
-        <StatCard
+        <MetricCard
           title={t('dashboard.totalAccounts')}
           value={accounts.length.toString()}
-          icon={CreditCard}
-          t={t}
+          icon={<CreditCard className="h-5 w-5" />}
+          accent="neutral"
         />
-        <StatCard
+        <MetricCard
           title={t('dashboard.thisMonthExpenses')}
           value={`$${monthlyExpenses.toLocaleString(locale, { minimumFractionDigits: 2 })}`}
-          icon={TrendingUp}
-          change={expenseChange}
-          t={t}
+          icon={<TrendingUp className="h-5 w-5" />}
+          trend={t('dashboard.changeFromLastMonth', { pct: `${expenseChange > 0 ? '+' : ''}${expenseChange.toFixed(1)}` })}
+          trendVariant={expenseChange > 0 ? 'positive' : expenseChange < 0 ? 'negative' : 'neutral'}
+          accent="amber"
         />
-        <StatCard
+        <MetricCard
           title={t('dashboard.activeProjects')}
           value={activeProjects.toString()}
-          icon={Activity}
-          t={t}
+          icon={<Activity className="h-5 w-5" />}
+          accent="purple"
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('dashboard.accountSummary')}</h3>
-            <div className="flex gap-2">
-              <button
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <AppCard variant="elevated" className="min-w-0">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="text-lg font-semibold text-slate-950 dark:text-white">{t('dashboard.accountSummary')}</h3>
+            <div className="flex flex-wrap gap-2">
+              <ActionButton
                 onClick={() => navigate('/accounts')}
-                className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 flex items-center gap-1"
+                size="sm"
+                iconLeft={<Plus className="h-4 w-4" />}
               >
-                <Plus className="h-4 w-4" />
                 {t('dashboard.addAccount')}
-              </button>
-              <button
+              </ActionButton>
+              <ActionButton
                 onClick={() => navigate('/accounts')}
-                className="text-sm text-blue-600 hover:text-blue-800 px-3 py-1.5 rounded-md border border-blue-600 hover:bg-blue-50 flex items-center gap-1"
+                variant="outline"
+                size="sm"
+                iconRight={<ChevronRight className="h-4 w-4" />}
               >
                 {t('dashboard.more')}
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              </ActionButton>
             </div>
           </div>
-          <div className="space-y-4">
-            {accounts.slice(0, 5).map((account) => (
-              <div key={account.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">{account.name}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{account.type}</p>
+          <div className="space-y-3">
+            {accounts.slice(0, 5).map((account) => {
+              const isCredit = account.type === 'Credit';
+              return (
+                <div
+                  key={account.id}
+                  className="group flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 bg-slate-50/70 p-4 transition hover:border-blue-200 hover:bg-white hover:shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-blue-400/30 dark:hover:bg-white/[0.06]"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div
+                      className={cn(
+                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1',
+                        isCredit
+                          ? 'bg-amber-50 text-amber-600 ring-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/20'
+                          : 'bg-blue-50 text-blue-600 ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20'
+                      )}
+                    >
+                      <CreditCard className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-slate-950 dark:text-white">{account.name}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                        <span>{account.type}</span>
+                        {account.bank_name && (
+                          <>
+                            <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" aria-hidden="true" />
+                            <span className="truncate">{account.bank_name}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="shrink-0 text-right text-lg font-bold text-slate-950 dark:text-white">
+                    ${Number(account.balance).toLocaleString(locale, { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
-                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  ${Number(account.balance).toLocaleString(locale, { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        </div>
+        </AppCard>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('dashboard.recentTransactions')}</h3>
-            <button
+        <AppCard variant="elevated" className="min-w-0">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="text-lg font-semibold text-slate-950 dark:text-white">{t('dashboard.recentTransactions')}</h3>
+            <ActionButton
               onClick={() => navigate('/transactions')}
-              className="text-sm text-blue-600 hover:text-blue-800 px-3 py-1.5 rounded-md border border-blue-600 hover:bg-blue-50 flex items-center gap-1"
+              variant="outline"
+              size="sm"
+              iconRight={<ChevronRight className="h-4 w-4" />}
             >
               {t('dashboard.viewAllTransactions')}
-              <ChevronRight className="h-4 w-4" />
-            </button>
+            </ActionButton>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {recentTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-700">
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">{transaction.description}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{formatDate(transaction.date)} â€¢ {transaction.account_name}</p>
+              <div
+                key={transaction.id}
+                className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 bg-white p-4 transition hover:border-blue-200 hover:bg-blue-50/30 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-blue-400/30 dark:hover:bg-blue-500/10"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-slate-950 dark:text-white">{transaction.description}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                    <span>{formatDate(transaction.date)}</span>
+                    {transaction.account_name && (
+                      <>
+                        <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" aria-hidden="true" />
+                        <span className="truncate">{transaction.account_name}</span>
+                      </>
+                    )}
+                    {transaction.category && (
+                      <>
+                        <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" aria-hidden="true" />
+                        <span className="truncate">{transaction.category}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <p className={`text-lg font-semibold ${
-                  transaction.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                <p className={`shrink-0 text-right text-lg font-bold ${
+                  transaction.amount > 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'
                 }`}>
                   {transaction.amount > 0 ? '+' : ''}${Math.abs(transaction.amount).toLocaleString(locale, { minimumFractionDigits: 2 })}
                 </p>
               </div>
             ))}
           </div>
-        </div>
+        </AppCard>
       </div>
 
       {/* Upcoming Payments Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('dashboard.upcomingEvents')}</h3>
+      <AppCard variant="elevated">
+        <div className="mb-5 flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20">
+            <Calendar className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <h3 className="text-lg font-semibold text-slate-950 dark:text-white">{t('dashboard.upcomingEvents')}</h3>
         </div>
         {upcomingPayments.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {upcomingPayments.map((payment) => {
               const daysUntil = Math.ceil((new Date(payment.next_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+              const badgeVariant = daysUntil <= 3 ? 'danger' : daysUntil <= 7 ? 'warning' : 'success';
               return (
-                <div key={payment.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md dark:hover:shadow-gray-700 transition-shadow">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">{payment.name}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{payment.category}</p>
+                <div
+                  key={payment.id}
+                  className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-white hover:shadow-md dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-blue-400/30 dark:hover:bg-white/[0.06]"
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-slate-950 dark:text-white">{payment.name}</p>
+                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{payment.category}</p>
                     </div>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      daysUntil <= 3 ? 'bg-red-100 text-red-800' : 
-                      daysUntil <= 7 ? 'bg-yellow-100 text-yellow-800' : 
-                      'bg-green-100 text-green-800'
-                    }`}>
+                    <StatusBadge variant={badgeVariant}>
                       {daysUntil === 0 ? t('common.today') : 
                        daysUntil === 1 ? t('common.tomorrow') : 
                        t('common.inDays', { days: daysUntil })}
-                    </span>
+                    </StatusBadge>
                   </div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                  <p className="mb-2 text-2xl font-bold text-slate-950 dark:text-white">
                     ${payment.amount.toLocaleString(locale, { minimumFractionDigits: 2 })}
                   </p>
-                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                    <Clock className="h-3 w-3" />
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                    <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{payment.frequency}</span>
-                    <span>â€¢</span>
+                    <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" aria-hidden="true" />
                     <span>{formatDate(payment.next_date)}</span>
                   </div>
                 </div>
@@ -344,66 +384,68 @@ export default function Dashboard() {
             })}
           </div>
         ) : (
-          <div className="text-center py-8 text-gray-500">
-            <AlertCircle className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-            <p>{t('dashboard.noUpcoming')}</p>
-          </div>
+          <EmptyState
+            icon={<AlertCircle className="h-6 w-6" />}
+            title={t('dashboard.noUpcoming')}
+          />
         )}
-      </div>
+      </AppCard>
 
       {/* Project Summaries Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <Briefcase className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('dashboard.projectSummaries')}</h3>
+      <AppCard variant="elevated">
+        <div className="mb-5 flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-violet-100 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-400/20">
+            <Briefcase className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <h3 className="text-lg font-semibold text-slate-950 dark:text-white">{t('dashboard.projectSummaries')}</h3>
         </div>
         {projectSummaries.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {projectSummaries.map((project) => {
               const progress = (project.spent / project.budget) * 100;
-              const statusColors = {
-                'Active': 'bg-green-100 text-green-800',
-                'Completed': 'bg-blue-100 text-blue-800',
-                'On Hold': 'bg-yellow-100 text-yellow-800'
+              const statusVariants = {
+                'Active': 'active',
+                'Completed': 'completed',
+                'On Hold': 'warning'
               };
               return (
-                <div key={project.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100">{project.name}</h4>
-                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColors[project.status]}`}>
+                <div key={project.id} className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <h4 className="min-w-0 truncate font-semibold text-slate-950 dark:text-white">{project.name}</h4>
+                    <StatusBadge variant={statusVariants[project.status] as 'active' | 'completed' | 'warning'}>
                       {project.status}
-                    </span>
+                    </StatusBadge>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-400">{t('dashboard.budget')}</span>
-                      <span className="font-medium text-gray-900 dark:text-gray-100">${project.budget.toLocaleString(locale)}</span>
+                      <span className="text-slate-500 dark:text-slate-400">{t('dashboard.budget')}</span>
+                      <span className="font-semibold text-slate-950 dark:text-white">${project.budget.toLocaleString(locale)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-400">{t('dashboard.spent')}</span>
-                      <span className={`font-medium ${progress > 100 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
+                      <span className="text-slate-500 dark:text-slate-400">{t('dashboard.spent')}</span>
+                      <span className={`font-semibold ${progress > 100 ? 'text-red-600 dark:text-red-300' : 'text-slate-950 dark:text-white'}`}>
                         ${project.spent.toLocaleString(locale)}
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-2">
+                    <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800">
                       <div 
                         className={`h-2 rounded-full ${progress > 100 ? 'bg-red-500' : progress > 75 ? 'bg-yellow-500' : 'bg-green-500'}`}
                         style={{ width: `${Math.min(progress, 100)}%` }}
                       />
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 text-right">{progress.toFixed(0)}% {t('dashboard.ofBudget')}</p>
+                    <p className="text-right text-xs text-slate-500 dark:text-slate-400">{progress.toFixed(0)}% {t('dashboard.ofBudget')}</p>
                   </div>
                 </div>
               );
             })}
           </div>
         ) : (
-          <div className="text-center py-8 text-gray-500">
-            <Briefcase className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-            <p>{t('dashboard.noProjects')}</p>
-          </div>
+          <EmptyState
+            icon={<Briefcase className="h-6 w-6" />}
+            title={t('dashboard.noProjects')}
+          />
         )}
-      </div>
+      </AppCard>
     </div>
   );
 }

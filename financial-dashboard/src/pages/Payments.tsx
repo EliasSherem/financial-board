@@ -7,6 +7,16 @@ import { CategoryPicker } from '../components/CategoryPicker';
 import type { CategorySelection } from '../components/CategoryPicker';
 import type { ExpenseCategory } from '../types/expense';
 import { useNavigate } from 'react-router-dom';
+import {
+  ActionButton,
+  DataTableShell,
+  EmptyState,
+  LoadingState,
+  PageHeader,
+  StatCard,
+  StatusBadge,
+} from '../components/ui';
+import type { StatCardAccent, StatusBadgeVariant } from '../components/ui';
 
 interface Payment {
   id: number;
@@ -311,13 +321,29 @@ export default function Payments() {
     }
   };
 
-  const getFrequencyColor = (frequency: Payment['frequency']) => {
+  const getFrequencyVariant = (frequency: Payment['frequency']): StatusBadgeVariant => {
     switch (frequency) {
-      case 'Weekly': return 'bg-green-100 text-green-800';
-      case 'Monthly': return 'bg-blue-100 text-blue-800';
-      case 'Quarterly': return 'bg-yellow-100 text-yellow-800';
-      case 'Yearly': return 'bg-purple-100 text-purple-800';
+      case 'Weekly': return 'success';
+      case 'Monthly': return 'info';
+      case 'Quarterly': return 'warning';
+      case 'Yearly': return 'neutral';
     }
+  };
+
+  const getPaymentStatusVariant = (payment: Payment): StatusBadgeVariant => {
+    const nextPayment = calculateNextPayment(payment.next_date);
+    if (payment.is_active && nextPayment === 'Overdue') return 'overdue';
+    return payment.is_active ? 'active' : 'paused';
+  };
+
+  const getDueTextClassName = (nextPayment: string) => {
+    if (nextPayment === t('payments.status.overdue') || nextPayment === 'Overdue') {
+      return 'text-red-600 dark:text-red-300';
+    }
+    if (nextPayment === t('common.today') || nextPayment === 'Today') {
+      return 'text-amber-600 dark:text-amber-300';
+    }
+    return 'text-slate-500 dark:text-slate-400';
   };
 
   const calculateNextPayment = (next_date: string) => {
@@ -357,225 +383,243 @@ export default function Payments() {
     }
   };
 
+  const activePayments = payments.filter(p => p.is_active).length;
+  const pausedPayments = payments.filter(p => !p.is_active).length;
+  const monthlyTotal = Number(payments.filter(p => p.is_active && p.frequency === 'Monthly')
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0);
+  const dueThisWeek = payments.filter(p => {
+    const nextDate = new Date(p.next_date);
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    return p.is_active && nextDate <= nextWeek;
+  }).length;
+  const fieldClassName = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:disabled:bg-slate-900 dark:disabled:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/20';
+  const modalLabelClassName = 'mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300';
+  const statAccent = {
+    active: 'green',
+    paused: 'amber',
+    total: 'blue',
+    due: 'red',
+  } satisfies Record<string, StatCardAccent>;
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-gray-600 dark:text-gray-400">Loading payments...</div>
-      </div>
+      <LoadingState className="min-h-[60vh]" label="Loading payments..." />
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-red-600 dark:text-red-400">{error}</div>
-      </div>
+      <EmptyState title={error} />
     );
   }
 
   try {
     return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('payments.title')}</h1>
-          <p className="text-gray-600 dark:text-gray-400">{t('payments.subtitle')}</p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={handleProcessOverdue}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700"
-          >
-            <Play className="h-4 w-4" />
-            {t('payments.processOverdue')}
-          </button>
-          <button
-            onClick={() => openModal()}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            {t('payments.add')}
-          </button>
-        </div>
+    <div className="space-y-8">
+      <PageHeader
+        title={t('payments.title')}
+        subtitle={t('payments.subtitle')}
+        actions={
+          <>
+            <ActionButton
+              type="button"
+              variant="success"
+              onClick={handleProcessOverdue}
+              iconLeft={<Play className="h-4 w-4" />}
+            >
+              {t('payments.processOverdue')}
+            </ActionButton>
+            <ActionButton
+              type="button"
+              onClick={() => openModal()}
+              iconLeft={<Plus className="h-4 w-4" />}
+            >
+              {t('payments.add')}
+            </ActionButton>
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title={t('payments.card.active')}
+          value={activePayments}
+          icon={<Play className="h-5 w-5" />}
+          accent={statAccent.active}
+        />
+        <StatCard
+          title={t('payments.card.paused')}
+          value={pausedPayments}
+          icon={<Pause className="h-5 w-5" />}
+          accent={statAccent.paused}
+        />
+        <StatCard
+          title={t('payments.card.monthlyTotal')}
+          value={`$${monthlyTotal.toLocaleString(locale, { minimumFractionDigits: 2 })}`}
+          icon={<DollarSign className="h-5 w-5" />}
+          accent={statAccent.total}
+        />
+        <StatCard
+          title={t('payments.card.dueThisWeek')}
+          value={dueThisWeek}
+          icon={<Calendar className="h-5 w-5" />}
+          accent={statAccent.due}
+        />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('payments.card.active')}</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{payments.filter(p => p.is_active).length}</p>
-            </div>
-            <Play className="h-12 w-12 text-green-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('payments.card.paused')}</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{payments.filter(p => !p.is_active).length}</p>
-            </div>
-            <Pause className="h-12 w-12 text-yellow-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('payments.card.monthlyTotal')}</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                ${Number(payments.filter(p => p.is_active && p.frequency === 'Monthly')
-                  .reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0).toLocaleString(locale, { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-            <DollarSign className="h-12 w-12 text-blue-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('payments.card.dueThisWeek')}</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                {payments.filter(p => {
-                  const nextDate = new Date(p.next_date);
-                  const nextWeek = new Date();
-                  nextWeek.setDate(nextWeek.getDate() + 7);
-                  return p.is_active && nextDate <= nextWeek;
-                }).length}
-              </p>
-            </div>
-            <Calendar className="h-12 w-12 text-red-500" />
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900">
+      <DataTableShell>
+        {payments.length === 0 ? (
+          <EmptyState
+            icon={<Plus className="h-6 w-6" />}
+            title={t('payments.subtitle')}
+            action={
+              <ActionButton
+                type="button"
+                onClick={() => openModal()}
+                iconLeft={<Plus className="h-4 w-4" />}
+              >
+                {t('payments.add')}
+              </ActionButton>
+            }
+          />
+        ) : (
+          <table className="min-w-[1120px] divide-y divide-slate-200 dark:divide-white/10">
+            <thead className="bg-slate-50 dark:bg-slate-950">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('payments.table.payment')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('payments.table.amount')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('payments.table.frequency')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('payments.table.nextPayment')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('payments.table.account')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('payments.table.project')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('payments.table.status')}
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('payments.table.actions')}
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {payments.map((payment) => (
-                <tr key={payment.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{payment.name}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{payment.description}</div>
-                      <div className="text-xs text-gray-400 dark:text-gray-500">{payment.category}</div>
-                      {payment.installments_total ? (
-                        <div className="mt-1">
-                          <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                            payment.is_active && (payment.installments_remaining ?? 0) > 0
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}>
-                          {Math.max(payment.installments_remaining ?? 0, 0)} / {payment.installments_total} {t('payments.left')}
-                          </span>
+            <tbody className="divide-y divide-slate-200 bg-white dark:divide-white/10 dark:bg-slate-900">
+              {payments.map((payment) => {
+                const nextPayment = calculateNextPayment(payment.next_date);
+                return (
+                  <tr key={payment.id} className="transition hover:bg-blue-50/40 dark:hover:bg-blue-500/10">
+                    <td className="px-6 py-5">
+                      <div className="min-w-60">
+                        <div className="font-semibold text-slate-950 dark:text-white">{payment.name}</div>
+                        {payment.description && (
+                          <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{payment.description}</div>
+                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          {payment.category && (
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-white/10 dark:text-slate-200">
+                              {payment.category}
+                            </span>
+                          )}
+                          {payment.installments_total ? (
+                            <StatusBadge variant={payment.is_active && (payment.installments_remaining ?? 0) > 0 ? 'info' : 'neutral'}>
+                              {Math.max(payment.installments_remaining ?? 0, 0)} / {payment.installments_total} {t('payments.left')}
+                            </StatusBadge>
+                          ) : null}
                         </div>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                    ${(payment.amount || 0).toLocaleString(locale, { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getFrequencyColor(payment.frequency)}`}>
-                      {t(`payments.frequency.${payment.frequency.toLowerCase()}`)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                    <div>
-                      {payment.next_date ? new Date(payment.next_date).toLocaleDateString(locale) : t('payments.noDate')}
-                      <div className={`text-xs ${
-                        calculateNextPayment(payment.next_date) === t('payments.status.overdue') ? 'text-red-600 dark:text-red-400' :
-                        calculateNextPayment(payment.next_date) === t('common.today') ? 'text-orange-600 dark:text-orange-400' :
-                        'text-gray-500 dark:text-gray-400'
-                      }`}>
-                        {calculateNextPayment(payment.next_date)}
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {payment.account_name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {payment.project_name || t('payments.noProject')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      payment.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {payment.is_active ? t('payments.status.active') : t('payments.status.paused')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => togglePaymentStatus(payment.id)}
-                        className={`${payment.is_active ? 'text-yellow-600 hover:text-yellow-900' : 'text-green-600 hover:text-green-900'}`}
-                        title={payment.is_active ? t('payments.tooltip.pause') : t('payments.tooltip.activate')}
-                      >
-                        {payment.is_active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                      </button>
-                      <button
-                        onClick={() => openModal(payment)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => deletePayment(payment.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-5 text-sm font-bold text-slate-950 dark:text-white">
+                      ${(payment.amount || 0).toLocaleString(locale, { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-5">
+                      <StatusBadge variant={getFrequencyVariant(payment.frequency)}>
+                        {t(`payments.frequency.${payment.frequency.toLowerCase()}`)}
+                      </StatusBadge>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-5 text-sm text-slate-950 dark:text-white">
+                      <div>
+                        {payment.next_date ? new Date(payment.next_date).toLocaleDateString(locale) : t('payments.noDate')}
+                        <div className={`mt-1 text-xs font-medium ${getDueTextClassName(nextPayment)}`}>
+                          {nextPayment}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-5 text-sm text-slate-500 dark:text-slate-400">
+                      {payment.account_name}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-5 text-sm text-slate-500 dark:text-slate-400">
+                      {payment.project_name || t('payments.noProject')}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-5">
+                      <StatusBadge variant={getPaymentStatusVariant(payment)}>
+                        {payment.is_active ? t('payments.status.active') : t('payments.status.paused')}
+                      </StatusBadge>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-5 text-right text-sm font-medium">
+                      <div className="flex justify-end gap-2">
+                        <ActionButton
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => togglePaymentStatus(payment.id)}
+                          className={`h-9 w-9 ${payment.is_active ? 'text-amber-600 hover:text-amber-700 dark:text-amber-300 dark:hover:text-amber-200' : 'text-emerald-600 hover:text-emerald-700 dark:text-emerald-300 dark:hover:text-emerald-200'}`}
+                          title={payment.is_active ? t('payments.tooltip.pause') : t('payments.tooltip.activate')}
+                          aria-label={payment.is_active ? t('payments.tooltip.pause') : t('payments.tooltip.activate')}
+                        >
+                          {payment.is_active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                        </ActionButton>
+                        <ActionButton
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openModal(payment)}
+                          className="h-9 w-9 text-blue-600 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
+                          aria-label={t('payments.modal.edit')}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </ActionButton>
+                        <ActionButton
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deletePayment(payment.id)}
+                          className="h-9 w-9 text-red-600 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200"
+                          aria-label={t('payments.table.actions')}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </ActionButton>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-        </div>
-      </div>
+        )}
+      </DataTableShell>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 overflow-y-auto p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-lg">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
-              {editingPayment ? t('payments.modal.edit') : t('payments.modal.new')}
-            </h2>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/60 bg-white shadow-2xl shadow-slate-950/20 dark:border-white/10 dark:bg-slate-900">
+            <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
+              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
+                {editingPayment ? t('payments.modal.edit') : t('payments.modal.new')}
+              </h2>
+            </div>
+
+            <form onSubmit={handleSubmit} className="max-h-[calc(100vh-10rem)] space-y-4 overflow-y-auto px-5 py-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={modalLabelClassName}>
                   {t('payments.form.name')}
                 </label>
                 <input
@@ -583,25 +627,25 @@ export default function Payments() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className={fieldClassName}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={modalLabelClassName}>
                   {t('payments.form.description')}
                 </label>
                 <input
                   type="text"
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className={fieldClassName}
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className={modalLabelClassName}>
                     {t('payments.form.amount')}
                   </label>
                   <input
@@ -610,19 +654,19 @@ export default function Payments() {
                     required={!isInstallment}
                     value={formData.amount}
                     onChange={(e) => setFormData({...formData, amount: Number(e.target.value)})}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                    className={fieldClassName}
                     disabled={isInstallment}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className={modalLabelClassName}>
                     {t('payments.form.frequency')}
                   </label>
                   <select
                     value={formData.frequency}
                     onChange={(e) => setFormData({...formData, frequency: e.target.value as Payment['frequency']})}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                    className={fieldClassName}
                     disabled={isInstallment}
                   >
                     <option value="Weekly">Weekly</option>
@@ -635,20 +679,20 @@ export default function Payments() {
               
               {/* Installments toggle for Credit accounts (create flow only) */}
               {!editingPayment && (
-                <div className="mt-2 p-3 border rounded-md border-gray-200 dark:border-gray-700">
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-slate-950/50">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
                     <input
                       type="checkbox"
                       checked={isInstallment}
                       onChange={(e) => setIsInstallment(e.target.checked)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                     />
                     Create as credit installment plan
                   </label>
                   {isInstallment && (
-                    <div className="grid grid-cols-2 gap-4 mt-3">
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className={modalLabelClassName}>
                           Total Amount
                         </label>
                         <input
@@ -656,11 +700,11 @@ export default function Payments() {
                           required
                           value={installmentData.total_amount}
                           onChange={(e) => setInstallmentData({...installmentData, total_amount: Number(e.target.value)})}
-                          className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                          className={fieldClassName}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className={modalLabelClassName}>
                           Months
                         </label>
                         <input
@@ -669,10 +713,10 @@ export default function Payments() {
                           required
                           value={installmentData.months}
                           onChange={(e) => setInstallmentData({...installmentData, months: Number(e.target.value)})}
-                          className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                          className={fieldClassName}
                         />
                       </div>
-                      <div className="col-span-2 text-xs text-gray-500 dark:text-gray-400">
+                      <div className="text-xs leading-5 text-slate-500 dark:text-slate-400 sm:col-span-2">
                         {t('payments.installmentsNote')}
                       </div>
                     </div>
@@ -681,7 +725,7 @@ export default function Payments() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={modalLabelClassName}>
                   {t('payments.form.category')}
                 </label>
                 {expenseCategories.length === 0 ? (
@@ -698,7 +742,7 @@ export default function Payments() {
                       setCategoryError(null);
                     }}
                     required
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                    className={fieldClassName}
                     placeholder={t('payments.form.category')}
                   />
                 ) : (
@@ -729,19 +773,19 @@ export default function Payments() {
                   />
                 )}
                 {categoryError && (
-                  <p className="mt-1 text-sm text-red-500">{categoryError}</p>
+                  <p className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-400/20 dark:bg-red-500/10 dark:text-red-300">{categoryError}</p>
                 )}
                 <button
                   type="button"
                   onClick={() => navigate('/categories')}
-                  className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-500"
+                  className="mt-2 text-sm font-semibold text-blue-600 transition hover:text-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300 dark:hover:text-blue-200"
                 >
                   {t('categories.manageLink')}
                 </button>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={modalLabelClassName}>
                   {t('payments.form.nextDate')}
                 </label>
                 <input
@@ -749,18 +793,18 @@ export default function Payments() {
                   required
                   value={formData.next_date}
                   onChange={(e) => setFormData({...formData, next_date: e.target.value})}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className={fieldClassName}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={modalLabelClassName}>
                   {t('payments.form.account')}
                 </label>
                 <select
                   value={formData.account_id}
                   onChange={(e) => setFormData({...formData, account_id: Number(e.target.value)})}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className={fieldClassName}
                 >
                   {accounts.map(account => (
                     <option key={account.id} value={account.id}>{account.name}</option>
@@ -770,7 +814,7 @@ export default function Payments() {
 
               <div>
                 <div className="flex items-center justify-between">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className={modalLabelClassName}>
                     {t('payments.form.projectOpt')}
                   </label>
                 </div>
@@ -783,7 +827,7 @@ export default function Payments() {
                   value={formData.project_id}
                   onChange={(e) => setFormData({...formData, project_id: Number(e.target.value)})}
                   disabled={!isProOrExempt}
-                  className={`w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 ${!isProOrExempt ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  className={`${fieldClassName} ${!isProOrExempt ? 'cursor-not-allowed opacity-60' : ''}`}
                 >
                   <option value={0}>{t('payments.noProject')}</option>
                   {projects.map(project => (
@@ -792,33 +836,30 @@ export default function Payments() {
                 </select>
               </div>
               
-              <div className="flex items-center">
+              <div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2 dark:border-white/10 dark:bg-slate-950/50">
                 <input
                   type="checkbox"
                   id="isActive"
                   checked={formData.is_active}
                   onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
-                <label htmlFor="isActive" className="ml-2 block text-sm text-gray-900 dark:text-gray-100">
+                <label htmlFor="isActive" className="ml-2 block text-sm font-medium text-slate-900 dark:text-slate-100">
                   {t('payments.form.activePayment')}
                 </label>
               </div>
               
-              <div className="flex justify-end gap-3 pt-4">
-                <button
+              <div className="flex flex-col-reverse gap-3 pt-3 sm:flex-row sm:justify-end">
+                <ActionButton
                   type="button"
+                  variant="outline"
                   onClick={closeModal}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
                 >
                   {t('common.cancel')}
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
+                </ActionButton>
+                <ActionButton type="submit">
                   {editingPayment ? t('payments.form.update') : t('payments.form.create')} {t('payments.add')}
-                </button>
+                </ActionButton>
               </div>
             </form>
           </div>
@@ -837,4 +878,3 @@ export default function Payments() {
     );
   }
 }
-

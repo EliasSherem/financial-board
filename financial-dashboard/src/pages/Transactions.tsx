@@ -7,6 +7,15 @@ import { CategoryPicker } from '../components/CategoryPicker';
 import type { CategorySelection } from '../components/CategoryPicker';
 import type { ExpenseCategory } from '../types/expense';
 import { useNavigate } from 'react-router-dom';
+import {
+  ActionButton,
+  DataTableShell,
+  EmptyState,
+  FilterBar,
+  LoadingState,
+  PageHeader,
+  StatusBadge,
+} from '../components/ui';
 
 interface Transaction {
   id: number;
@@ -46,7 +55,7 @@ export default function Transactions() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const [categoryError, setCategoryError] = useState<string | null>(null);
-  const [, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
@@ -304,159 +313,231 @@ export default function Transactions() {
     }
   };
 
+  const fieldClassName = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-400/20';
+  const filterSelectClassName = 'min-w-[160px] rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-400/20';
+  const modalLabelClassName = 'mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300';
+
+  if (loading && transactions.length === 0) {
+    return (
+      <LoadingState
+        className="min-h-[60vh]"
+        label={`${t('common.loading')} ${t('transactions.title').toLowerCase()}...`}
+      />
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('transactions.title')}</h1>
-          <p className="text-gray-600 dark:text-gray-400">{t('transactions.subtitle')}</p>
+    <div className="space-y-8">
+      <PageHeader
+        title={t('transactions.title')}
+        subtitle={t('transactions.subtitle')}
+        actions={
+          <ActionButton
+            type="button"
+            onClick={() => openModal()}
+            iconLeft={<Plus className="h-4 w-4" />}
+          >
+            {t('transactions.add')}
+          </ActionButton>
+        }
+      />
+
+      <FilterBar>
+        <div className="flex items-center gap-2 self-center sm:self-auto">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
+            <Filter className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            {t('transactions.filters')}
+          </span>
         </div>
-        <button
-          onClick={() => openModal()}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
+
+        <select
+          value={filter.type}
+          onChange={(e) => setFilter({...filter, type: e.target.value})}
+          className={filterSelectClassName}
         >
-          <Plus className="h-4 w-4" />
-          {t('transactions.add')}
-        </button>
-      </div>
+          <option value="">{t('transactions.allTypes')}</option>
+          <option value="Income">{t('transactions.income')}</option>
+          <option value="Expense">{t('transactions.expense')}</option>
+        </select>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-gray-500" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('transactions.filters')}</span>
-          </div>
-          
-          <select
-            value={filter.type}
-            onChange={(e) => setFilter({...filter, type: e.target.value})}
-            className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1 text-sm dark:bg-gray-700 dark:text-gray-100"
-          >
-            <option value="">{t('transactions.allTypes')}</option>
-            <option value="Income">{t('transactions.income')}</option>
-            <option value="Expense">{t('transactions.expense')}</option>
-          </select>
-          
-          <select
-            value={filter.category}
-            onChange={(e) => setFilter({...filter, category: e.target.value})}
-            className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1 text-sm dark:bg-gray-700 dark:text-gray-100"
-          >
-            <option value="">All Categories</option>
-            {categoryOptions.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-          
-          <select
-            value={filter.account}
-            onChange={(e) => setFilter({...filter, account: e.target.value})}
-            className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1 text-sm dark:bg-gray-700 dark:text-gray-100"
-          >
-            <option value="">{t('transactions.allAccounts')}</option>
-            {accounts.map(account => (
-              <option key={account.id} value={account.id.toString()}>{account.name}</option>
-            ))}
-          </select>
-          
-          <button
-            onClick={() => setFilter({ type: '', category: '', account: '' })}
-            className="text-sm text-blue-600 hover:text-blue-800"
-          >
-            {t('transactions.clearFilters')}
-          </button>
-        </div>
-      </div>
+        <select
+          value={filter.category}
+          onChange={(e) => setFilter({...filter, category: e.target.value})}
+          className={filterSelectClassName}
+        >
+          <option value="">All Categories</option>
+          {categoryOptions.map((cat) => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900">
+        <select
+          value={filter.account}
+          onChange={(e) => setFilter({...filter, account: e.target.value})}
+          className={filterSelectClassName}
+        >
+          <option value="">{t('transactions.allAccounts')}</option>
+          {accounts.map(account => (
+            <option key={account.id} value={account.id.toString()}>{account.name}</option>
+          ))}
+        </select>
+
+        <ActionButton
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setFilter({ type: '', category: '', account: '' })}
+          className="self-center"
+        >
+          {t('transactions.clearFilters')}
+        </ActionButton>
+      </FilterBar>
+
+      <DataTableShell>
+        {filteredTransactions.length === 0 ? (
+          <EmptyState
+            icon={<Plus className="h-6 w-6" />}
+            title={t('transactions.subtitle')}
+            action={
+              <ActionButton
+                type="button"
+                onClick={() => openModal()}
+                iconLeft={<Plus className="h-4 w-4" />}
+              >
+                {t('transactions.add')}
+              </ActionButton>
+            }
+          />
+        ) : (
+          <table className="min-w-[980px] divide-y divide-slate-200 dark:divide-white/10">
+            <thead className="bg-slate-50 dark:bg-slate-950">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('transactions.table.date')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('transactions.table.description')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('transactions.table.category')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('transactions.table.account')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('transactions.table.project')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('transactions.table.amount')}
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('transactions.table.actions')}
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredTransactions.map((transaction) => (
-                <tr key={transaction.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                    {formatDate(transaction.date)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{transaction.description}</div>
-                    <div className={`text-xs ${transaction.type === 'Income' ? 'text-green-600' : 'text-red-600'}`}>
-                      {transaction.type === 'Income' ? t('transactions.income') : t('transactions.expense')}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {transaction.category}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {transaction.account_name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {transaction.project_name || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`text-sm font-semibold ${
-                      transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {transaction.amount > 0 ? '+' : ''}${Math.abs(transaction.amount).toLocaleString(locale, { minimumFractionDigits: 2 })}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => openModal(transaction)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => deleteTransaction(transaction.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+            <tbody className="divide-y divide-slate-200 bg-white dark:divide-white/10 dark:bg-slate-900">
+              {filteredTransactions.map((transaction) => {
+                const categoryLabel = transaction.category_name || transaction.category;
+                const subcategoryLabel = transaction.subcategory_name;
+                const typeLabel =
+                  transaction.type === 'Income'
+                    ? t('transactions.income')
+                    : transaction.type === 'Expense'
+                      ? t('transactions.expense')
+                      : transaction.type;
+                const typeVariant =
+                  transaction.type === 'Income'
+                    ? 'success'
+                    : transaction.type === 'Expense'
+                      ? 'danger'
+                      : 'neutral';
+
+                return (
+                  <tr key={transaction.id} className="transition hover:bg-blue-50/40 dark:hover:bg-blue-500/10">
+                    <td className="whitespace-nowrap px-6 py-5 text-sm font-medium text-slate-700 dark:text-slate-300">
+                      {formatDate(transaction.date)}
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="min-w-56">
+                        <div className="font-semibold text-slate-950 dark:text-white">{transaction.description}</div>
+                        <div className="mt-1">
+                          <StatusBadge variant={typeVariant}>
+                            {typeLabel}
+                          </StatusBadge>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex min-w-40 flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-white/10 dark:text-slate-200">
+                          {categoryLabel}
+                        </span>
+                        {subcategoryLabel && (
+                          <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300">
+                            {subcategoryLabel}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-5 text-sm text-slate-500 dark:text-slate-400">
+                      {transaction.account_name}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-5 text-sm text-slate-500 dark:text-slate-400">
+                      {transaction.project_name || '-'}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-5">
+                      <span className={`text-sm font-bold tabular-nums ${
+                        transaction.amount > 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'
+                      }`}>
+                        {transaction.amount > 0 ? '+' : ''}${Math.abs(transaction.amount).toLocaleString(locale, { minimumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-5 text-right text-sm font-medium">
+                      <div className="flex justify-end gap-2">
+                        <ActionButton
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openModal(transaction)}
+                          aria-label={t('transactions.modal.edit')}
+                          className="h-9 w-9 text-blue-600 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </ActionButton>
+                        <ActionButton
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteTransaction(transaction.id)}
+                          aria-label={t('transactions.table.actions')}
+                          className="h-9 w-9 text-red-600 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </ActionButton>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-        </div>
-      </div>
+        )}
+      </DataTableShell>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
-              {editingTransaction ? t('transactions.modal.edit') : t('transactions.modal.new')}
-            </h2>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/60 bg-white shadow-2xl shadow-slate-950/20 dark:border-white/10 dark:bg-slate-900">
+            <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
+              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
+                {editingTransaction ? t('transactions.modal.edit') : t('transactions.modal.new')}
+              </h2>
+            </div>
+
+            <form onSubmit={handleSubmit} className="max-h-[calc(100vh-11rem)] space-y-4 overflow-y-auto px-5 py-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={modalLabelClassName}>
                   {t('transactions.form.date')}
                 </label>
                 <input
@@ -464,12 +545,12 @@ export default function Transactions() {
                   required
                   value={formData.date}
                   onChange={(e) => setFormData({...formData, date: e.target.value})}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className={fieldClassName}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={modalLabelClassName}>
                   {t('transactions.form.description')}
                 </label>
                 <input
@@ -477,19 +558,19 @@ export default function Transactions() {
                   required
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className={fieldClassName}
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className={modalLabelClassName}>
                     {t('transactions.form.type')}
                   </label>
                   <select
                     value={formData.type}
                     onChange={(e) => setFormData({...formData, type: e.target.value as Transaction['type']})}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                    className={fieldClassName}
                   >
                     <option value="Income">{t('transactions.income')}</option>
                     <option value="Expense">{t('transactions.expense')}</option>
@@ -497,7 +578,7 @@ export default function Transactions() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className={modalLabelClassName}>
                     {t('transactions.form.amount')}
                   </label>
                   <input
@@ -506,13 +587,13 @@ export default function Transactions() {
                     required
                     value={formData.amount}
                     onChange={(e) => setFormData({...formData, amount: Number(e.target.value)})}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                    className={fieldClassName}
                   />
                 </div>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={modalLabelClassName}>
                   {t('transactions.form.category')}
                 </label>
                 {expenseCategories.length === 0 ? (
@@ -529,7 +610,7 @@ export default function Transactions() {
                       setCategoryError(null);
                     }}
                     required
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                    className={fieldClassName}
                     placeholder={t('transactions.form.category')}
                   />
                 ) : (
@@ -560,25 +641,25 @@ export default function Transactions() {
                   />
                 )}
                 {categoryError && (
-                  <p className="mt-1 text-sm text-red-500">{categoryError}</p>
+                  <p className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-400/20 dark:bg-red-500/10 dark:text-red-300">{categoryError}</p>
                 )}
                 <button
                   type="button"
                   onClick={() => navigate('/categories')}
-                  className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-500"
+                  className="mt-2 text-sm font-semibold text-blue-600 transition hover:text-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300 dark:hover:text-blue-200"
                 >
                   {t('categories.manageLink')}
                 </button>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={modalLabelClassName}>
                   {t('transactions.form.account')}
                 </label>
                 <select
                   value={formData.account_id}
                   onChange={(e) => setFormData({...formData, account_id: Number(e.target.value)})}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className={fieldClassName}
                   required
                 >
                   {accounts.map(account => (
@@ -588,13 +669,13 @@ export default function Transactions() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={modalLabelClassName}>
                   {t('transactions.form.projectOpt')}
                 </label>
                 <select
                   value={formData.project_id || ''}
                   onChange={(e) => setFormData({...formData, project_id: e.target.value ? Number(e.target.value) : undefined})}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className={fieldClassName}
                 >
                   <option value="">{t('transactions.form.noProject')}</option>
                   {projects.filter(p => p.status === 'Active').map(project => (
@@ -603,20 +684,17 @@ export default function Transactions() {
                 </select>
               </div>
               
-              <div className="flex justify-end gap-3 pt-4">
-                <button
+              <div className="flex flex-col-reverse gap-3 pt-3 sm:flex-row sm:justify-end">
+                <ActionButton
                   type="button"
+                  variant="outline"
                   onClick={closeModal}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
                 >
                   {t('common.cancel')}
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
+                </ActionButton>
+                <ActionButton type="submit">
                   {editingTransaction ? t('transactions.form.update') : t('transactions.form.create')} {t('transactions.title')}
-                </button>
+                </ActionButton>
               </div>
             </form>
           </div>

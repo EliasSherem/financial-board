@@ -4,6 +4,14 @@ import { api } from '../utils/api';
 import ProUpgradeBanner from '../components/ProUpgradeBanner';
 import { formatDate } from '../utils/date';
 import { useI18n } from '../contexts/I18nContext';
+import {
+  ActionButton,
+  DataTableShell,
+  EmptyState,
+  LoadingState,
+  PageHeader,
+  StatusBadge,
+} from '../components/ui';
 
 interface Project {
   id: number;
@@ -24,7 +32,7 @@ export default function Projects() {
     return <ProUpgradeBanner featureLabel="Projects" variant="page" />;
   }
   const [projects, setProjects] = useState<Project[]>([]);
-  const [, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadProjects();
@@ -102,99 +110,128 @@ export default function Projects() {
     }
   };
 
-  const getStatusColor = (status: Project['status']) => {
+  const getStatusVariant = (status: Project['status']) => {
     switch (status) {
-      case 'Active': return 'bg-green-100 text-green-800';
-      case 'Completed': return 'bg-blue-100 text-blue-800';
-      case 'On Hold': return 'bg-yellow-100 text-yellow-800';
+      case 'Active': return 'active';
+      case 'Completed': return 'completed';
+      case 'On Hold': return 'warning';
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('projects.title')}</h1>
-          <p className="text-gray-600 dark:text-gray-400">{t('projects.subtitle')}</p>
-        </div>
-        <button
-          onClick={() => openModal()}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4" />
-          {t('projects.add')}
-        </button>
-      </div>
+  const fieldClassName = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-950 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-400/20';
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+  if (loading && projects.length === 0) {
+    return (
+      <LoadingState
+        className="min-h-[60vh]"
+        label={`${t('common.loading')} ${t('projects.title').toLowerCase()}...`}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <PageHeader
+        title={t('projects.title')}
+        subtitle={t('projects.subtitle')}
+        actions={
+          <ActionButton
+            type="button"
+            onClick={() => openModal()}
+            iconLeft={<Plus className="h-4 w-4" />}
+          >
+            {t('projects.add')}
+          </ActionButton>
+        }
+      />
+
+      <DataTableShell>
+        {projects.length === 0 ? (
+          <EmptyState
+            icon={<Plus className="h-6 w-6" />}
+            title={t('projects.subtitle')}
+            action={
+              <ActionButton
+                type="button"
+                onClick={() => openModal()}
+                iconLeft={<Plus className="h-4 w-4" />}
+              >
+                {t('projects.add')}
+              </ActionButton>
+            }
+          />
+        ) : (
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900">
+            <thead className="bg-slate-50 dark:bg-slate-950">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('projects.table.project')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('projects.table.budget')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('projects.table.spent')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('projects.table.status')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('projects.table.period')}
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {t('projects.table.actions')}
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="divide-y divide-slate-200 bg-white dark:divide-white/10 dark:bg-slate-900">
               {projects.map((project) => (
-                <tr key={project.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{project.name}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{project.description}</div>
+                <tr key={project.id} className="transition hover:bg-blue-50/40 dark:hover:bg-blue-500/10">
+                  <td className="px-6 py-5">
+                    <div className="min-w-56">
+                      <div className="font-semibold text-slate-950 dark:text-white">{project.name}</div>
+                      <div className="mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">{project.description}</div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                  <td className="whitespace-nowrap px-6 py-5 text-sm font-semibold text-slate-950 dark:text-white">
                     ${project.budget.toLocaleString(locale)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                    <div>
-                      ${project.spent.toLocaleString(locale)}
-                      <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-1">
+                  <td className="whitespace-nowrap px-6 py-5 text-sm text-slate-950 dark:text-white">
+                    <div className="min-w-36">
+                      <div className="font-semibold">${project.spent.toLocaleString(locale)}</div>
+                      <div className="mt-2 h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800">
                         <div 
-                          className="bg-blue-600 h-2 rounded-full" 
+                          className="h-2 rounded-full bg-blue-600" 
                           style={{ width: `${Math.min((project.spent / project.budget) * 100, 100)}%` }}
                         />
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(project.status)}`}>
+                  <td className="whitespace-nowrap px-6 py-5">
+                    <StatusBadge variant={getStatusVariant(project.status)}>
                       {project.status}
-                    </span>
+                    </StatusBadge>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <td className="whitespace-nowrap px-6 py-5 text-sm text-slate-500 dark:text-slate-400">
                     {formatDate(project.start_date)} {t('projects.to')} {formatDate(project.end_date)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="whitespace-nowrap px-6 py-5 text-right text-sm font-medium">
                     <div className="flex justify-end gap-2">
                       <button
+                        type="button"
                         onClick={() => openModal(project)}
-                        className="text-blue-600 hover:text-blue-900"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-blue-600 transition hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300 dark:hover:bg-blue-500/10 dark:hover:text-blue-200"
+                        aria-label={t('projects.modal.edit')}
                       >
-                        <Edit2 className="h-4 w-4" />
+                        <Edit2 className="h-4 w-4" aria-hidden="true" />
                       </button>
                       <button
+                        type="button"
                         onClick={() => deleteProject(project.id)}
-                        className="text-red-600 hover:text-red-900"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-red-600 transition hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:text-red-300 dark:hover:bg-red-500/10 dark:hover:text-red-200"
+                        aria-label={t('common.delete')}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </button>
                     </div>
                   </td>
@@ -202,19 +239,21 @@ export default function Projects() {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
+        )}
+      </DataTableShell>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
-              {editingProject ? t('projects.modal.edit') : t('projects.modal.new')}
-            </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-900 dark:shadow-black/40">
+            <div className="border-b border-slate-200/80 px-5 py-4 dark:border-white/10">
+              <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
+                {editingProject ? t('projects.modal.edit') : t('projects.modal.new')}
+              </h2>
+            </div>
             
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="max-h-[calc(100vh-11rem)] space-y-4 overflow-y-auto px-5 py-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                   {t('projects.form.name')}
                 </label>
                 <input
@@ -222,25 +261,25 @@ export default function Projects() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className={fieldClassName}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                   {t('projects.form.description')}
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className={fieldClassName}
                   rows={3}
                 />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     {t('projects.form.budget')}
                   </label>
                   <input
@@ -248,31 +287,31 @@ export default function Projects() {
                     required
                     value={formData.budget}
                     onChange={(e) => setFormData({...formData, budget: Number(e.target.value)})}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                    className={fieldClassName}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     {t('projects.form.spent')}
                   </label>
                   <input
                     type="number"
                     value={formData.spent}
                     onChange={(e) => setFormData({...formData, spent: Number(e.target.value)})}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                    className={fieldClassName}
                   />
                 </div>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                   {t('projects.form.status')}
                 </label>
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({...formData, status: e.target.value as Project['status']})}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  className={fieldClassName}
                 >
                   <option value="Active">Active</option>
                   <option value="On Hold">On Hold</option>
@@ -282,7 +321,7 @@ export default function Projects() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     {t('projects.form.startDate')}
                   </label>
                   <input
@@ -290,12 +329,12 @@ export default function Projects() {
                     required
                     value={formData.start_date}
                     onChange={(e) => setFormData({...formData, start_date: e.target.value})}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                    className={fieldClassName}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     {t('projects.form.endDate')}
                   </label>
                   <input
@@ -303,25 +342,24 @@ export default function Projects() {
                     required
                     value={formData.end_date}
                     onChange={(e) => setFormData({...formData, end_date: e.target.value})}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                    className={fieldClassName}
                   />
                 </div>
               </div>
               
-              <div className="flex justify-end gap-3 pt-4">
-                <button
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-200/80 pt-4 dark:border-white/10 sm:flex-row sm:justify-end">
+                <ActionButton
                   type="button"
+                  variant="outline"
                   onClick={closeModal}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
                 >
                   {t('common.cancel')}
-                </button>
-                <button
+                </ActionButton>
+                <ActionButton
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
                   {editingProject ? t('projects.form.update') : t('projects.form.create')} {t('projects.title')}
-                </button>
+                </ActionButton>
               </div>
             </form>
           </div>
