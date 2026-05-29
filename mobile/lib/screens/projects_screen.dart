@@ -5,6 +5,7 @@ import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
+import '../ui/finsight_ui.dart';
 import '../utils/format.dart';
 import '../widgets/pro_widgets.dart';
 import '../i18n.dart';
@@ -66,6 +67,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     final store = context.watch<AuthStore>();
     if (!store.isProOrExempt) {
       return Scaffold(
+        backgroundColor: FSColors.background(context),
         appBar: AppBar(title: Text(I18n.t(context, 'title.projects'))),
         body: const ProBlock(feature: 'Projects'),
       );
@@ -78,14 +80,25 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     final api = ApiClient()..setToken(token);
     final data = DataService(api);
     return Scaffold(
+      backgroundColor: FSColors.background(context),
       appBar: AppBar(title: Text(I18n.t(context, 'title.projects'))),
       body: FutureBuilder<List<Project>>(
         future: _future,
         builder: (context, snap) {
           if (!snap.hasData) {
-            if (snap.hasError)
-              return Center(child: Text('Error: ${snap.error}'));
-            return const Center(child: CircularProgressIndicator());
+            if (snap.hasError) {
+              return Center(
+                child: FSCard(
+                  margin: const EdgeInsets.all(FSSpacing.lg),
+                  variant: FSCardVariant.subtle,
+                  child: FSEmptyState(
+                    icon: Icons.error_outline_rounded,
+                    title: 'Error: ${snap.error}',
+                  ),
+                ),
+              );
+            }
+            return const FSLoadingState();
           }
           final items = snap.data!;
           if (!_openedFromNotification && widget.openProjectId != null) {
@@ -110,30 +123,39 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             }
           }
           return RefreshIndicator(
+            color: Theme.of(context).colorScheme.primary,
             onRefresh: _refresh,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(
+                FSSpacing.lg,
+                FSSpacing.lg,
+                FSSpacing.lg,
+                FSSpacing.xxl,
+              ),
               children: [
-                Text(
-                  I18n.t(context, 'projects.subtitle'),
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilledButton.icon(
+                FSPageHeader(
+                  title: I18n.t(context, 'title.projects'),
+                  subtitle: I18n.t(context, 'projects.subtitle'),
+                  leading: const _ProjectsHeaderIcon(),
+                  action: FSButton(
+                    label: I18n.t(context, 'projects.add'),
+                    icon: Icons.add_rounded,
+                    size: FSButtonSize.sm,
                     onPressed: () => _showCreateProject(context, data),
-                    icon: const Icon(Icons.add),
-                    label: Text(I18n.t(context, 'projects.add')),
                   ),
                 ),
-                const SizedBox(height: 16),
                 if (items.isEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(I18n.t(context, 'projects.none')),
+                  FSCard(
+                    variant: FSCardVariant.elevated,
+                    child: FSEmptyState(
+                      icon: Icons.folder_open_outlined,
+                      title: I18n.t(context, 'projects.none'),
+                      action: FSButton(
+                        label: I18n.t(context, 'projects.add'),
+                        icon: Icons.add_rounded,
+                        onPressed: () => _showCreateProject(context, data),
+                      ),
                     ),
                   )
                 else ...[
@@ -157,18 +179,20 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                                   I18n.t(context, 'projects.deleteTitle'),
                                 ),
                                 content: Text(
-                                  I18n.t(context, 'projects.deletePrefix') +
-                                      ' ${p.name}',
+                                  '${I18n.t(context, 'projects.deletePrefix')} ${p.name}',
                                 ),
                                 actions: [
                                   TextButton(
                                     onPressed:
-                                        () => Navigator.of(dialogCtx).pop(false),
-                                    child: Text(I18n.t(context, 'label.cancel')),
+                                        () =>
+                                            Navigator.of(dialogCtx).pop(false),
+                                    child: Text(
+                                      I18n.t(context, 'label.cancel'),
+                                    ),
                                   ),
                                   FilledButton(
-                                    onPressed: () =>
-                                        Navigator.of(dialogCtx).pop(true),
+                                    onPressed:
+                                        () => Navigator.of(dialogCtx).pop(true),
                                     child: Text(
                                       I18n.t(context, 'projects.delete'),
                                     ),
@@ -194,8 +218,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    I18n.tr(context, 'projects.deleteFailed') +
-                                        ': $e',
+                                    '${I18n.tr(context, 'projects.deleteFailed')}: $e',
                                   ),
                                 ),
                               );
@@ -384,8 +407,9 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                                         firstDate: DateTime(2000),
                                         lastDate: DateTime(2100),
                                       );
-                                      if (picked != null)
+                                      if (picked != null) {
                                         startCtrl.text = formatDate(picked);
+                                      }
                                     },
                                   ),
                                 ),
@@ -411,8 +435,9 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                                         firstDate: DateTime(2000),
                                         lastDate: DateTime(2100),
                                       );
-                                      if (picked != null)
+                                      if (picked != null) {
                                         endCtrl.text = formatDate(picked);
+                                      }
                                     },
                                   ),
                                 ),
@@ -495,182 +520,373 @@ class _ProjectCard extends StatelessWidget {
     final progress =
         budget == 0 ? 0.0 : (spent / budget).clamp(0.0, 1.0).toDouble();
     final percent = (progress * 100).toStringAsFixed(0);
-
     final onBudget = remaining >= 0;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color bg =
-        isDark
-            ? (onBudget ? const Color(0xFF103521) : const Color(0xFF3A1C1C))
-            : (onBudget ? Colors.green.shade50 : Colors.red.shade50);
-    return Card(
-      color: bg,
-      elevation: 6,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+    final progressIntent =
+        !onBudget
+            ? FSIntent.danger
+            : (progress >= 0.8 ? FSIntent.warning : FSIntent.success);
+    final progressColor = FSColors.intent(progressIntent);
+
+    return FSCard(
+      variant: FSCardVariant.interactive,
+      onTap: onTap,
+      padding: const EdgeInsets.all(FSSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          project.name,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        if ((project.description ?? '').isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            project.description!,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ],
-                    ),
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: FSColors.intentContainer(context, progressIntent),
+                  borderRadius: BorderRadius.circular(FSRadius.md),
+                  border: Border.all(
+                    color: FSColors.intentBorder(context, progressIntent),
                   ),
-                  _statusChip(context, project.status),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: I18n.t(context, 'projects.edit'),
-                    icon: const Icon(Icons.edit_outlined),
-                    onPressed: onEdit,
-                  ),
-                  IconButton(
-                    tooltip: I18n.t(context, 'projects.delete'),
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      color: Colors.redAccent,
-                    ),
-                    onPressed: onDelete,
-                  ),
-                ],
+                ),
+                child: Icon(
+                  onBudget
+                      ? Icons.folder_open_outlined
+                      : Icons.warning_amber_rounded,
+                  color: progressColor,
+                ),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _kv(
-                      context,
-                      I18n.t(context, 'projects.budget'),
-                      money(budget),
-                      valueStyle: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  Expanded(
-                    child: _kv(
-                      context,
-                      I18n.t(context, 'home.spent'),
-                      money(spent),
-                      valueStyle: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w600,
+              const SizedBox(width: FSSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      project.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ),
-                ],
+                    if ((project.description ?? '').isNotEmpty) ...[
+                      const SizedBox(height: FSSpacing.xs),
+                      Text(
+                        project.description!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: FSColors.mutedText(context),
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: FSSpacing.sm),
+                    Wrap(
+                      spacing: FSSpacing.sm,
+                      runSpacing: FSSpacing.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _statusChip(context, project.status),
+                        FSStatusBadge(
+                          label: '$percent%',
+                          variant: _badgeVariantForIntent(progressIntent),
+                          icon: Icons.timeline_rounded,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              Row(
+              const SizedBox(width: FSSpacing.sm),
+              Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    I18n.t(context, 'projects.progress'),
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  _ProjectActionButton(
+                    tooltip: I18n.t(context, 'projects.edit'),
+                    icon: Icons.edit_outlined,
+                    onPressed: onEdit,
                   ),
-                  const Spacer(),
-                  Text('$percent%'),
+                  const SizedBox(height: FSSpacing.xs),
+                  _ProjectActionButton(
+                    tooltip: I18n.t(context, 'projects.delete'),
+                    icon: Icons.delete_outline_rounded,
+                    onPressed: onDelete,
+                    danger: true,
+                  ),
                 ],
               ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 10,
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.outline.withOpacity(0.3),
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (project.startDate != null && project.endDate != null)
-                Text(
-                  I18n.t(context, 'projects.period') +
-                      ': ' +
-                      formatYmd(project.startDate!) +
-                      ' ' +
-                      I18n.t(context, 'projects.to') +
-                      ' ' +
-                      formatYmd(project.endDate!),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+            ],
+          ),
+          const SizedBox(height: FSSpacing.lg),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final twoColumns = constraints.maxWidth >= 320;
+              final width =
+                  twoColumns
+                      ? (constraints.maxWidth - FSSpacing.sm) / 2
+                      : constraints.maxWidth;
+              return Wrap(
+                spacing: FSSpacing.sm,
+                runSpacing: FSSpacing.sm,
+                children: [
+                  SizedBox(
+                    width: width,
+                    child: _ProjectValueTile(
+                      label: I18n.t(context, 'projects.budget'),
+                      value: money(budget),
+                      icon: Icons.account_balance_wallet_outlined,
+                      intent: FSIntent.primary,
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: _ProjectValueTile(
+                      label: I18n.t(context, 'home.spent'),
+                      value: money(spent),
+                      icon: Icons.payments_outlined,
+                      intent: FSIntent.info,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: FSSpacing.lg),
+          Row(
+            children: [
               Text(
-                I18n.t(context, 'projects.remaining') + ': ${money(remaining)}',
+                I18n.t(context, 'projects.progress'),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const Spacer(),
+              Text(
+                '$percent%',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: remaining >= 0 ? Colors.green[700] : Colors.red[700],
-                  fontWeight: FontWeight.w600,
+                  color: progressColor,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: FSSpacing.sm),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(FSRadius.pill),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 10,
+              backgroundColor: FSColors.alpha(progressColor, 0.12),
+              color: progressColor,
+            ),
+          ),
+          const SizedBox(height: FSSpacing.md),
+          if (project.startDate != null && project.endDate != null) ...[
+            _ProjectMetadataRow(
+              icon: Icons.date_range_outlined,
+              text:
+                  '${I18n.t(context, 'projects.period')}: '
+                  '${formatYmd(project.startDate!)} '
+                  '${I18n.t(context, 'projects.to')} '
+                  '${formatYmd(project.endDate!)}',
+            ),
+            const SizedBox(height: FSSpacing.sm),
+          ],
+          _ProjectMetadataRow(
+            icon:
+                remaining >= 0
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.error_outline_rounded,
+            text:
+                '${I18n.t(context, 'projects.remaining')}: ${money(remaining)}',
+            color: remaining >= 0 ? FSColors.success : FSColors.danger,
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _kv(
-    BuildContext context,
-    String k,
-    String v, {
-    TextStyle? valueStyle,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(k, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 2),
-        Text(
-          v,
-          style: Theme.of(context).textTheme.bodyMedium?.merge(valueStyle),
-        ),
-      ],
     );
   }
 
   Widget _statusChip(BuildContext context, String status) {
     final lower = status.toLowerCase();
-    Color? bg;
-    Color? fg;
-    OutlinedBorder? shape;
     if (lower.contains('active')) {
-      bg = const Color(0xFFE6F7EC);
-      fg = const Color(0xFF16A34A);
+      return FSStatusBadge(label: lower, variant: FSStatusBadgeVariant.active);
     } else if (lower.contains('hold')) {
-      bg = const Color(0xFFFFFAE6);
-      fg = const Color(0xFFB45309);
-      shape = StadiumBorder(side: BorderSide(color: fg.withOpacity(0.5)));
-    } else {
-      bg = const Color(0xFFEAF2FF);
-      fg = const Color(0xFF2563EB);
+      return FSStatusBadge(label: lower, variant: FSStatusBadgeVariant.paused);
     }
+    return FSStatusBadge(label: lower, variant: FSStatusBadgeVariant.completed);
+  }
+
+  FSStatusBadgeVariant _badgeVariantForIntent(FSIntent intent) {
+    switch (intent) {
+      case FSIntent.success:
+        return FSStatusBadgeVariant.success;
+      case FSIntent.warning:
+        return FSStatusBadgeVariant.warning;
+      case FSIntent.danger:
+        return FSStatusBadgeVariant.danger;
+      case FSIntent.info:
+        return FSStatusBadgeVariant.info;
+      case FSIntent.primary:
+      case FSIntent.neutral:
+        return FSStatusBadgeVariant.neutral;
+    }
+  }
+}
+
+class _ProjectsHeaderIcon extends StatelessWidget {
+  const _ProjectsHeaderIcon();
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: ShapeDecoration(
-        color: bg,
-        shape: shape ?? const StadiumBorder(),
+      width: 42,
+      height: 42,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: FSColors.intentContainer(context, FSIntent.primary),
+        borderRadius: BorderRadius.circular(FSRadius.md),
+        border: Border.all(
+          color: FSColors.intentBorder(context, FSIntent.primary),
+        ),
       ),
-      child: Text(
-        lower,
-        style: TextStyle(color: fg, fontWeight: FontWeight.w600),
+      child: const Icon(Icons.folder_open_outlined, color: FSColors.primary),
+    );
+  }
+}
+
+class _ProjectActionButton extends StatelessWidget {
+  const _ProjectActionButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.danger = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        danger ? FSColors.danger : Theme.of(context).colorScheme.primary;
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon, size: 20),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(40),
+        backgroundColor: FSColors.alpha(color, 0.10),
+        foregroundColor: color,
+        side: BorderSide(color: FSColors.alpha(color, 0.18)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FSRadius.md),
+        ),
       ),
+    );
+  }
+}
+
+class _ProjectValueTile extends StatelessWidget {
+  const _ProjectValueTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.intent,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final FSIntent intent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(FSSpacing.md),
+      decoration: BoxDecoration(
+        color: FSColors.surface(context),
+        borderRadius: BorderRadius.circular(FSRadius.lg),
+        border: Border.all(color: FSColors.border(context)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FSColors.intentContainer(context, intent),
+              borderRadius: BorderRadius.circular(FSRadius.md),
+            ),
+            child: Icon(icon, size: 18, color: FSColors.intent(intent)),
+          ),
+          const SizedBox(width: FSSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: FSColors.mutedText(context),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProjectMetadataRow extends StatelessWidget {
+  const _ProjectMetadataRow({
+    required this.icon,
+    required this.text,
+    this.color,
+  });
+
+  final IconData icon;
+  final String text;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = color ?? FSColors.mutedText(context);
+    return Row(
+      children: [
+        Icon(icon, size: 17, color: foreground),
+        const SizedBox(width: FSSpacing.sm),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

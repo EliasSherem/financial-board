@@ -19,6 +19,7 @@ import 'transactions_v2_screen.dart';
 import '../widgets/pro_widgets.dart';
 import '../state/refresh_bus.dart';
 import '../i18n.dart';
+import '../ui/finsight_ui.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -175,9 +176,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 auth.logout(force: true);
               }
             });
-            return const Center(child: CircularProgressIndicator());
+            return const FSLoadingState();
           }
-          return const Center(child: CircularProgressIndicator());
+          return const FSLoadingState();
         }
         final accounts = (snap.data![0] as List<Account>);
         final txs = (snap.data![1] as List<TransactionItem>);
@@ -267,19 +268,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final budgetPercentText = '${budgetPercent.toStringAsFixed(0)}%';
         final Color budgetColor;
         if (budgetPercent >= 100) {
-          budgetColor = Colors.red;
+          budgetColor = FSColors.danger;
         } else if (budgetPercent >= 80) {
-          budgetColor = Colors.amber;
+          budgetColor = FSColors.warning;
         } else {
-          budgetColor = Colors.green;
+          budgetColor = FSColors.success;
         }
         final budgetFooter = Row(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: budgetColor.withOpacity(0.14),
-                borderRadius: BorderRadius.circular(10),
+                color: FSColors.alpha(budgetColor, 0.14),
+                borderRadius: BorderRadius.circular(FSRadius.pill),
               ),
               child: Text(
                 budgetPercentText,
@@ -365,7 +366,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         if (insightType == 0) {
           insightIcon = netUp ? Icons.trending_up : Icons.trending_down;
-          insightColor = netUp ? Colors.green : Colors.red;
+          insightColor = netUp ? FSColors.success : FSColors.danger;
           insightSpans = [
             const TextSpan(text: 'Net '),
             TextSpan(
@@ -407,7 +408,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         } else if (insightType == 2) {
           if (!hasRisk) {
             insightIcon = Icons.check_circle_outline;
-            insightColor = Colors.green;
+            insightColor = FSColors.success;
             insightSpans = [
               const TextSpan(text: 'No upcoming risks in the next '),
               TextSpan(
@@ -420,7 +421,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ];
           } else {
             insightIcon = Icons.warning_amber_rounded;
-            insightColor = overBudget ? Colors.red : Colors.amber;
+            insightColor = overBudget ? FSColors.danger : FSColors.warning;
             if (overBudget && dueCount > 0) {
               insightSpans = [
                 const TextSpan(text: 'Over budget by '),
@@ -570,139 +571,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 : (hour < 18
                     ? I18n.t(context, 'greet.afternoon')
                     : I18n.t(context, 'greet.night'));
-        final isDark = Theme.of(context).brightness == Brightness.dark;
         final Widget? savingsGoalCard =
             hasSavingsGoal
-                ? Card(
-                  color:
-                      isDark
-                          ? Theme.of(context).colorScheme.surface
-                          : Colors.blue.shade50,
-                  elevation: 6,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.savings_outlined, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                I18n.t(context, 'savingsGoal.title'),
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            Text(
-                              savingsPercentLabel,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: LinearProgressIndicator(
-                            value: savingsProgress,
-                            minHeight: 8,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${I18n.t(context, 'savingsGoal.saved')} ${money(savedThisMonth)} / ${money(savingsGoal)}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
+                ? _SavingsGoalSummaryCard(
+                  progress: savingsProgress,
+                  percentLabel: savingsPercentLabel,
+                  savedLabel:
+                      '${I18n.t(context, 'savingsGoal.saved')} ${money(savedThisMonth)} / ${money(savingsGoal)}',
                 )
                 : null;
 
         return RefreshIndicator(
           onRefresh: _refresh,
+          color: Theme.of(context).colorScheme.primary,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  FSSpacing.lg,
+                  FSSpacing.lg,
+                  FSSpacing.lg,
+                  FSSpacing.xxl,
+                ),
+                sliver: SliverToBoxAdapter(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Builder(
-                        builder: (context) {
-                          final titleStyle = Theme.of(
-                            context,
-                          ).textTheme.titleMedium?.copyWith(
-                            letterSpacing: 0.2,
-                            fontWeight: FontWeight.w600,
-                            height: 1.2,
-                          );
-                          final insightStyle = Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(
-                              context,
-                            ).textTheme.bodySmall?.color?.withOpacity(0.82),
-                            height: 1.35,
-                            fontWeight: FontWeight.w500,
-                          );
-                          return Text.rich(
-                            TextSpan(
-                              style: insightStyle,
-                              children: [
-                                TextSpan(
-                                  text: '$partOfDay, ',
-                                  style: titleStyle,
-                                ),
-                                TextSpan(
-                                  text: auth.userName,
-                                  style: titleStyle?.copyWith(
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                TextSpan(text: '\n', style: insightStyle),
-                                WidgetSpan(
-                                  alignment: PlaceholderAlignment.middle,
-                                  child: Icon(
-                                    insightIcon,
-                                    size: 14,
-                                    color: insightColor,
-                                  ),
-                                ),
-                                const TextSpan(text: ' '),
-                                ...insightSpans,
-                              ],
-                            ),
-                          );
-                        },
+                      _DashboardInsightHeader(
+                        partOfDay: partOfDay,
+                        userName: auth.userName,
+                        insightIcon: insightIcon,
+                        insightColor: insightColor,
+                        insightSpans: insightSpans,
                       ),
-                      const SizedBox(height: 8),
-                      Container(
-                        height: 1,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.transparent,
-                              Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withOpacity(0.12),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: FSSpacing.md),
                       if (savingsGoalCard != null) savingsGoalCard,
-                      if (savingsGoalCard != null) const SizedBox(height: 12),
+                      if (savingsGoalCard != null)
+                        const SizedBox(height: FSSpacing.md),
                       // Upgrade banner for non-Pro
                       if (!auth.isProOrExempt) const UpgradeBanner(),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: FSSpacing.md),
                       // KPI Grid
                       LayoutBuilder(
                         builder: (context, c) {
@@ -712,6 +621,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               title: I18n.t(context, 'kpi.totalBalance'),
                               value: money(totalBalance),
                               icon: Icons.attach_money,
+                              accent: FSIntent.primary,
                               deltaPercent: growth.abs(),
                               deltaIsPositive: growth >= 0,
                               subtitle: I18n.t(context, 'kpi.balanceGrowth'),
@@ -720,11 +630,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               title: I18n.t(context, 'kpi.netThisMonth'),
                               value: money(currNet),
                               icon: Icons.account_balance_wallet_outlined,
+                              accent:
+                                  currNet >= 0
+                                      ? FSIntent.success
+                                      : FSIntent.danger,
                             ),
                             KpiCard(
                               title: I18n.t(context, 'kpi.thisMonthExpenses'),
                               value: money(currExp),
                               icon: Icons.trending_down,
+                              accent: FSIntent.danger,
                               deltaPercent: expDelta.abs().toDouble(),
                               deltaIsPositive: currExp <= prevExp,
                               titleMaxLines: 2,
@@ -734,15 +649,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               title: I18n.t(context, 'kpi.budgetOverview'),
                               value: money(totalBudget),
                               icon: Icons.pie_chart_outline,
+                              accent: FSIntent.warning,
                               titleMaxLines: 2,
                               footer: budgetFooter,
                             ),
                           ];
                           // Two uniform-height tiles per row; last odd spans full width
-                          final cols = 2;
-                          const spacing = 12.0;
+                          final cols = w < 360 ? 1 : 2;
+                          const spacing = FSSpacing.md;
                           final itemWidth = (w - (cols - 1) * spacing) / cols;
-                          final double itemHeight = cols == 1 ? 112 : 120;
+                          final double itemHeight = cols == 1 ? 112 : 126;
                           return Wrap(
                             spacing: spacing,
                             runSpacing: spacing,
@@ -762,9 +678,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           );
                         },
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: FSSpacing.md),
                       UpcomingEvents(payments: payments),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: FSSpacing.md),
                       AccountListSummary(
                         accounts: accounts.take(3).toList(),
                         onAdd:
@@ -774,7 +690,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: FSSpacing.md),
                       RecentTransactions(
                         items: txs,
                         onViewAll:
@@ -784,15 +700,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: FSSpacing.md),
                       SubcategoryBudgetSummary(
                         categories: categories,
                         transactions: txs,
                         isPro: auth.isProOrExempt,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: FSSpacing.md),
                       ProjectSummaries(projects: projects),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: FSSpacing.xxl),
                     ],
                   ),
                 ),
@@ -801,6 +717,176 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _DashboardInsightHeader extends StatelessWidget {
+  const _DashboardInsightHeader({
+    required this.partOfDay,
+    required this.userName,
+    required this.insightIcon,
+    required this.insightColor,
+    required this.insightSpans,
+  });
+
+  final String partOfDay;
+  final String userName;
+  final IconData insightIcon;
+  final Color insightColor;
+  final List<InlineSpan> insightSpans;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final titleStyle = theme.textTheme.titleLarge?.copyWith(
+      fontWeight: FontWeight.w800,
+      height: 1.1,
+    );
+    final insightStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: FSColors.mutedText(context),
+      height: 1.35,
+      fontWeight: FontWeight.w600,
+    );
+
+    return FSCard(
+      variant: FSCardVariant.interactive,
+      padding: const EdgeInsets.all(FSSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text.rich(
+            TextSpan(
+              style: titleStyle,
+              children: [
+                TextSpan(text: '$partOfDay, '),
+                TextSpan(
+                  text: userName,
+                  style: titleStyle?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: FSSpacing.md),
+          Container(
+            padding: const EdgeInsets.all(FSSpacing.md),
+            decoration: BoxDecoration(
+              color: FSColors.alpha(insightColor, 0.10),
+              borderRadius: BorderRadius.circular(FSRadius.lg),
+              border: Border.all(color: FSColors.alpha(insightColor, 0.18)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: FSColors.alpha(insightColor, 0.14),
+                    borderRadius: BorderRadius.circular(FSRadius.md),
+                  ),
+                  child: Icon(insightIcon, size: 19, color: insightColor),
+                ),
+                const SizedBox(width: FSSpacing.md),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(style: insightStyle, children: insightSpans),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SavingsGoalSummaryCard extends StatelessWidget {
+  const _SavingsGoalSummaryCard({
+    required this.progress,
+    required this.percentLabel,
+    required this.savedLabel,
+  });
+
+  final double progress;
+  final String percentLabel;
+  final String savedLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return FSCard(
+      variant: FSCardVariant.subtle,
+      padding: const EdgeInsets.all(FSSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: FSColors.intentContainer(context, FSIntent.success),
+                  borderRadius: BorderRadius.circular(FSRadius.md),
+                  border: Border.all(
+                    color: FSColors.intentBorder(context, FSIntent.success),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.savings_outlined,
+                  size: 18,
+                  color: FSColors.success,
+                ),
+              ),
+              const SizedBox(width: FSSpacing.md),
+              Expanded(
+                child: Text(
+                  I18n.t(context, 'savingsGoal.title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              FSStatusBadge(
+                label: percentLabel,
+                variant: FSStatusBadgeVariant.success,
+              ),
+            ],
+          ),
+          const SizedBox(height: FSSpacing.md),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(FSRadius.pill),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              color: FSColors.success,
+              backgroundColor: FSColors.intentContainer(
+                context,
+                FSIntent.success,
+              ),
+            ),
+          ),
+          const SizedBox(height: FSSpacing.sm),
+          Text(
+            savedLabel,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: FSColors.mutedText(context),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

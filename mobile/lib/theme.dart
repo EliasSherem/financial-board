@@ -1,153 +1,316 @@
 import 'package:flutter/material.dart';
 
-// Design tokens adapted from src/styles/globals.css
-class AppTheme {
-  // Brand blue (matches Home button in navbar)
-  static const _brandBlue = Color(0xFF2563EB);
-  static const _lightPrimary = _brandBlue;
-  static const _lightBackground = Color(0xFFFFFFFF);
-  static const _lightForeground = Color(0xFF232326); // approx oklch(0.145 0 0)
-  static const _lightCard = Color(0xFFFFFFFF);
-  static const _lightMuted = Color(0xFFECECF0);
-  static const _lightAccent = Color(0xFFE9EBEF);
-  static const _lightBorder = Color(0x1A000000); // rgba(0,0,0,0.1)
+import 'ui/finsight_ui.dart';
 
-  // Dark palette tuned for contrast and separation
-  static const _darkBackground = Color(0xFF14161B);
-  static const _darkForeground = Color(0xFFEAECEF); // near-white for strong contrast
-  static const _darkCard = Color(0xFF1D2128);       // slightly lighter than bg so cards stand out
-  static const _darkMuted = Color(0xFF2A2F37);      // separators / containers
+// Design tokens adapted from the current FinSight web aesthetic.
+class AppTheme {
+  static const _brandBlue = FSColors.primary;
+  static const _lightForeground = Color(0xFF0F172A);
+  static const _darkForeground = Color(0xFFE2E8F0);
 
   static ThemeData light() {
     final base = ThemeData(useMaterial3: true, brightness: Brightness.light);
     final scheme = ColorScheme.fromSeed(
-      seedColor: _lightPrimary,
+      seedColor: _brandBlue,
       brightness: Brightness.light,
-      primary: _lightPrimary,
+      primary: _brandBlue,
       onPrimary: Colors.white,
-      background: _lightBackground,
-      onBackground: _lightForeground,
-      surface: _lightCard,
+      surface: FSColors.surfaceLight,
       onSurface: _lightForeground,
-      secondary: _lightAccent,
+      secondary: FSColors.accent,
       onSecondary: _lightForeground,
-      outline: _lightBorder,
+      outline: FSColors.borderLight,
+      error: FSColors.danger,
     );
-    final filledButtonStyle = FilledButton.styleFrom(
-      backgroundColor: _brandBlue,
-      foregroundColor: Colors.white,
-    );
-    final elevatedButtonStyle = ElevatedButton.styleFrom(
-      backgroundColor: _brandBlue,
-      foregroundColor: Colors.white,
-    );
-    return base.copyWith(
-      colorScheme: scheme,
-      scaffoldBackgroundColor: _lightBackground,
-      cardColor: _lightCard,
-      textTheme: base.textTheme.apply(bodyColor: _lightForeground, displayColor: _lightForeground),
-      filledButtonTheme: FilledButtonThemeData(style: filledButtonStyle),
-      elevatedButtonTheme: ElevatedButtonThemeData(style: elevatedButtonStyle),
-      popupMenuTheme: PopupMenuThemeData(
-        color: scheme.surface,
-        surfaceTintColor: Colors.transparent,
-        textStyle: base.textTheme.bodyMedium?.copyWith(color: scheme.onSurface, fontWeight: FontWeight.w600),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 8,
-      ),
-      shadowColor: const Color(0x66000000),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: _brandBlue,
-        foregroundColor: Colors.white,
-      ),
-      appBarTheme: AppBarTheme(
-        backgroundColor: _lightBackground,
-        foregroundColor: _lightForeground,
-        elevation: 0,
-        centerTitle: false,
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: _lightBackground,
-        indicatorColor: _lightMuted,
-        indicatorShape: const CircleBorder(),
-        labelTextStyle: WidgetStateProperty.all(const TextStyle(fontWeight: FontWeight.w500)),
-      ),
-      cardTheme: const CardThemeData(
-        elevation: 8,
-        shadowColor: Color(0x66000000),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-      ),
-      dividerColor: _lightBorder,
+    return _buildTheme(
+      base: base,
+      scheme: scheme,
+      foreground: _lightForeground,
+      background: FSColors.backgroundLight,
+      surface: FSColors.surfaceLight,
+      surfaceElevated: FSColors.surfaceElevatedLight,
+      border: FSColors.borderLight,
+      muted: FSColors.mutedTextLight,
+      shadow: const Color(0x220F172A),
+      isDark: false,
     );
   }
 
   static ThemeData dark() {
     final base = ThemeData(useMaterial3: true, brightness: Brightness.dark);
     final scheme = ColorScheme.fromSeed(
-      seedColor: _lightPrimary,
+      seedColor: _brandBlue,
       brightness: Brightness.dark,
       primary: _brandBlue,
       onPrimary: Colors.white,
-      background: _darkBackground,
-      onBackground: _darkForeground,
-      surface: _darkCard,
+      surface: FSColors.surfaceDark,
       onSurface: _darkForeground,
-      secondary: _darkMuted,
+      secondary: FSColors.accent,
       onSecondary: _darkForeground,
-      outline: const Color(0xFF3C414A),
+      outline: FSColors.borderDark,
+      error: FSColors.danger,
+    );
+    return _buildTheme(
+      base: base,
+      scheme: scheme,
+      foreground: _darkForeground,
+      background: FSColors.backgroundDark,
+      surface: FSColors.surfaceDark,
+      surfaceElevated: FSColors.surfaceElevatedDark,
+      border: FSColors.borderDark,
+      muted: FSColors.mutedTextDark,
+      shadow: const Color(0xCC000000),
+      isDark: true,
+    );
+  }
+
+  static ThemeData _buildTheme({
+    required ThemeData base,
+    required ColorScheme scheme,
+    required Color foreground,
+    required Color background,
+    required Color surface,
+    required Color surfaceElevated,
+    required Color border,
+    required Color muted,
+    required Color shadow,
+    required bool isDark,
+  }) {
+    final radius = BorderRadius.circular(FSRadius.md);
+    final fieldBorder = OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(color: border),
+    );
+    final focusedFieldBorder = OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: const BorderSide(color: _brandBlue, width: 1.4),
+    );
+    final errorFieldBorder = OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: const BorderSide(color: FSColors.danger),
     );
     final filledButtonStyle = FilledButton.styleFrom(
       backgroundColor: _brandBlue,
       foregroundColor: Colors.white,
+      disabledBackgroundColor: FSColors.alpha(_brandBlue, 0.42),
+      disabledForegroundColor: FSColors.alpha(Colors.white, 0.70),
+      minimumSize: const Size(0, 44),
+      padding: const EdgeInsets.symmetric(
+        horizontal: FSSpacing.lg,
+        vertical: FSSpacing.md,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      textStyle: const TextStyle(fontWeight: FontWeight.w700),
     );
     final elevatedButtonStyle = ElevatedButton.styleFrom(
       backgroundColor: _brandBlue,
       foregroundColor: Colors.white,
+      elevation: 0,
+      minimumSize: const Size(0, 44),
+      padding: const EdgeInsets.symmetric(
+        horizontal: FSSpacing.lg,
+        vertical: FSSpacing.md,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      textStyle: const TextStyle(fontWeight: FontWeight.w700),
     );
+
     return base.copyWith(
       colorScheme: scheme,
-      scaffoldBackgroundColor: _darkBackground,
-      cardColor: _darkCard,
-      textTheme: base.textTheme.apply(
-        bodyColor: _darkForeground,
-        displayColor: _darkForeground,
-      ).copyWith(
-        bodySmall: base.textTheme.bodySmall?.copyWith(color: _darkForeground.withOpacity(0.85)),
-        labelLarge: base.textTheme.labelLarge?.copyWith(color: _darkForeground.withOpacity(0.92)),
-        titleMedium: base.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-      ),
-      popupMenuTheme: PopupMenuThemeData(
-        color: scheme.surface,
-        surfaceTintColor: Colors.transparent,
-        textStyle: base.textTheme.bodyMedium?.copyWith(color: scheme.onSurface, fontWeight: FontWeight.w600),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 8,
+      scaffoldBackgroundColor: background,
+      cardColor: surfaceElevated,
+      shadowColor: shadow,
+      dividerColor: border,
+      iconTheme: IconThemeData(color: FSColors.alpha(foreground, 0.82)),
+      textTheme: base.textTheme
+          .apply(bodyColor: foreground, displayColor: foreground)
+          .copyWith(
+            bodySmall: base.textTheme.bodySmall?.copyWith(
+              color: muted,
+              height: 1.35,
+            ),
+            bodyMedium: base.textTheme.bodyMedium?.copyWith(height: 1.35),
+            labelLarge: base.textTheme.labelLarge?.copyWith(
+              color: FSColors.alpha(foreground, isDark ? 0.92 : 0.78),
+              fontWeight: FontWeight.w600,
+            ),
+            titleMedium: base.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: isDark ? FSColors.alpha(surface, 0.86) : Colors.white,
+        hintStyle: TextStyle(color: muted),
+        labelStyle: TextStyle(color: muted, fontWeight: FontWeight.w600),
+        floatingLabelStyle: const TextStyle(
+          color: _brandBlue,
+          fontWeight: FontWeight.w700,
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: FSSpacing.lg,
+          vertical: FSSpacing.md,
+        ),
+        border: fieldBorder,
+        enabledBorder: fieldBorder,
+        focusedBorder: focusedFieldBorder,
+        errorBorder: errorFieldBorder,
+        focusedErrorBorder: errorFieldBorder,
       ),
       filledButtonTheme: FilledButtonThemeData(style: filledButtonStyle),
       elevatedButtonTheme: ElevatedButtonThemeData(style: elevatedButtonStyle),
-      shadowColor: const Color(0xF0000000),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _brandBlue,
+          minimumSize: const Size(0, 44),
+          padding: const EdgeInsets.symmetric(
+            horizontal: FSSpacing.lg,
+            vertical: FSSpacing.md,
+          ),
+          side: BorderSide(color: isDark ? FSColors.borderDark : border),
+          shape: RoundedRectangleBorder(borderRadius: radius),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: _brandBlue,
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: FSSpacing.md),
+          shape: RoundedRectangleBorder(borderRadius: radius),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: surfaceElevated,
+        surfaceTintColor: Colors.transparent,
+        textStyle: base.textTheme.bodyMedium?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w600,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FSRadius.lg),
+        ),
+        elevation: isDark ? 12 : 8,
+        shadowColor: shadow,
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: _brandBlue,
         foregroundColor: Colors.white,
+        elevation: isDark ? 8 : 6,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FSRadius.lg),
+        ),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: _darkBackground,
-        foregroundColor: _darkForeground,
+        backgroundColor: background,
+        foregroundColor: foreground,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
+        titleTextStyle: base.textTheme.titleLarge?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w800,
+        ),
+        iconTheme: IconThemeData(color: FSColors.alpha(foreground, 0.84)),
+        actionsIconTheme: IconThemeData(
+          color: FSColors.alpha(foreground, 0.84),
+        ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: _darkBackground,
-        indicatorColor: _brandBlue.withOpacity(0.18),
+        backgroundColor: surface,
+        indicatorColor: FSColors.alpha(_brandBlue, isDark ? 0.18 : 0.10),
         indicatorShape: const CircleBorder(),
-        labelTextStyle: WidgetStateProperty.all(const TextStyle(fontWeight: FontWeight.w600)),
+        labelTextStyle: WidgetStateProperty.all(
+          const TextStyle(fontWeight: FontWeight.w600),
+        ),
       ),
-      cardTheme: const CardThemeData(
-        elevation: 10,
-        shadowColor: Color(0xF0000000),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+      cardTheme: CardThemeData(
+        color: surfaceElevated,
+        surfaceTintColor: Colors.transparent,
+        elevation: isDark ? 8 : 6,
+        shadowColor: shadow,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FSRadius.lg),
+          side: BorderSide(color: FSColors.alpha(border, isDark ? 0.78 : 1)),
+        ),
+        margin: EdgeInsets.zero,
       ),
-      dividerColor: const Color(0xFF333843),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surfaceElevated,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FSRadius.xl),
+          side: BorderSide(color: border),
+        ),
+        titleTextStyle: base.textTheme.titleLarge?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w800,
+        ),
+        contentTextStyle: base.textTheme.bodyMedium?.copyWith(
+          color: foreground,
+          height: 1.35,
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: surfaceElevated,
+        modalBackgroundColor: surfaceElevated,
+        surfaceTintColor: Colors.transparent,
+        showDragHandle: true,
+        dragHandleColor: FSColors.alpha(muted, 0.55),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(FSRadius.xl),
+          ),
+        ),
+      ),
+      chipTheme: base.chipTheme.copyWith(
+        backgroundColor:
+            isDark ? const Color(0xFF17223A) : const Color(0xFFF1F5F9),
+        selectedColor: FSColors.alpha(_brandBlue, isDark ? 0.24 : 0.12),
+        disabledColor:
+            isDark ? const Color(0xFF111827) : const Color(0xFFE2E8F0),
+        labelStyle: TextStyle(color: foreground, fontWeight: FontWeight.w600),
+        secondaryLabelStyle: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: FSSpacing.sm,
+          vertical: FSSpacing.xs,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FSRadius.pill),
+          side: BorderSide(color: border),
+        ),
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: _brandBlue,
+        textColor: foreground,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: FSSpacing.lg,
+          vertical: FSSpacing.xs,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: radius),
+        titleTextStyle: base.textTheme.bodyLarge?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w700,
+        ),
+        subtitleTextStyle: base.textTheme.bodySmall?.copyWith(color: muted),
+      ),
+      dividerTheme: DividerThemeData(color: border, thickness: 1, space: 1),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor:
+            isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A),
+        contentTextStyle: TextStyle(
+          color: isDark ? const Color(0xFF0F172A) : Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FSRadius.md),
+        ),
+      ),
     );
   }
 }

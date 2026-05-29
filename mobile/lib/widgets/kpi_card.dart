@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../ui/finsight_ui.dart';
+
 class KpiCard extends StatelessWidget {
   const KpiCard({
     super.key,
@@ -11,6 +13,7 @@ class KpiCard extends StatelessWidget {
     this.deltaIsPositive,
     this.footer,
     this.titleMaxLines,
+    this.accent = FSIntent.primary,
   });
 
   final String title;
@@ -21,19 +24,19 @@ class KpiCard extends StatelessWidget {
   final bool? deltaIsPositive;
   final Widget? footer;
   final int? titleMaxLines;
+  final FSIntent accent;
 
   @override
   Widget build(BuildContext context) {
-    final border = RoundedRectangleBorder(borderRadius: BorderRadius.circular(12));
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = Theme.of(context).colorScheme.surface;
-    final cardBg = isDark ? surface : Colors.blue.shade50;
-    final card = Card(
-      color: cardBg,
-      elevation: 6,
-      shape: border,
+    final theme = Theme.of(context);
+    final card = FSCard(
+      variant: FSCardVariant.elevated,
+      padding: const EdgeInsets.symmetric(
+        horizontal: FSSpacing.md,
+        vertical: FSSpacing.md,
+      ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -43,15 +46,26 @@ class KpiCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelLarge
-                        ?.copyWith(color: Theme.of(context).textTheme.bodySmall?.color),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: FSColors.mutedText(context),
+                    ),
                     maxLines: titleMaxLines ?? 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (icon != null) Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+                if (icon != null)
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: FSColors.intentContainer(context, accent),
+                      borderRadius: BorderRadius.circular(FSRadius.md),
+                      border: Border.all(
+                        color: FSColors.intentBorder(context, accent),
+                      ),
+                    ),
+                    child: Icon(icon, size: 18, color: FSColors.intent(accent)),
+                  ),
               ],
             ),
             const SizedBox(height: 2),
@@ -63,33 +77,39 @@ class KpiCard extends StatelessWidget {
                 value,
                 maxLines: 1,
                 style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).textTheme.titleMedium?.color,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: theme.textTheme.titleMedium?.color,
                 ),
               ),
             ),
             if (footer != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: footer!,
-              )
+              Padding(padding: const EdgeInsets.only(top: 4), child: footer!)
             else if (deltaPercent != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: (deltaIsPositive ?? true) ? Colors.green.withOpacity(0.14) : Colors.red.withOpacity(0.14),
-                        borderRadius: BorderRadius.circular(10),
+                        color:
+                            (deltaIsPositive ?? true)
+                                ? FSColors.alpha(FSColors.success, 0.14)
+                                : FSColors.alpha(FSColors.danger, 0.14),
+                        borderRadius: BorderRadius.circular(FSRadius.pill),
                       ),
                       child: Text(
                         '${(deltaIsPositive ?? true) ? '+' : '-'}${deltaPercent!.abs().toStringAsFixed(1)}% ',
                         style: TextStyle(
                           fontSize: 11,
-                          color: (deltaIsPositive ?? true) ? Colors.green : Colors.red,
+                          color:
+                              (deltaIsPositive ?? true)
+                                  ? FSColors.success
+                                  : FSColors.danger,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -99,7 +119,7 @@ class KpiCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           subtitle!,
-                          style: Theme.of(context).textTheme.bodySmall,
+                          style: theme.textTheme.bodySmall,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -113,11 +133,11 @@ class KpiCard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
                   subtitle!,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: theme.textTheme.bodySmall,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-            ),
+              ),
           ],
         ),
       ),

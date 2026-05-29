@@ -7,6 +7,7 @@ import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
+import '../ui/finsight_ui.dart';
 import 'investment_detail_screen.dart';
 import '../widgets/pro_widgets.dart';
 
@@ -135,12 +136,13 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                 final sum = cons.fold<double>(0.0, (s, c) {
                   final v = c['amount'];
                   double d;
-                  if (v == null)
+                  if (v == null) {
                     d = 0.0;
-                  else if (v is num)
+                  } else if (v is num) {
                     d = v.toDouble();
-                  else
+                  } else {
                     d = double.tryParse('$v'.replaceAll(',', '')) ?? 0.0;
+                  }
                   return s + d;
                 });
                 enriched.add(
@@ -254,8 +256,9 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
                             firstDate: DateTime(2000),
                             lastDate: DateTime(2100),
                           );
-                          if (picked != null)
+                          if (picked != null) {
                             dateCtrl.text = formatDate(picked);
+                          }
                         },
                       ),
                     ),
@@ -344,159 +347,88 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
     final store = context.watch<AuthStore>();
     if (!store.isProOrExempt) {
       return Scaffold(
+        backgroundColor: FSColors.background(context),
         appBar: AppBar(title: Text(I18n.t(context, 'title.investments'))),
         body: const ProBlock(feature: 'Investments'),
       );
     }
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    final cs = Theme.of(context).colorScheme;
+    if (_loading) return const FSLoadingState();
     return Scaffold(
+      backgroundColor: FSColors.background(context),
       appBar: AppBar(title: Text(I18n.t(context, 'title.investments'))),
       body: RefreshIndicator(
+        color: Theme.of(context).colorScheme.primary,
         onRefresh: _refresh,
-        child:
-            _items.isEmpty
-                ? ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    const SizedBox(height: 120),
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(I18n.t(context, 'invest.none')),
-                          const SizedBox(height: 12),
-                          FilledButton.icon(
-                            onPressed: _addDialog,
-                            icon: const Icon(Icons.add),
-                            label: Text(I18n.t(context, 'invest.add')),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                )
-                : ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _items.length + 1,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (ctx, i) {
-                  if (i == 0) {
-                    final totals = _computeTotals();
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: FilledButton.icon(
-                            onPressed: _addDialog,
-                            icon: const Icon(Icons.add),
-                            label: Text(I18n.t(context, 'invest.add')),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _kpiGrid(context, totals),
-                        const SizedBox(height: 12),
-                      ],
-                    );
-                  }
-                  final it = _items[i - 1];
-                  // Estimated value should include compounded contributions when available from server.
-                  // Fallback: add raw contributions (non‑compounded) if server didn't send estimated_value.
-                  final value =
-                      (it.estimatedValue ?? _valueToday(it)) +
-                      (it.estimatedValue == null ? it.totalContrib : 0);
-                  final isDark =
-                      Theme.of(context).brightness == Brightness.dark;
-                  return Card(
-                    color: isDark ? cs.surface : Colors.blue.shade50,
-                    elevation: 6,
-                    child: InkWell(
-                      onTap: () async {
-                        final intId = int.tryParse(it.id) ?? 0;
-                        if (intId != 0) {
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => InvestmentDetailScreen(
-                                    investmentId: intId,
-                                    name: it.name,
-                                  ),
-                            ),
-                          );
-                          if (mounted) await _load();
-                        }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    it.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w600),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Start: ' +
-                                        formatDate(it.startDate) +
-                                        ' • Rate: ' +
-                                        it.annualRate.toStringAsFixed(2) +
-                                        '%',
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _kv(
-                                          context,
-                                          I18n.t(context, 'invest.amount'),
-                                          money(it.principal),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: _kv(
-                                          context,
-                                          I18n.t(
-                                            context,
-                                            'invest.estimatedValue',
-                                          ),
-                                          money(value),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: I18n.t(context, 'label.delete'),
-                              icon: const Icon(
-                                Icons.delete_outline,
-                                color: Colors.redAccent,
-                              ),
-                              onPressed: () => _delete(it),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            FSSpacing.lg,
+            FSSpacing.lg,
+            FSSpacing.lg,
+            FSSpacing.xxl,
+          ),
+          children: [
+            FSPageHeader(
+              title: I18n.t(context, 'title.investments'),
+              leading: const _InvestmentsHeaderIcon(),
+              action: FSButton(
+                label: I18n.t(context, 'invest.add'),
+                icon: Icons.add_rounded,
+                size: FSButtonSize.sm,
+                onPressed: _addDialog,
               ),
+            ),
+            if (_items.isEmpty)
+              FSCard(
+                variant: FSCardVariant.elevated,
+                child: FSEmptyState(
+                  icon: Icons.trending_up_rounded,
+                  title: I18n.t(context, 'invest.none'),
+                  action: FSButton(
+                    label: I18n.t(context, 'invest.add'),
+                    icon: Icons.add_rounded,
+                    onPressed: _addDialog,
+                  ),
+                ),
+              )
+            else ...[
+              _kpiGrid(context, _computeTotals()),
+              const SizedBox(height: FSSpacing.md),
+              for (final it in _items) ...[
+                _InvestmentCard(
+                  investment: it,
+                  value:
+                      (it.estimatedValue ?? _valueToday(it)) +
+                      (it.estimatedValue == null ? it.totalContrib : 0),
+                  onTap: () async {
+                    final intId = int.tryParse(it.id) ?? 0;
+                    if (intId != 0) {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder:
+                              (_) => InvestmentDetailScreen(
+                                investmentId: intId,
+                                name: it.name,
+                              ),
+                        ),
+                      );
+                      if (mounted) await _load();
+                    }
+                  },
+                  onDelete: () => _delete(it),
+                ),
+                const SizedBox(height: FSSpacing.md),
+              ],
+            ],
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addDialog,
-        child: const Icon(Icons.add),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FSRadius.lg),
+        ),
+        child: const Icon(Icons.add_rounded),
       ),
     );
   }
@@ -518,114 +450,303 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
   }
 
   Widget _kpiGrid(BuildContext context, Map<String, double> t) {
+    final revenue = t['revenue'] ?? 0;
     final tiles = <Widget>[
-      _kpiCard(
-        context,
-        Icons.account_balance,
-        'Total Invested',
-        money((t['principal'] ?? 0) + (t['contrib'] ?? 0)),
+      FSMetricCard(
+        title: 'Total Invested',
+        value: money((t['principal'] ?? 0) + (t['contrib'] ?? 0)),
+        icon: Icons.account_balance_rounded,
+        accent: FSIntent.primary,
       ),
-      _kpiCard(
-        context,
-        Icons.add_card_outlined,
-        'Total Contributions',
-        money(t['contrib'] ?? 0),
+      FSMetricCard(
+        title: 'Total Contributions',
+        value: money(t['contrib'] ?? 0),
+        icon: Icons.add_card_outlined,
+        accent: FSIntent.info,
       ),
-      _kpiCard(
-        context,
-        Icons.stacked_line_chart,
-        'Total Value',
-        money(t['value'] ?? 0),
+      FSMetricCard(
+        title: 'Total Value',
+        value: money(t['value'] ?? 0),
+        icon: Icons.stacked_line_chart_rounded,
+        accent: FSIntent.success,
       ),
-      _kpiCard(
-        context,
-        Icons.trending_up,
-        'Total Revenue',
-        money(t['revenue'] ?? 0),
+      FSMetricCard(
+        title: 'Total Revenue',
+        value: money(revenue),
+        icon:
+            revenue >= 0
+                ? Icons.trending_up_rounded
+                : Icons.trending_down_rounded,
+        accent: revenue >= 0 ? FSIntent.success : FSIntent.danger,
       ),
     ];
     return LayoutBuilder(
       builder: (ctx, c) {
-        const itemH = 110.0;
-        const spacing = 12.0;
+        const spacing = FSSpacing.md;
         final w = c.maxWidth;
-        final itemW = (w - spacing) / 2; // two columns
-        final aspect = itemW / itemH;
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: spacing,
-          crossAxisSpacing: spacing,
-          childAspectRatio: aspect,
-          children: tiles,
+        final columns = w < 360 ? 1 : 2;
+        final itemW = (w - (columns - 1) * spacing) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final tile in tiles)
+              SizedBox(width: itemW, height: 138, child: tile),
+          ],
         );
       },
     );
   }
+}
 
-  Widget _kpiCard(
-    BuildContext context,
-    IconData ic,
-    String title,
-    String value,
-  ) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Card(
-      color:
-          isDark ? Theme.of(context).colorScheme.surface : Colors.blue.shade50,
-      elevation: 6,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
-                shape: BoxShape.circle,
+class _InvestmentsHeaderIcon extends StatelessWidget {
+  const _InvestmentsHeaderIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 42,
+      height: 42,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: FSColors.intentContainer(context, FSIntent.primary),
+        borderRadius: BorderRadius.circular(FSRadius.md),
+        border: Border.all(
+          color: FSColors.intentBorder(context, FSIntent.primary),
+        ),
+      ),
+      child: const Icon(Icons.trending_up_rounded, color: FSColors.primary),
+    );
+  }
+}
+
+class _InvestmentCard extends StatelessWidget {
+  const _InvestmentCard({
+    required this.investment,
+    required this.value,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  final Investment investment;
+  final double value;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final gain = value - (investment.principal + investment.totalContrib);
+    final gainIntent = gain >= 0 ? FSIntent.success : FSIntent.danger;
+    final gainColor = FSColors.intent(gainIntent);
+    return FSCard(
+      variant: FSCardVariant.interactive,
+      onTap: onTap,
+      padding: const EdgeInsets.all(FSSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: FSColors.intentContainer(context, FSIntent.primary),
+                  borderRadius: BorderRadius.circular(FSRadius.md),
+                  border: Border.all(
+                    color: FSColors.intentBorder(context, FSIntent.primary),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.show_chart_rounded,
+                  color: FSColors.primary,
+                ),
               ),
-              alignment: Alignment.center,
-              child: Icon(ic, color: Theme.of(context).colorScheme.primary),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 2),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      value,
-                      maxLines: 1,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+              const SizedBox(width: FSSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      investment.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
+                    ),
+                    const SizedBox(height: FSSpacing.xs),
+                    Wrap(
+                      spacing: FSSpacing.sm,
+                      runSpacing: FSSpacing.xs,
+                      children: [
+                        FSStatusBadge(
+                          label: '${investment.annualRate.toStringAsFixed(2)}%',
+                          variant: FSStatusBadgeVariant.info,
+                          icon: Icons.percent_rounded,
+                        ),
+                        FSStatusBadge(
+                          label: formatDate(investment.startDate),
+                          variant: FSStatusBadgeVariant.neutral,
+                          icon: Icons.calendar_today_outlined,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: FSSpacing.sm),
+              IconButton(
+                tooltip: I18n.t(context, 'label.delete'),
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline_rounded),
+                style: IconButton.styleFrom(
+                  fixedSize: const Size.square(40),
+                  backgroundColor: FSColors.alpha(FSColors.danger, 0.10),
+                  foregroundColor: FSColors.danger,
+                  side: BorderSide(
+                    color: FSColors.alpha(FSColors.danger, 0.18),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(FSRadius.md),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: FSSpacing.lg),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final twoColumns = constraints.maxWidth >= 320;
+              final width =
+                  twoColumns
+                      ? (constraints.maxWidth - FSSpacing.sm) / 2
+                      : constraints.maxWidth;
+              return Wrap(
+                spacing: FSSpacing.sm,
+                runSpacing: FSSpacing.sm,
+                children: [
+                  SizedBox(
+                    width: width,
+                    child: _InvestmentValueTile(
+                      label: I18n.t(context, 'invest.amount'),
+                      value: money(investment.principal),
+                      icon: Icons.savings_outlined,
+                      intent: FSIntent.primary,
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: _InvestmentValueTile(
+                      label: I18n.t(context, 'invest.estimatedValue'),
+                      value: money(value),
+                      icon: Icons.stacked_line_chart_rounded,
+                      intent: FSIntent.success,
+                    ),
+                  ),
+                  if (investment.totalContrib > 0)
+                    SizedBox(
+                      width: width,
+                      child: _InvestmentValueTile(
+                        label: 'Contributions',
+                        value: money(investment.totalContrib),
+                        icon: Icons.add_card_outlined,
+                        intent: FSIntent.info,
+                      ),
+                    ),
+                  SizedBox(
+                    width: width,
+                    child: _InvestmentValueTile(
+                      label: 'Gain',
+                      value: money(gain),
+                      icon:
+                          gain >= 0
+                              ? Icons.trending_up_rounded
+                              : Icons.trending_down_rounded,
+                      intent: gainIntent,
+                      valueColor: gainColor,
                     ),
                   ),
                 ],
-              ),
-            ),
-          ],
-        ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
+}
 
-  Widget _kv(BuildContext context, String k, String v) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(k, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 2),
-        Text(v, style: const TextStyle(fontWeight: FontWeight.w600)),
-      ],
+class _InvestmentValueTile extends StatelessWidget {
+  const _InvestmentValueTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.intent,
+    this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final FSIntent intent;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(FSSpacing.md),
+      decoration: BoxDecoration(
+        color: FSColors.surface(context),
+        borderRadius: BorderRadius.circular(FSRadius.lg),
+        border: Border.all(color: FSColors.border(context)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FSColors.intentContainer(context, intent),
+              borderRadius: BorderRadius.circular(FSRadius.md),
+            ),
+            child: Icon(icon, size: 18, color: FSColors.intent(intent)),
+          ),
+          const SizedBox(width: FSSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: FSColors.mutedText(context),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: valueColor,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

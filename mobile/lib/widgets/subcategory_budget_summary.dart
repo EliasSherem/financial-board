@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../i18n.dart';
 import '../models.dart';
+import '../ui/finsight_ui.dart';
 import '../utils/category_icons.dart';
 import '../utils/format.dart';
 import 'pro_widgets.dart';
@@ -22,34 +23,69 @@ class SubcategoryBudgetSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = _buildItems(categories, transactions);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Card(
-      color:
-          isDark ? Theme.of(context).colorScheme.surface : Colors.blue.shade50,
-      elevation: 6,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  I18n.t(context, 'dashboard.subcategoryBudgets'),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(width: 8),
-                if (!isPro) const ProMiniChip(),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (items.isEmpty)
-              Text(I18n.t(context, 'categories.noSubcategories'))
-            else
-              ...items.map((item) => _BudgetRow(item: item)),
-          ],
-        ),
+    return FSCard(
+      variant: FSCardVariant.elevated,
+      padding: const EdgeInsets.all(FSSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _BudgetHeader(isPro: isPro),
+          const SizedBox(height: FSSpacing.md),
+          if (items.isEmpty)
+            FSEmptyState(
+              icon: Icons.pie_chart_outline,
+              title: I18n.t(context, 'categories.noSubcategories'),
+            )
+          else
+            ...items.map((item) => _BudgetRow(item: item)),
+        ],
       ),
+    );
+  }
+}
+
+class _BudgetHeader extends StatelessWidget {
+  const _BudgetHeader({required this.isPro});
+
+  final bool isPro;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: FSColors.intentContainer(context, FSIntent.warning),
+            borderRadius: BorderRadius.circular(FSRadius.md),
+            border: Border.all(
+              color: FSColors.intentBorder(context, FSIntent.warning),
+            ),
+          ),
+          child: const Icon(
+            Icons.pie_chart_outline,
+            size: 20,
+            color: FSColors.warning,
+          ),
+        ),
+        const SizedBox(width: FSSpacing.md),
+        Expanded(
+          child: Text(
+            I18n.t(context, 'dashboard.subcategoryBudgets'),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ),
+        if (!isPro) ...[
+          const SizedBox(width: FSSpacing.sm),
+          const ProMiniChip(),
+        ],
+      ],
     );
   }
 }
@@ -66,49 +102,97 @@ class _BudgetRow extends StatelessWidget {
     final percentLabel = '${(percent * 100).toStringAsFixed(0)}%';
     final progress = budget > 0 ? percent.clamp(0.0, 1.0).toDouble() : 0.0;
     final isOver = budget > 0 && spent > budget;
-    final progressColor = isOver ? Theme.of(context).colorScheme.error : null;
+    final progressColor =
+        isOver
+            ? FSColors.danger
+            : (percent >= 0.8 ? FSColors.warning : FSColors.success);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    return Container(
+      margin: const EdgeInsets.only(top: FSSpacing.sm),
+      padding: const EdgeInsets.all(FSSpacing.md),
+      decoration: BoxDecoration(
+        color: FSColors.surface(context),
+        borderRadius: BorderRadius.circular(FSRadius.lg),
+        border: Border.all(color: FSColors.border(context)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(iconDataFromKey(item.iconKey), size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  item.name,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: FSColors.alpha(progressColor, 0.10),
+                  borderRadius: BorderRadius.circular(FSRadius.md),
+                  border: Border.all(
+                    color: FSColors.alpha(progressColor, 0.16),
+                  ),
+                ),
+                child: Icon(
+                  iconDataFromKey(item.iconKey),
+                  size: 18,
+                  color: progressColor,
                 ),
               ),
-              Text(
-                percentLabel,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: isOver ? Theme.of(context).colorScheme.error : null,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: FSSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.categoryName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: FSColors.mutedText(context),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: FSSpacing.sm),
+              FSStatusBadge(
+                label: percentLabel,
+                variant:
+                    isOver
+                        ? FSStatusBadgeVariant.danger
+                        : (percent >= 0.8
+                            ? FSStatusBadgeVariant.warning
+                            : FSStatusBadgeVariant.success),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(item.categoryName, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 6),
+          const SizedBox(height: FSSpacing.sm),
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(FSRadius.pill),
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 8,
               color: progressColor,
+              backgroundColor: FSColors.alpha(progressColor, 0.12),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: FSSpacing.sm),
           Text(
             '${I18n.t(context, 'home.spent')} ${money(spent)} / ${money(budget)}',
-            style: Theme.of(context).textTheme.bodySmall,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: FSColors.mutedText(context),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

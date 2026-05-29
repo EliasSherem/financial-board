@@ -11,6 +11,7 @@ import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
+import '../ui/finsight_ui.dart';
 import '../utils/format.dart';
 import '../widgets/pro_widgets.dart';
 
@@ -139,19 +140,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final displayMonths = months.reversed.toList();
     final picked = await showModalBottomSheet<DateTime>(
       context: context,
+      backgroundColor: Colors.transparent,
+      showDragHandle: true,
+      isScrollControlled: true,
       builder:
-          (ctx) => SafeArea(
+          (ctx) => FSBottomSheetShell(
+            title: I18n.tr(context, 'tx.reportPickMonth'),
+            scrollable: false,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Text(
-                    I18n.tr(context, 'tx.reportPickMonth'),
-                    style: Theme.of(ctx).textTheme.titleMedium,
-                  ),
-                ),
-                const Divider(height: 1),
                 Flexible(
                   child: ListView.builder(
                     shrinkWrap: true,
@@ -159,9 +157,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     itemBuilder: (ctx, index) {
                       final month = displayMonths[index];
                       final isSelected = _sameMonth(month, selectedMonth);
-                      return ListTile(
-                        title: Text(monthFmt.format(month)),
-                        trailing: isSelected ? const Icon(Icons.check) : null,
+                      return _MonthPickerTile(
+                        label: monthFmt.format(month),
                         selected: isSelected,
                         onTap: () => Navigator.pop(ctx, month),
                       );
@@ -182,6 +179,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final auth = context.watch<AuthStore>();
     if (!auth.isProOrExempt) {
       return Scaffold(
+        backgroundColor: FSColors.background(context),
         appBar: AppBar(title: Text(I18n.t(context, 'title.analytics'))),
         body: const ProBlock(feature: 'Analytics'),
       );
@@ -198,9 +196,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       builder: (context, snap) {
         if (!snap.hasData) {
           if (snap.hasError) {
-            return Center(child: Text('Error: ${snap.error}'));
+            return _AnalyticsErrorState(message: 'Error: ${snap.error}');
           }
-          return const Center(child: CircularProgressIndicator());
+          return const FSLoadingState();
         }
 
         final accounts = snap.data![0] as List<Account>;
@@ -231,42 +229,71 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         );
 
         return Scaffold(
-          appBar: AppBar(title: Text(I18n.t(context, 'title.analytics'))),
+          backgroundColor: FSColors.background(context),
           body: RefreshIndicator(
             onRefresh: _refresh,
+            color: Theme.of(context).colorScheme.primary,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(
+                FSSpacing.lg,
+                FSSpacing.lg,
+                FSSpacing.lg,
+                FSSpacing.xxl,
+              ),
               children: [
+                FSPageHeader(
+                  title: I18n.t(context, 'title.analytics'),
+                  leading: Container(
+                    width: 42,
+                    height: 42,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: FSColors.intentContainer(
+                        context,
+                        FSIntent.primary,
+                      ),
+                      borderRadius: BorderRadius.circular(FSRadius.md),
+                      border: Border.all(
+                        color: FSColors.intentBorder(context, FSIntent.primary),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.query_stats_rounded,
+                      color: FSColors.primary,
+                    ),
+                  ),
+                ),
                 _SummaryGrid(
                   totalBalance: totalBalance,
                   highestAccount: highestAccount,
                   growthPercent: balanceDatasets.growthPercent,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: FSSpacing.md),
                 _BalanceCharts(
                   totalSeries: balanceDatasets.totalSeries,
                   perAccountSeries: balanceDatasets.accountSeries,
                   accounts: accounts,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: FSSpacing.md),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: OutlinedButton.icon(
+                  child: FSButton(
+                    label: selectedMonthLabel,
+                    icon: Icons.calendar_month_outlined,
+                    variant: FSButtonVariant.outline,
                     onPressed:
                         () =>
                             _pickAnalyticsMonth(availableMonths, selectedMonth),
-                    icon: const Icon(Icons.calendar_month_outlined),
-                    label: Text(selectedMonthLabel),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: FSSpacing.md),
                 _CategoryCharts(
                   expenseData: expenseByCategory,
                   incomeData: incomeByCategory,
                   selectedMonth: selectedMonth,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: FSSpacing.md),
                 _AccountSummary(accounts: accounts),
               ],
             ),
@@ -373,6 +400,92 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 }
 
+class _MonthPickerTile extends StatelessWidget {
+  const _MonthPickerTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground =
+        selected
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.onSurface;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: FSSpacing.sm),
+      child: Material(
+        color:
+            selected
+                ? FSColors.intentContainer(context, FSIntent.primary)
+                : FSColors.surface(context),
+        borderRadius: BorderRadius.circular(FSRadius.md),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(FSRadius.md),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 50),
+            padding: const EdgeInsets.symmetric(
+              horizontal: FSSpacing.md,
+              vertical: FSSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(FSRadius.md),
+              border: Border.all(
+                color:
+                    selected
+                        ? FSColors.intentBorder(context, FSIntent.primary)
+                        : FSColors.border(context),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: foreground,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (selected) ...[
+                  const SizedBox(width: FSSpacing.sm),
+                  Icon(Icons.check_rounded, color: foreground, size: 20),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnalyticsErrorState extends StatelessWidget {
+  const _AnalyticsErrorState({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: FSCard(
+        margin: const EdgeInsets.all(FSSpacing.lg),
+        variant: FSCardVariant.subtle,
+        child: FSEmptyState(icon: Icons.error_outline_rounded, title: message),
+      ),
+    );
+  }
+}
+
 class _SummaryGrid extends StatelessWidget {
   const _SummaryGrid({
     required this.totalBalance,
@@ -387,50 +500,44 @@ class _SummaryGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cards = [
-      _Card(
+      FSMetricCard(
         title: I18n.t(context, 'analytics.currentTotalBalance'),
-        child: Text(
-          money(totalBalance),
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(color: Colors.green),
-        ),
+        value: money(totalBalance),
+        icon: Icons.account_balance_wallet_outlined,
+        accent: FSIntent.success,
       ),
-      _Card(
+      FSMetricCard(
         title: I18n.t(context, 'analytics.highestBalanceAccount'),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(highestAccount?.name ?? '-'),
-            const SizedBox(height: 4),
-            Text(
-              money(highestAccount?.balance ?? 0),
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ],
-        ),
+        value: money(highestAccount?.balance ?? 0),
+        subtitle: highestAccount?.name ?? '-',
+        icon: Icons.account_balance_rounded,
+        accent: FSIntent.primary,
       ),
-      _Card(
+      FSMetricCard(
         title: I18n.t(context, 'analytics.balanceGrowth'),
-        child: Text(
-          '${growthPercent >= 0 ? '+' : ''}${growthPercent.toStringAsFixed(1)}%',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            color: growthPercent >= 0 ? Colors.green : Colors.red,
-          ),
-        ),
+        value:
+            '${growthPercent >= 0 ? '+' : ''}${growthPercent.toStringAsFixed(1)}%',
+        icon: growthPercent >= 0 ? Icons.trending_up : Icons.trending_down,
+        accent: growthPercent >= 0 ? FSIntent.success : FSIntent.danger,
       ),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        const spacing = 12.0;
+        const spacing = FSSpacing.md;
         final double maxWidth = constraints.maxWidth;
-        final double itemWidth = (maxWidth - spacing) / 2;
+        final cols = maxWidth < 360 ? 1 : 2;
+        final double itemWidth = (maxWidth - (cols - 1) * spacing) / cols;
         final children = <Widget>[];
         for (var i = 0; i < cards.length; i++) {
-          final isLastOdd = cards.length.isOdd && i == cards.length - 1;
+          final isLastOdd =
+              cols == 2 && cards.length.isOdd && i == cards.length - 1;
           children.add(
-            SizedBox(width: isLastOdd ? maxWidth : itemWidth, child: cards[i]),
+            SizedBox(
+              width: isLastOdd ? maxWidth : itemWidth,
+              height: 138,
+              child: cards[i],
+            ),
           );
         }
         return Wrap(spacing: spacing, runSpacing: spacing, children: children);
@@ -456,14 +563,15 @@ class _BalanceCharts extends StatelessWidget {
     final localeTag = Localizations.localeOf(context).toLanguageTag();
     final compactFormatter = NumberFormat.compact(locale: localeTag);
     final axisLabelStyle = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+      color: FSColors.mutedText(context),
       fontWeight: FontWeight.w500,
     );
     final bottomLabelStyle = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+      color: FSColors.mutedText(context),
+      fontWeight: FontWeight.w600,
     );
-    final gridColor = theme.colorScheme.onSurface.withValues(alpha: 0.12);
-    final borderColor = theme.colorScheme.onSurface.withValues(alpha: 0.08);
+    final gridColor = FSColors.alpha(theme.colorScheme.onSurface, 0.12);
+    final borderColor = FSColors.border(context);
 
     final totalMax = _maxValue(totalSeries.map((point) => point.value));
     final perAccountMax = _maxValue(
@@ -487,12 +595,15 @@ class _BalanceCharts extends StatelessWidget {
       children: [
         _Card(
           title: I18n.t(context, 'analytics.totalOverTime'),
+          icon: Icons.stacked_line_chart_rounded,
+          accent: FSIntent.primary,
           child: SizedBox(
             height: 260,
             child:
                 totalSeries.isEmpty
-                    ? Center(
-                      child: Text(I18n.t(context, 'analytics.noBalanceData')),
+                    ? FSEmptyState(
+                      icon: Icons.stacked_line_chart_rounded,
+                      title: I18n.t(context, 'analytics.noBalanceData'),
                     )
                     : LineChart(
                       LineChartData(
@@ -570,17 +681,18 @@ class _BalanceCharts extends StatelessWidget {
                     ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: FSSpacing.md),
         _Card(
           title: I18n.t(context, 'analytics.accountsOverTime'),
+          icon: Icons.account_tree_outlined,
+          accent: FSIntent.info,
           child: SizedBox(
             height: 260,
             child:
                 perAccountSeries.isEmpty
-                    ? Center(
-                      child: Text(
-                        I18n.t(context, 'analytics.noAccBalanceData'),
-                      ),
+                    ? FSEmptyState(
+                      icon: Icons.account_tree_outlined,
+                      title: I18n.t(context, 'analytics.noAccBalanceData'),
                     )
                     : Column(
                       children: [
@@ -678,7 +790,7 @@ class _BalanceCharts extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: FSSpacing.md),
                         _LineLegend(
                           colorByName: {
                             for (var i = 0; i < accounts.length; i++)
@@ -713,15 +825,19 @@ class _CategoryCharts extends StatelessWidget {
       children: [
         _Card(
           title: I18n.t(context, 'analytics.expensesByCat'),
+          icon: Icons.trending_down_rounded,
+          accent: FSIntent.danger,
           child: _PieBlock(
             data: expenseData,
             emptyMessageKey: 'analytics.noExpenseData',
             month: selectedMonth,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: FSSpacing.md),
         _Card(
           title: I18n.t(context, 'analytics.incomeByCat'),
+          icon: Icons.trending_up_rounded,
+          accent: FSIntent.success,
           child: _PieBlock(
             data: incomeData,
             emptyMessageKey: 'analytics.noIncomeData',
@@ -748,7 +864,10 @@ class _PieBlock extends StatelessWidget {
     if (data.isEmpty) {
       return SizedBox(
         height: 240,
-        child: Center(child: Text(I18n.t(context, emptyMessageKey))),
+        child: FSEmptyState(
+          icon: Icons.pie_chart_outline,
+          title: I18n.t(context, emptyMessageKey),
+        ),
       );
     }
 
@@ -756,7 +875,10 @@ class _PieBlock extends StatelessWidget {
     if (slices.isEmpty) {
       return SizedBox(
         height: 240,
-        child: Center(child: Text(I18n.t(context, emptyMessageKey))),
+        child: FSEmptyState(
+          icon: Icons.pie_chart_outline,
+          title: I18n.t(context, emptyMessageKey),
+        ),
       );
     }
     final total = slices.fold<double>(0, (sum, item) => sum + item.value);
@@ -768,7 +890,7 @@ class _PieBlock extends StatelessWidget {
     final topText = language == 'es' ? 'MAYOR' : 'HIGHEST';
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
-    final surface = theme.colorScheme.surface;
+    final surface = FSColors.surfaceElevated(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth =
@@ -784,19 +906,19 @@ class _PieBlock extends StatelessWidget {
             Text(
               '$totalText - $monthLabel',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: onSurface.withValues(alpha: 0.74),
-                fontWeight: FontWeight.w500,
+                color: FSColors.mutedText(context),
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: FSSpacing.xs),
             Text(
               money(total),
               style: theme.textTheme.headlineSmall?.copyWith(
                 color: onSurface,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: FSSpacing.lg),
             Center(
               child: SizedBox(
                 height: chartSize,
@@ -827,7 +949,9 @@ class _PieBlock extends StatelessWidget {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: FSSpacing.lg,
+                        ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -835,12 +959,12 @@ class _PieBlock extends StatelessWidget {
                               topText,
                               textAlign: TextAlign.center,
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: onSurface.withValues(alpha: 0.66),
+                                color: FSColors.mutedText(context),
                                 fontWeight: FontWeight.w700,
-                                letterSpacing: 1.2,
+                                letterSpacing: 0,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: FSSpacing.xs),
                             Text(
                               top.label,
                               textAlign: TextAlign.center,
@@ -867,7 +991,7 @@ class _PieBlock extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: FSSpacing.md),
             _LegendGrid(items: slices),
           ],
         );
@@ -885,7 +1009,7 @@ class _LegendGrid extends StatelessWidget {
     if (items.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(
       builder: (context, constraints) {
-        const gap = 10.0;
+        const gap = FSSpacing.sm;
         final width = constraints.maxWidth;
         final tileWidth =
             width >= 280 ? ((width - gap) / 2).toDouble() : width.toDouble();
@@ -898,16 +1022,13 @@ class _LegendGrid extends StatelessWidget {
                 width: tileWidth,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
+                    horizontal: FSSpacing.md,
+                    vertical: FSSpacing.sm,
                   ),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.outline.withValues(alpha: 0.22),
-                    ),
+                    color: FSColors.surface(context),
+                    borderRadius: BorderRadius.circular(FSRadius.md),
+                    border: Border.all(color: FSColors.border(context)),
                   ),
                   child: Row(
                     children: [
@@ -919,7 +1040,7 @@ class _LegendGrid extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: FSSpacing.sm),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -932,10 +1053,8 @@ class _LegendGrid extends StatelessWidget {
                               style: Theme.of(
                                 context,
                               ).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.75),
-                                fontWeight: FontWeight.w500,
+                                color: FSColors.mutedText(context),
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -945,7 +1064,7 @@ class _LegendGrid extends StatelessWidget {
                                 context,
                               ).textTheme.titleSmall?.copyWith(
                                 color: Theme.of(context).colorScheme.onSurface,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ],
@@ -970,44 +1089,163 @@ class _AccountSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     return _Card(
       title: I18n.t(context, 'analytics.accountSummary'),
+      icon: Icons.account_balance_wallet_outlined,
+      accent: FSIntent.primary,
       child: Column(
-        children:
-            accounts
-                .map(
-                  (a) => ListTile(
-                    title: Text(a.name),
-                    subtitle: Text(a.type ?? ''),
-                    trailing: Text(money(a.balance)),
+        children: [
+          if (accounts.isEmpty)
+            FSEmptyState(
+              icon: Icons.account_balance_wallet_outlined,
+              title: I18n.t(context, 'analytics.accountSummary'),
+            )
+          else
+            ...accounts.map((a) => _AccountSummaryRow(account: a)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountSummaryRow extends StatelessWidget {
+  const _AccountSummaryRow({required this.account});
+
+  final Account account;
+
+  @override
+  Widget build(BuildContext context) {
+    final balanceColor =
+        account.balance < 0
+            ? FSColors.danger
+            : Theme.of(context).colorScheme.onSurface;
+    return Container(
+      margin: const EdgeInsets.only(top: FSSpacing.sm),
+      padding: const EdgeInsets.all(FSSpacing.md),
+      decoration: BoxDecoration(
+        color: FSColors.surface(context),
+        borderRadius: BorderRadius.circular(FSRadius.lg),
+        border: Border.all(color: FSColors.border(context)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FSColors.surfaceElevated(context),
+              borderRadius: BorderRadius.circular(FSRadius.md),
+              border: Border.all(color: FSColors.border(context)),
+            ),
+            child: Icon(
+              account.isInvestment
+                  ? Icons.trending_up_rounded
+                  : Icons.account_balance_rounded,
+              size: 19,
+              color: FSColors.mutedText(context),
+            ),
+          ),
+          const SizedBox(width: FSSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  account.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                if ((account.type ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    account.type!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: FSColors.mutedText(context),
+                    ),
                   ),
-                )
-                .toList(),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: FSSpacing.md),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                money(account.balance),
+                maxLines: 1,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: balanceColor,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _Card extends StatelessWidget {
-  const _Card({required this.title, required this.child});
+  const _Card({
+    required this.title,
+    required this.child,
+    this.icon,
+    this.accent = FSIntent.primary,
+  });
+
   final String title;
   final Widget child;
+  final IconData? icon;
+  final FSIntent accent;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Card(
-      color: isDark ? Theme.of(context).colorScheme.surface : Colors.white,
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            child,
-          ],
-        ),
+    return FSCard(
+      variant: FSCardVariant.elevated,
+      padding: const EdgeInsets.all(FSSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (icon != null) ...[
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: FSColors.intentContainer(context, accent),
+                    borderRadius: BorderRadius.circular(FSRadius.md),
+                    border: Border.all(
+                      color: FSColors.intentBorder(context, accent),
+                    ),
+                  ),
+                  child: Icon(icon, size: 20, color: FSColors.intent(accent)),
+                ),
+                const SizedBox(width: FSSpacing.md),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: FSSpacing.md),
+          child,
+        ],
       ),
     );
   }
@@ -1022,24 +1260,41 @@ class _LineLegend extends StatelessWidget {
     if (colorByName.isEmpty) return const SizedBox.shrink();
     final entries = colorByName.entries.toList();
     return Wrap(
-      spacing: 12,
-      runSpacing: 8,
+      spacing: FSSpacing.sm,
+      runSpacing: FSSpacing.sm,
       children: [
         for (final entry in entries)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: entry.value,
-                  shape: BoxShape.circle,
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: FSSpacing.md,
+              vertical: FSSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: FSColors.surface(context),
+              borderRadius: BorderRadius.circular(FSRadius.pill),
+              border: Border.all(color: FSColors.border(context)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: entry.value,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(entry.key, style: Theme.of(context).textTheme.bodySmall),
-            ],
+                const SizedBox(width: FSSpacing.sm),
+                Text(
+                  entry.key,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: FSColors.mutedText(context),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
       ],
     );

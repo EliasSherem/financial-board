@@ -31,6 +31,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'lang_store.dart';
 import 'i18n.dart';
 import 'widgets/quick_create_dialogs.dart';
+import 'ui/finsight_ui.dart';
 
 import 'services/push_service.dart';
 import 'services/purchase_service.dart';
@@ -240,19 +241,35 @@ class _HomeShellState extends State<HomeShell> {
 
   List<Widget> _buildAppBarActions() {
     return [
-      IconButton(
+      _ShellIconButton(
         onPressed: _openNotifications,
-        icon: const Icon(Icons.notifications_none),
+        icon: Icons.notifications_none_rounded,
       ),
+      const SizedBox(width: FSSpacing.xs),
       _buildProfileMenu(),
+      const SizedBox(width: FSSpacing.sm),
     ];
   }
 
   Widget _buildProfileMenu({bool highlight = false}) {
-    final cs = Theme.of(context).colorScheme;
     final menu = PopupMenuButton<String>(
       key: _profileMenuKey,
-      icon: Icon(Icons.person_outline, color: highlight ? cs.primary : null),
+      padding: EdgeInsets.zero,
+      position: PopupMenuPosition.under,
+      offset: const Offset(0, FSSpacing.sm),
+      color: FSColors.surfaceElevated(context),
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Theme.of(context).shadowColor,
+      elevation: FSColors.isDark(context) ? 12 : 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(FSRadius.lg),
+        side: BorderSide(color: FSColors.border(context)),
+      ),
+      constraints: const BoxConstraints(minWidth: 224),
+      child: _ShellActionIcon(
+        icon: Icons.person_outline_rounded,
+        highlighted: highlight,
+      ),
       onSelected: (value) async {
         switch (value) {
           case 'guide':
@@ -285,84 +302,51 @@ class _HomeShellState extends State<HomeShell> {
           (menuCtx) => [
             PopupMenuItem(
               value: 'guide',
-              child: Row(
-                children: [
-                  const Icon(Icons.menu_book_outlined, size: 20),
-                  const SizedBox(width: 12),
-                  Text(I18n.tr(context, 'menu.guide')),
-                ],
+              child: _ShellMenuItem(
+                icon: Icons.menu_book_outlined,
+                label: I18n.tr(context, 'menu.guide'),
               ),
             ),
             PopupMenuItem(
               value: 'settings',
-              child: Row(
-                children: [
-                  const Icon(Icons.settings_outlined, size: 20),
-                  const SizedBox(width: 12),
-                  Text(I18n.tr(context, 'menu.settings')),
-                ],
+              child: _ShellMenuItem(
+                icon: Icons.settings_outlined,
+                label: I18n.tr(context, 'menu.settings'),
               ),
             ),
             PopupMenuItem(
               value: 'categories',
-              child: Row(
-                children: [
-                  const Icon(Icons.category_outlined, size: 20),
-                  const SizedBox(width: 12),
-                  Text(I18n.tr(context, 'menu.manageCategories')),
-                ],
+              child: _ShellMenuItem(
+                icon: Icons.category_outlined,
+                label: I18n.tr(context, 'menu.manageCategories'),
               ),
             ),
             PopupMenuItem(
               value: 'privacy',
-              child: Row(
-                children: [
-                  const Icon(Icons.privacy_tip_outlined, size: 20),
-                  const SizedBox(width: 12),
-                  Text(I18n.tr(context, 'menu.privacy')),
-                ],
+              child: _ShellMenuItem(
+                icon: Icons.privacy_tip_outlined,
+                label: I18n.tr(context, 'menu.privacy'),
               ),
             ),
             PopupMenuItem(
               value: 'terms',
-              child: Row(
-                children: [
-                  const Icon(Icons.article_outlined, size: 20),
-                  const SizedBox(width: 12),
-                  Text(I18n.tr(context, 'menu.terms')),
-                ],
+              child: _ShellMenuItem(
+                icon: Icons.article_outlined,
+                label: I18n.tr(context, 'menu.terms'),
               ),
             ),
             const PopupMenuDivider(),
             PopupMenuItem(
               value: 'logout',
-              child: Row(
-                children: [
-                  const Icon(Icons.logout, size: 20, color: Colors.redAccent),
-                  const SizedBox(width: 12),
-                  Text(I18n.tr(context, 'menu.logout')),
-                ],
+              child: _ShellMenuItem(
+                icon: Icons.logout_rounded,
+                label: I18n.tr(context, 'menu.logout'),
+                color: FSColors.danger,
               ),
             ),
           ],
     );
-
-    if (!highlight) return menu;
-    return Container(
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: cs.primary, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: cs.primary.withOpacity(0.25),
-            blurRadius: 8,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: menu,
-    );
+    return menu;
   }
 
   Future<void> _openManageCategories() async {
@@ -373,86 +357,90 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final isPro = context.watch<AuthStore>().isProOrExempt;
     return Scaffold(
+      backgroundColor: FSColors.background(context),
       appBar: AppBar(
-        title: Row(
-          children: [
-            SvgPicture.asset('assets/finsight-icon.svg', width: 28, height: 28),
-            const SizedBox(width: 8),
-            const Text('FinSight'),
-          ],
+        leadingWidth: 60,
+        leading: Builder(
+          builder:
+              (context) => Padding(
+                padding: const EdgeInsets.only(left: FSSpacing.sm),
+                child: _ShellIconButton(
+                  icon: Icons.menu_rounded,
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
         ),
+        titleSpacing: 0,
+        title: const _ShellBrandTitle(),
         actions: _buildAppBarActions(),
       ),
       // Left-side drawer menu with entries moved from bottom nav
       drawer: Drawer(
+        backgroundColor: FSColors.surface(context),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.horizontal(
+            right: Radius.circular(FSRadius.xl),
+          ),
+        ),
         child: SafeArea(
           child: ListView(
-            padding: EdgeInsets.zero,
+            padding: const EdgeInsets.fromLTRB(
+              FSSpacing.lg,
+              FSSpacing.lg,
+              FSSpacing.lg,
+              FSSpacing.xl,
+            ),
             children: [
-              const SizedBox(height: 12),
-              Center(
-                child: SvgPicture.asset('assets/finsight-icon.svg', height: 48),
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: Text(
-                  'FinSight',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.calendar_month_outlined),
-                title: Text(I18n.t(context, 'nav.calendar')),
+              const _DrawerBrandHeader(),
+              const SizedBox(height: FSSpacing.lg),
+              Divider(color: FSColors.border(context)),
+              const SizedBox(height: FSSpacing.sm),
+              _DrawerDestinationTile(
+                icon: Icons.calendar_month_outlined,
+                label: I18n.t(context, 'nav.calendar'),
+                selected: _currentRouteName == '/calendar',
                 onTap: () {
                   Navigator.of(context).pop();
                   _contentNavKey.currentState?.pushNamed('/calendar');
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.chat_bubble_outline),
-                title: Text(I18n.t(context, 'nav.aiChat')),
-                trailing:
-                    context.watch<AuthStore>().isProOrExempt
-                        ? null
-                        : const ProMiniChip(),
+              _DrawerDestinationTile(
+                icon: Icons.chat_bubble_outline,
+                label: I18n.t(context, 'nav.aiChat'),
+                selected: _currentRouteName == '/ai-chat',
+                trailing: isPro ? null : const ProMiniChip(),
                 onTap: () {
                   Navigator.of(context).pop();
                   _contentNavKey.currentState?.pushNamed('/ai-chat');
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.trending_up),
-                title: Text(I18n.t(context, 'title.investments')),
-                trailing:
-                    context.watch<AuthStore>().isProOrExempt
-                        ? null
-                        : const ProMiniChip(),
+              _DrawerDestinationTile(
+                icon: Icons.trending_up,
+                label: I18n.t(context, 'title.investments'),
+                selected: _currentRouteName == '/investments',
+                trailing: isPro ? null : const ProMiniChip(),
                 onTap: () {
                   Navigator.of(context).pop();
                   _contentNavKey.currentState?.pushNamed('/investments');
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.folder_open_outlined),
-                title: Text(I18n.t(context, 'nav.projects')),
-                trailing:
-                    context.watch<AuthStore>().isProOrExempt
-                        ? null
-                        : const ProMiniChip(),
+              _DrawerDestinationTile(
+                icon: Icons.folder_open_outlined,
+                label: I18n.t(context, 'nav.projects'),
+                selected: _currentRouteName == '/projects',
+                trailing: isPro ? null : const ProMiniChip(),
                 onTap: () {
                   Navigator.of(context).pop();
                   _contentNavKey.currentState?.pushNamed('/projects');
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.description_outlined),
-                title: Text(I18n.t(context, 'nav.invoices')),
-                trailing:
-                    context.watch<AuthStore>().isProOrExempt
-                        ? null
-                        : const ProMiniChip(),
+              _DrawerDestinationTile(
+                icon: Icons.description_outlined,
+                label: I18n.t(context, 'nav.invoices'),
+                selected: _currentRouteName == '/invoices',
+                trailing: isPro ? null : const ProMiniChip(),
                 onTap: () {
                   Navigator.of(context).pop();
                   _contentNavKey.currentState?.pushNamed('/invoices');
@@ -463,53 +451,56 @@ class _HomeShellState extends State<HomeShell> {
         ),
       ),
       // Nested Navigator keeps bottom nav visible when navigating
-      body: Stack(
-        children: [
-          Navigator(
-            key: _contentNavKey,
-            observers: [_contentObserver],
-            initialRoute: '/root',
-            onGenerateRoute: (settings) {
-              switch (settings.name) {
-                case '/root':
-                  return MaterialPageRoute(
-                    settings: settings,
-                    builder: (_) => _buildTab(_currentIndex),
-                  );
-                case '/calendar':
-                  return MaterialPageRoute(
-                    settings: settings,
-                    builder: (_) => const CalendarScreen(),
-                  );
-                case '/ai-chat':
-                  return MaterialPageRoute(
-                    settings: settings,
-                    builder: (_) => const AiChatScreen(),
-                  );
-                case '/investments':
-                  return MaterialPageRoute(
-                    settings: settings,
-                    builder: (_) => const InvestmentsScreen(),
-                  );
-                case '/projects':
-                  return MaterialPageRoute(
-                    settings: settings,
-                    builder: (_) => const ProjectsScreen(),
-                  );
-                case '/invoices':
-                  return MaterialPageRoute(
-                    settings: settings,
-                    builder: (_) => const InvoicesScreen(),
-                  );
-                default:
-                  return MaterialPageRoute(
-                    settings: settings,
-                    builder: (_) => _buildTab(_currentIndex),
-                  );
-              }
-            },
-          ),
-        ],
+      body: DecoratedBox(
+        decoration: BoxDecoration(color: FSColors.background(context)),
+        child: Stack(
+          children: [
+            Navigator(
+              key: _contentNavKey,
+              observers: [_contentObserver],
+              initialRoute: '/root',
+              onGenerateRoute: (settings) {
+                switch (settings.name) {
+                  case '/root':
+                    return MaterialPageRoute(
+                      settings: settings,
+                      builder: (_) => _buildTab(_currentIndex),
+                    );
+                  case '/calendar':
+                    return MaterialPageRoute(
+                      settings: settings,
+                      builder: (_) => const CalendarScreen(),
+                    );
+                  case '/ai-chat':
+                    return MaterialPageRoute(
+                      settings: settings,
+                      builder: (_) => const AiChatScreen(),
+                    );
+                  case '/investments':
+                    return MaterialPageRoute(
+                      settings: settings,
+                      builder: (_) => const InvestmentsScreen(),
+                    );
+                  case '/projects':
+                    return MaterialPageRoute(
+                      settings: settings,
+                      builder: (_) => const ProjectsScreen(),
+                    );
+                  case '/invoices':
+                    return MaterialPageRoute(
+                      settings: settings,
+                      builder: (_) => const InvoicesScreen(),
+                    );
+                  default:
+                    return MaterialPageRoute(
+                      settings: settings,
+                      builder: (_) => _buildTab(_currentIndex),
+                    );
+                }
+              },
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: _BottomNavBar(current: _currentIndex, onTap: _onTab),
       floatingActionButton:
@@ -517,7 +508,10 @@ class _HomeShellState extends State<HomeShell> {
               ? null
               : FloatingActionButton(
                 onPressed: () => _openAddMenu(),
-                child: const Icon(Icons.add),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(FSRadius.lg),
+                ),
+                child: const Icon(Icons.add_rounded),
               ),
     );
   }
@@ -572,16 +566,18 @@ class _HomeShellState extends State<HomeShell> {
     final data = DataService(api);
     await showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.transparent,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (_) {
         final isPro = context.watch<AuthStore>().isProOrExempt;
-        return SafeArea(
+        return FSBottomSheetShell(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                leading: const Icon(Icons.swap_horiz),
-                title: Text(I18n.t(context, 'add.newTransaction')),
+              _AddMenuTile(
+                icon: Icons.swap_horiz_rounded,
+                label: I18n.t(context, 'add.newTransaction'),
                 onTap: () async {
                   Navigator.pop(context);
                   final ok = await showNewTransactionDialog(context, data);
@@ -592,25 +588,25 @@ class _HomeShellState extends State<HomeShell> {
                   }
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.event_repeat),
-                title: Text(I18n.t(context, 'add.newRecurringPayment')),
+              _AddMenuTile(
+                icon: Icons.event_repeat_rounded,
+                label: I18n.t(context, 'add.newRecurringPayment'),
                 onTap: () async {
                   Navigator.pop(context);
                   await showQuickNewPaymentDialog(context);
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.account_balance_wallet_outlined),
-                title: Text(I18n.t(context, 'add.newAccount')),
+              _AddMenuTile(
+                icon: Icons.account_balance_wallet_outlined,
+                label: I18n.t(context, 'add.newAccount'),
                 onTap: () async {
                   Navigator.pop(context);
                   await showQuickNewAccountDialog(context);
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.trending_up),
-                title: Text(I18n.t(context, 'add.newInvestment')),
+              _AddMenuTile(
+                icon: Icons.trending_up_rounded,
+                label: I18n.t(context, 'add.newInvestment'),
                 trailing: isPro ? null : const ProMiniChip(),
                 onTap: () async {
                   Navigator.pop(context);
@@ -634,9 +630,9 @@ class _HomeShellState extends State<HomeShell> {
                   }
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.folder_open_outlined),
-                title: Text(I18n.t(context, 'add.newProject')),
+              _AddMenuTile(
+                icon: Icons.folder_open_outlined,
+                label: I18n.t(context, 'add.newProject'),
                 trailing: isPro ? null : const ProMiniChip(),
                 onTap: () async {
                   Navigator.pop(context);
@@ -653,9 +649,9 @@ class _HomeShellState extends State<HomeShell> {
                   await showQuickNewProjectDialog(context);
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.description_outlined),
-                title: Text(I18n.t(context, 'add.newInvoice')),
+              _AddMenuTile(
+                icon: Icons.description_outlined,
+                label: I18n.t(context, 'add.newInvoice'),
                 trailing: isPro ? null : const ProMiniChip(),
                 onTap: () async {
                   Navigator.pop(context);
@@ -672,9 +668,9 @@ class _HomeShellState extends State<HomeShell> {
                   await showQuickNewInvoiceDialog(context);
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.person_add_alt_1_outlined),
-                title: Text(I18n.t(context, 'add.newCustomer')),
+              _AddMenuTile(
+                icon: Icons.person_add_alt_1_outlined,
+                label: I18n.t(context, 'add.newCustomer'),
                 trailing: isPro ? null : const ProMiniChip(),
                 onTap: () async {
                   Navigator.pop(context);
@@ -691,7 +687,6 @@ class _HomeShellState extends State<HomeShell> {
                   await showQuickNewCustomerDialog(context);
                 },
               ),
-              const SizedBox(height: 8),
             ],
           ),
         );
@@ -744,7 +739,7 @@ class _HomeShellState extends State<HomeShell> {
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: notifs.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
+          separatorBuilder: (context, index) => const Divider(height: 1),
           itemBuilder: (ctx, i) {
             final n = notifs[i];
             final type = (n['type'] as String? ?? '');
@@ -813,6 +808,322 @@ class _HomeShellState extends State<HomeShell> {
   }
 }
 
+class _ShellBrandTitle extends StatelessWidget {
+  const _ShellBrandTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    final textStyle = Theme.of(context).textTheme.titleLarge?.copyWith(
+      color: Theme.of(context).colorScheme.onSurface,
+      fontWeight: FontWeight.w800,
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _LogoTile(size: 34, iconSize: 22),
+        const SizedBox(width: FSSpacing.sm),
+        Text('FinSight', style: textStyle),
+      ],
+    );
+  }
+}
+
+class _DrawerBrandHeader extends StatelessWidget {
+  const _DrawerBrandHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return FSCard(
+      variant: FSCardVariant.subtle,
+      padding: const EdgeInsets.all(FSSpacing.md),
+      child: Row(
+        children: [
+          _LogoTile(size: 44, iconSize: 28),
+          const SizedBox(width: FSSpacing.md),
+          Expanded(
+            child: Text(
+              'FinSight',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LogoTile extends StatelessWidget {
+  const _LogoTile({required this.size, required this.iconSize});
+
+  final double size;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: FSColors.intentContainer(context, FSIntent.primary),
+        borderRadius: BorderRadius.circular(FSRadius.md),
+        border: Border.all(
+          color: FSColors.intentBorder(context, FSIntent.primary),
+        ),
+      ),
+      child: SvgPicture.asset(
+        'assets/finsight-icon.svg',
+        width: iconSize,
+        height: iconSize,
+      ),
+    );
+  }
+}
+
+class _ShellIconButton extends StatelessWidget {
+  const _ShellIconButton({required this.icon, required this.onPressed});
+
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 22),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(44),
+        backgroundColor: FSColors.surfaceElevated(context),
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        side: BorderSide(color: FSColors.border(context)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FSRadius.md),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShellActionIcon extends StatelessWidget {
+  const _ShellActionIcon({required this.icon, this.highlighted = false});
+
+  final IconData icon;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        highlighted
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.onSurface;
+    return Container(
+      width: 44,
+      height: 44,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color:
+            highlighted
+                ? FSColors.intentContainer(context, FSIntent.primary)
+                : FSColors.surfaceElevated(context),
+        borderRadius: BorderRadius.circular(FSRadius.md),
+        border: Border.all(
+          color:
+              highlighted
+                  ? FSColors.intentBorder(context, FSIntent.primary)
+                  : FSColors.border(context),
+        ),
+        boxShadow: highlighted ? FSShadows.soft(context) : FSShadows.none,
+      ),
+      child: Icon(icon, size: 22, color: color),
+    );
+  }
+}
+
+class _ShellMenuItem extends StatelessWidget {
+  const _ShellMenuItem({required this.icon, required this.label, this.color});
+
+  final IconData icon;
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final itemColor = color ?? Theme.of(context).colorScheme.onSurface;
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: itemColor),
+        const SizedBox(width: FSSpacing.md),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: itemColor, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DrawerDestinationTile extends StatelessWidget {
+  const _DrawerDestinationTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.selected = false,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedColor = Theme.of(context).colorScheme.primary;
+    final foreground =
+        selected ? selectedColor : Theme.of(context).colorScheme.onSurface;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: FSSpacing.xs / 2),
+      child: Material(
+        color:
+            selected
+                ? FSColors.intentContainer(context, FSIntent.primary)
+                : Colors.transparent,
+        borderRadius: BorderRadius.circular(FSRadius.md),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(FSRadius.md),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 50),
+            padding: const EdgeInsets.symmetric(
+              horizontal: FSSpacing.md,
+              vertical: FSSpacing.sm,
+            ),
+            child: Row(
+              children: [
+                _ShellListIcon(icon: icon, selected: selected),
+                const SizedBox(width: FSSpacing.md),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: foreground,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: FSSpacing.sm),
+                  trailing!,
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShellListIcon extends StatelessWidget {
+  const _ShellListIcon({required this.icon, this.selected = false});
+
+  final IconData icon;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        selected
+            ? Theme.of(context).colorScheme.primary
+            : FSColors.mutedText(context);
+    return Container(
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color:
+            selected
+                ? FSColors.intentContainer(context, FSIntent.primary)
+                : FSColors.surfaceElevated(context),
+        borderRadius: BorderRadius.circular(FSRadius.md),
+        border: Border.all(color: FSColors.border(context)),
+      ),
+      child: Icon(icon, size: 19, color: color),
+    );
+  }
+}
+
+class _AddMenuTile extends StatelessWidget {
+  const _AddMenuTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: FSSpacing.xs / 2),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(FSRadius.md),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(FSRadius.md),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 54),
+            padding: const EdgeInsets.symmetric(
+              horizontal: FSSpacing.md,
+              vertical: FSSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(FSRadius.md),
+              border: Border.all(color: FSColors.border(context)),
+            ),
+            child: Row(
+              children: [
+                _ShellListIcon(icon: icon, selected: true),
+                const SizedBox(width: FSSpacing.md),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: FSSpacing.sm),
+                  trailing!,
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _BottomNavBar extends StatelessWidget {
   const _BottomNavBar({required this.current, required this.onTap});
   final int current;
@@ -822,70 +1133,133 @@ class _BottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPro = context.watch<AuthStore>().isProOrExempt;
     final items = [
-      (Icons.show_chart, I18n.t(context, 'nav.stats')),
-      (Icons.swap_horiz, I18n.t(context, 'nav.transactions')),
+      (Icons.show_chart_rounded, I18n.t(context, 'nav.stats')),
+      (Icons.swap_horiz_rounded, I18n.t(context, 'nav.transactions')),
       (Icons.receipt_long_outlined, I18n.t(context, 'nav.home')),
       (Icons.event_note_outlined, I18n.t(context, 'nav.payments')),
       (Icons.account_balance_wallet_outlined, I18n.t(context, 'nav.account')),
     ];
-    final cs = Theme.of(context).colorScheme;
-    final inactive = Theme.of(
-      context,
-    ).textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant);
+    return ColoredBox(
+      color: FSColors.background(context),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: FSColors.border(context))),
+        ),
+        child: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.fromLTRB(
+            FSSpacing.sm,
+            FSSpacing.sm,
+            FSSpacing.sm,
+            FSSpacing.sm,
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: FSSpacing.xs,
+              vertical: FSSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: FSColors.surfaceElevated(context),
+              borderRadius: BorderRadius.circular(FSRadius.xl),
+              border: Border.all(color: FSColors.border(context)),
+              boxShadow: FSShadows.soft(context),
+            ),
+            child: Row(
+              children: List.generate(items.length, (i) {
+                final icon = items[i].$1;
+                final label = items[i].$2;
+                final selected = current == i;
+                return Expanded(
+                  child: _BottomNavItem(
+                    icon: icon,
+                    label: label,
+                    selected: selected,
+                    showPro: !isPro && i == 0,
+                    onTap: () => onTap(i),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomNavItem extends StatelessWidget {
+  const _BottomNavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.showPro,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final bool showPro;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelColor =
+        selected
+            ? Theme.of(context).colorScheme.primary
+            : FSColors.mutedText(context);
     return Material(
-      color: cs.surface,
-      elevation: 6,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          child: Row(
-            children: List.generate(items.length, (i) {
-              final icon = items[i].$1;
-              final label = items[i].$2;
-              final isHome = i == 2; // Home is at index 2 now
-              final selected = current == i;
-              return Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onTap(i),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(FSRadius.lg),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(FSRadius.lg),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 58),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 54,
+                  height: 34,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
                     children: [
-                      _NavIcon(
-                        icon: icon,
-                        isHome: isHome,
-                        selected: selected,
-                        highlight: false,
-                        colorScheme: cs,
-                      ),
-                      const SizedBox(height: 4),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          label,
-                          textAlign: TextAlign.center,
-                          style:
-                              isHome
-                                  ? Theme.of(
-                                    context,
-                                  ).textTheme.labelMedium?.copyWith(
-                                    color:
-                                        selected
-                                            ? cs.primary
-                                            : cs.onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
-                                  )
-                                  : inactive,
+                      _NavIcon(icon: icon, selected: selected),
+                      if (showPro)
+                        Positioned(
+                          top: -8,
+                          right: -10,
+                          child: Transform.scale(
+                            scale: 0.78,
+                            child: ProMiniChip(),
+                          ),
                         ),
-                      ),
-                      // Show Pro chip only for Analytics (index 0)
-                      if (!isPro && (i == 0)) const ProMiniChip(),
                     ],
                   ),
                 ),
-              );
-            }),
+                const SizedBox(height: 3),
+                SizedBox(
+                  height: 15,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: labelColor,
+                        fontWeight:
+                            selected ? FontWeight.w800 : FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -894,58 +1268,29 @@ class _BottomNavBar extends StatelessWidget {
 }
 
 class _NavIcon extends StatelessWidget {
-  const _NavIcon({
-    required this.icon,
-    required this.isHome,
-    required this.selected,
-    required this.highlight,
-    required this.colorScheme,
-  });
+  const _NavIcon({required this.icon, required this.selected});
 
   final IconData icon;
-  final bool isHome;
   final bool selected;
-  final bool highlight;
-  final ColorScheme colorScheme;
 
   @override
   Widget build(BuildContext context) {
-    final base =
-        isHome
-            ? Container(
-              width: 48,
-              height: 48,
-              decoration: const BoxDecoration(
-                color: Color(0xFF2563EB),
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: Icon(icon, color: Colors.white, size: 26),
-            )
-            : Icon(
-              icon,
-              size: 22,
-              color:
-                  selected
-                      ? colorScheme.onSurface
-                      : colorScheme.onSurfaceVariant,
-            );
-
-    if (!highlight) return base;
     return Container(
-      padding: const EdgeInsets.all(6),
+      width: selected ? 48 : 42,
+      height: 32,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        border: Border.all(color: colorScheme.primary, width: 2),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.primary.withOpacity(0.2),
-            blurRadius: 10,
-            spreadRadius: 1,
-          ),
-        ],
+        color:
+            selected
+                ? Theme.of(context).colorScheme.primary
+                : Colors.transparent,
+        borderRadius: BorderRadius.circular(FSRadius.pill),
       ),
-      child: base,
+      child: Icon(
+        icon,
+        size: selected ? 21 : 22,
+        color: selected ? Colors.white : FSColors.mutedText(context),
+      ),
     );
   }
 }
