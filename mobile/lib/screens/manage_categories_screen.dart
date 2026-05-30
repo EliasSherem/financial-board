@@ -5,6 +5,7 @@ import '../models.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
+import '../ui/finsight_ui.dart';
 import '../utils/category_icons.dart';
 import '../widgets/pro_widgets.dart';
 import '../i18n.dart';
@@ -68,7 +69,9 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
       } else {
         _categories = [..._categories, category];
       }
-      _categories.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      _categories.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
     });
   }
 
@@ -82,9 +85,11 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
         return StatefulBuilder(
           builder: (ctx, setState) {
             return AlertDialog(
-              title: Text(category == null
-                  ? I18n.tr(context, 'categories.newCategory')
-                  : I18n.tr(context, 'categories.editCategory')),
+              title: Text(
+                category == null
+                    ? I18n.tr(context, 'categories.newCategory')
+                    : I18n.tr(context, 'categories.editCategory'),
+              ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,9 +101,12 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(I18n.tr(context, 'categories.iconLabel'), style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    I18n.tr(context, 'categories.iconLabel'),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                   const SizedBox(height: 8),
-                  OutlinedButton.icon(
+                  _IconPickerButton(
                     onPressed: () async {
                       final picked = await _pickIcon(initial: iconKey);
                       if (picked != null) {
@@ -106,7 +114,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                       }
                     },
                     icon: Icon(iconDataFromKey(iconKey)),
-                    label: Text(categoryIconByKey(iconKey).label),
+                    label: categoryIconByKey(iconKey).label,
                   ),
                 ],
               ),
@@ -119,7 +127,11 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                   onPressed: () {
                     if (nameCtrl.text.trim().isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(I18n.tr(context, 'categories.validationName'))),
+                        SnackBar(
+                          content: Text(
+                            I18n.tr(context, 'categories.validationName'),
+                          ),
+                        ),
                       );
                       return;
                     }
@@ -137,12 +149,19 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
     if (result != true || _data == null) return;
     try {
       if (category == null) {
-        final created = await _data!.createExpenseCategory(name: nameCtrl.text.trim(), icon: iconKey);
+        final created = await _data!.createExpenseCategory(
+          name: nameCtrl.text.trim(),
+          icon: iconKey,
+        );
         if (!mounted) return;
         _replaceCategory(created);
         widget.onCategoryCreated?.call();
       } else {
-        final updated = await _data!.updateExpenseCategory(id: category.id, name: nameCtrl.text.trim(), icon: iconKey);
+        final updated = await _data!.updateExpenseCategory(
+          id: category.id,
+          name: nameCtrl.text.trim(),
+          icon: iconKey,
+        );
         if (!mounted) return;
         _replaceCategory(updated);
       }
@@ -158,20 +177,35 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
     if (_data == null) return;
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(I18n.tr(context, 'categories.deleteCategory')),
-        content: Text(I18n.tr(context, 'categories.deleteCategoryConfirm')),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(I18n.tr(context, 'label.cancel'))),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(I18n.tr(context, 'label.delete'))),
-        ],
-      ),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(I18n.tr(context, 'categories.deleteCategory')),
+            content: Text(I18n.tr(context, 'categories.deleteCategoryConfirm')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(I18n.tr(context, 'label.cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: FSColors.danger,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(I18n.tr(context, 'label.delete')),
+              ),
+            ],
+          ),
     );
     if (confirm != true) return;
     try {
       await _data!.deleteExpenseCategory(category.id);
       if (!mounted) return;
-      setState(() => _categories = _categories.where((c) => c.id != category.id).toList());
+      setState(
+        () =>
+            _categories =
+                _categories.where((c) => c.id != category.id).toList(),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -180,7 +214,10 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
     }
   }
 
-  Future<void> _openSubcategoryDialog(ExpenseCategory category, {ExpenseSubcategory? subcategory}) async {
+  Future<void> _openSubcategoryDialog(
+    ExpenseCategory category, {
+    ExpenseSubcategory? subcategory,
+  }) async {
     if (_data == null) return;
     final nameCtrl = TextEditingController(text: subcategory?.name ?? '');
     String iconKey = subcategory?.icon ?? kCategoryIconOptions.first.key;
@@ -198,84 +235,109 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: Text(subcategory == null
-              ? I18n.tr(context, 'categories.newSubcategory')
-              : I18n.tr(context, 'categories.editSubcategory')),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: InputDecoration(labelText: I18n.tr(context, 'label.name')),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Text(
-                    I18n.tr(context, 'categories.monthlyBudget'),
-                    style: Theme.of(context).textTheme.bodySmall,
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, setState) => AlertDialog(
+                  title: Text(
+                    subcategory == null
+                        ? I18n.tr(context, 'categories.newSubcategory')
+                        : I18n.tr(context, 'categories.editSubcategory'),
                   ),
-                  if (!isPro) ...[
-                    const SizedBox(width: 6),
-                    const ProMiniChip(),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: nameCtrl,
+                        decoration: InputDecoration(
+                          labelText: I18n.tr(context, 'label.name'),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Text(
+                            I18n.tr(context, 'categories.monthlyBudget'),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          if (!isPro) ...[
+                            const SizedBox(width: 6),
+                            const ProMiniChip(),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: budgetCtrl,
+                        enabled: isPro,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: I18n.tr(
+                            context,
+                            'categories.monthlyBudgetHint',
+                          ),
+                        ),
+                      ),
+                      if (!isPro) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          I18n.tr(context, 'categories.budgetProOnly'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      Text(
+                        I18n.tr(context, 'categories.iconLabel'),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 8),
+                      _IconPickerButton(
+                        onPressed: () async {
+                          final picked = await _pickIcon(initial: iconKey);
+                          if (picked != null) setState(() => iconKey = picked);
+                        },
+                        icon: Icon(iconDataFromKey(iconKey)),
+                        label: categoryIconByKey(iconKey).label,
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: Text(I18n.tr(context, 'label.cancel')),
+                    ),
+                    FilledButton(
+                      onPressed: () {
+                        if (nameCtrl.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                I18n.tr(context, 'categories.validationName'),
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        final parsedBudget = parseBudget(budgetCtrl.text);
+                        if (parsedBudget == null || parsedBudget < 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                I18n.tr(context, 'categories.validationBudget'),
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.of(ctx).pop(true);
+                      },
+                      child: Text(I18n.tr(context, 'label.save')),
+                    ),
                   ],
-                ],
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: budgetCtrl,
-                enabled: isPro,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  hintText: I18n.tr(context, 'categories.monthlyBudgetHint'),
                 ),
-              ),
-              if (!isPro) ...[
-                const SizedBox(height: 6),
-                Text(
-                  I18n.tr(context, 'categories.budgetProOnly'),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-              const SizedBox(height: 16),
-              Text(I18n.tr(context, 'categories.iconLabel'), style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final picked = await _pickIcon(initial: iconKey);
-                  if (picked != null) setState(() => iconKey = picked);
-                },
-                icon: Icon(iconDataFromKey(iconKey)),
-                label: Text(categoryIconByKey(iconKey).label),
-              ),
-            ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(I18n.tr(context, 'label.cancel'))),
-            FilledButton(
-              onPressed: () {
-                if (nameCtrl.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(I18n.tr(context, 'categories.validationName'))),
-                  );
-                  return;
-                }
-                final parsedBudget = parseBudget(budgetCtrl.text);
-                if (parsedBudget == null || parsedBudget < 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(I18n.tr(context, 'categories.validationBudget'))),
-                  );
-                  return;
-                }
-                Navigator.of(ctx).pop(true);
-              },
-              child: Text(I18n.tr(context, 'label.save')),
-            ),
-          ],
-        ),
-      ),
     );
 
     if (result != true) return;
@@ -309,18 +371,34 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
     }
   }
 
-  Future<void> _deleteSubcategory(ExpenseCategory category, ExpenseSubcategory subcategory) async {
+  Future<void> _deleteSubcategory(
+    ExpenseCategory category,
+    ExpenseSubcategory subcategory,
+  ) async {
     if (_data == null) return;
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(I18n.tr(context, 'categories.deleteSubcategory')),
-        content: Text(I18n.tr(context, 'categories.deleteSubcategoryConfirm')),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(I18n.tr(context, 'label.cancel'))),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(I18n.tr(context, 'label.delete'))),
-        ],
-      ),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(I18n.tr(context, 'categories.deleteSubcategory')),
+            content: Text(
+              I18n.tr(context, 'categories.deleteSubcategoryConfirm'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(I18n.tr(context, 'label.cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: FSColors.danger,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(I18n.tr(context, 'label.delete')),
+              ),
+            ],
+          ),
     );
     if (confirm != true) return;
     try {
@@ -335,7 +413,10 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
             id: category.id,
             name: category.name,
             icon: category.icon,
-            subcategories: category.subcategories.where((s) => s.id != subcategory.id).toList(),
+            subcategories:
+                category.subcategories
+                    .where((s) => s.id != subcategory.id)
+                    .toList(),
           ),
         );
       }
@@ -350,14 +431,19 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
   Future<String?> _pickIcon({String? initial}) async {
     return showModalBottomSheet<String>(
       context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) {
-        return SafeArea(
+        return FSBottomSheetShell(
+          title: I18n.tr(context, 'categories.iconLabel'),
+          scrollable: false,
           child: GridView.builder(
-            padding: const EdgeInsets.all(16),
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
+              crossAxisSpacing: FSSpacing.md,
+              mainAxisSpacing: FSSpacing.md,
             ),
             itemCount: kCategoryIconOptions.length,
             itemBuilder: (ctx, index) {
@@ -367,21 +453,45 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                 onTap: () => Navigator.of(ctx).pop(option.key),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: selected ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : null,
+                    color:
+                        selected
+                            ? FSColors.intentContainer(
+                              context,
+                              FSIntent.primary,
+                            )
+                            : FSColors.surface(context),
                     border: Border.all(
-                      color: selected ? Theme.of(context).colorScheme.primary : Colors.grey.shade300,
+                      color:
+                          selected
+                              ? FSColors.primary
+                              : FSColors.border(context),
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(FSRadius.lg),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(option.icon, color: selected ? Theme.of(context).colorScheme.primary : null),
-                      const SizedBox(height: 8),
+                      Icon(
+                        option.icon,
+                        color:
+                            selected
+                                ? FSColors.primary
+                                : FSColors.mutedText(context),
+                      ),
+                      const SizedBox(height: FSSpacing.sm),
                       Text(
                         option.label,
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color:
+                              selected
+                                  ? Theme.of(context).colorScheme.onSurface
+                                  : FSColors.mutedText(context),
+                          fontWeight:
+                              selected ? FontWeight.w800 : FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
@@ -397,32 +507,37 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
   Widget? _buildOnboardingBanner() {
     if (!widget.forceCreate || _loading) return null;
     final hasCategory = _categories.isNotEmpty;
-    final hasSubcategory =
-        _categories.any((c) => c.subcategories.isNotEmpty);
+    final hasSubcategory = _categories.any((c) => c.subcategories.isNotEmpty);
     if (hasSubcategory) return null;
     final message =
         hasCategory
             ? I18n.tr(context, 'onboarding.createFirstSubcategory')
             : I18n.tr(context, 'onboarding.createFirstCategory');
-    return Card(
-      elevation: 6,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Icon(
-              Icons.flag_outlined,
-              color: Theme.of(context).colorScheme.primary,
+    return FSCard(
+      variant: FSCardVariant.subtle,
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FSColors.intentContainer(context, FSIntent.primary),
+              borderRadius: BorderRadius.circular(FSRadius.md),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: Theme.of(context).textTheme.bodyMedium,
+            child: const Icon(Icons.flag_outlined, color: FSColors.primary),
+          ),
+          const SizedBox(width: FSSpacing.md),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -430,8 +545,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
   String? _onboardingMessage() {
     if (!widget.forceCreate || _loading) return null;
     final hasCategory = _categories.isNotEmpty;
-    final hasSubcategory =
-        _categories.any((c) => c.subcategories.isNotEmpty);
+    final hasSubcategory = _categories.any((c) => c.subcategories.isNotEmpty);
     if (hasSubcategory) return null;
     return hasCategory
         ? I18n.tr(context, 'onboarding.createFirstSubcategory')
@@ -452,150 +566,434 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
     final banner = _buildOnboardingBanner();
     final content =
         _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const FSLoadingState()
             : RefreshIndicator(
+              color: Theme.of(context).colorScheme.primary,
               onRefresh: _load,
-              child: _categories.isEmpty
-                  ? ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      if (banner != null) ...[
-                        banner,
-                        const SizedBox(height: 12),
-                      ],
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.6,
-                        child: Center(
-                          child: Text(I18n.tr(context, 'categories.empty')),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(
+                  FSSpacing.lg,
+                  FSSpacing.lg,
+                  FSSpacing.lg,
+                  FSSpacing.xxl,
+                ),
+                children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FSButton(
+                      label: I18n.tr(context, 'categories.newCategory'),
+                      icon: Icons.add_rounded,
+                      size: FSButtonSize.sm,
+                      onPressed: () => _openCategoryDialog(),
+                    ),
+                  ),
+                  const SizedBox(height: FSSpacing.md),
+                  if (banner != null) ...[
+                    banner,
+                    const SizedBox(height: FSSpacing.md),
+                  ],
+                  if (_categories.isEmpty)
+                    FSCard(
+                      variant: FSCardVariant.elevated,
+                      child: FSEmptyState(
+                        icon: Icons.category_outlined,
+                        title: I18n.tr(context, 'categories.empty'),
+                        action: FSButton(
+                          label: I18n.tr(context, 'categories.newCategory'),
+                          icon: Icons.add_rounded,
+                          onPressed: () => _openCategoryDialog(),
                         ),
                       ),
-                    ],
-                  )
-                  : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _categories.length + (banner != null ? 1 : 0),
-                    itemBuilder: (ctx, index) {
-                      if (banner != null && index == 0) {
-                        return Column(
-                          children: [banner, const SizedBox(height: 12)],
-                        );
-                      }
-                      final categoryIndex = index - (banner != null ? 1 : 0);
-                      final category = _categories[categoryIndex];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: ExpansionTile(
-                          leading: Icon(iconDataFromKey(category.icon)),
-                          controlAffinity: ListTileControlAffinity.leading,
-                          title: Row(
-                            children: [
-                              Expanded(child: Text(category.name)),
-                              PopupMenuButton<String>(
-                                onSelected: (value) {
-                                  switch (value) {
-                                    case 'edit':
-                                      _openCategoryDialog(category: category);
-                                      break;
-                                    case 'delete':
-                                      _deleteCategory(category);
-                                      break;
-                                  }
-                                },
-                                itemBuilder: (ctx) => [
-                                  PopupMenuItem(
-                                    value: 'edit',
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.edit_outlined,
-                                          size: 18,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(I18n.tr(context, 'label.edit')),
-                                      ],
-                                    ),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'delete',
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.delete_outline,
-                                          size: 18,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(I18n.tr(context, 'label.delete')),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          children: [
-                            if (category.subcategories.isEmpty)
-                              ListTile(
-                                title: Text(
-                                  I18n.tr(context, 'categories.noSubcategories'),
-                                ),
-                              ),
-                            ...category.subcategories.map(
-                              (sub) => ListTile(
-                                leading: Icon(iconDataFromKey(sub.icon)),
-                                title: Text(sub.name),
-                                trailing: Wrap(
-                                  spacing: 8,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_outlined),
-                                      onPressed:
-                                          () => _openSubcategoryDialog(
-                                            category,
-                                            subcategory: sub,
-                                          ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline),
-                                      onPressed:
-                                          () => _deleteSubcategory(
-                                            category,
-                                            sub,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                    )
+                  else
+                    ..._categories.map(
+                      (category) => _CategoryCard(
+                        category: category,
+                        onEditCategory:
+                            () => _openCategoryDialog(category: category),
+                        onDeleteCategory: () => _deleteCategory(category),
+                        onAddSubcategory:
+                            () => _openSubcategoryDialog(category),
+                        onEditSubcategory:
+                            (subcategory) => _openSubcategoryDialog(
+                              category,
+                              subcategory: subcategory,
                             ),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: TextButton.icon(
-                                onPressed: () => _openSubcategoryDialog(category),
-                                icon: const Icon(Icons.add),
-                                label: Text(
-                                  I18n.tr(context, 'categories.addSubcategory'),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                        onDeleteSubcategory:
+                            (subcategory) =>
+                                _deleteSubcategory(category, subcategory),
+                      ),
+                    ),
+                ],
+              ),
             );
     return Scaffold(
+      backgroundColor: FSColors.background(context),
       appBar: AppBar(
         title: Text(I18n.tr(context, 'categories.manageTitle')),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openCategoryDialog(),
-        child: const Icon(Icons.add),
+        backgroundColor: FSColors.background(context),
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
       ),
       body: Stack(
+        children: [content, if (widget.forceCreate) _buildOnboardingCoach()],
+      ),
+    );
+  }
+}
+
+class _IconPickerButton extends StatelessWidget {
+  const _IconPickerButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final Widget icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FSCard(
+      onTap: onPressed,
+      variant: FSCardVariant.interactive,
+      padding: const EdgeInsets.symmetric(
+        horizontal: FSSpacing.md,
+        vertical: FSSpacing.md,
+      ),
+      child: Row(
         children: [
-          content,
-          if (widget.forceCreate) _buildOnboardingCoach(),
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FSColors.intentContainer(context, FSIntent.primary),
+              borderRadius: BorderRadius.circular(FSRadius.md),
+              border: Border.all(
+                color: FSColors.intentBorder(context, FSIntent.primary),
+              ),
+            ),
+            child: IconTheme(
+              data: const IconThemeData(color: FSColors.primary, size: 20),
+              child: icon,
+            ),
+          ),
+          const SizedBox(width: FSSpacing.md),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: FSColors.mutedText(context),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _CategoryCard extends StatelessWidget {
+  const _CategoryCard({
+    required this.category,
+    required this.onEditCategory,
+    required this.onDeleteCategory,
+    required this.onAddSubcategory,
+    required this.onEditSubcategory,
+    required this.onDeleteSubcategory,
+  });
+
+  final ExpenseCategory category;
+  final VoidCallback onEditCategory;
+  final VoidCallback onDeleteCategory;
+  final VoidCallback onAddSubcategory;
+  final ValueChanged<ExpenseSubcategory> onEditSubcategory;
+  final ValueChanged<ExpenseSubcategory> onDeleteSubcategory;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: FSSpacing.md),
+      child: FSCard(
+        padding: EdgeInsets.zero,
+        variant: FSCardVariant.interactive,
+        child: Theme(
+          data: theme.copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.fromLTRB(
+              FSSpacing.lg,
+              FSSpacing.sm,
+              FSSpacing.sm,
+              FSSpacing.sm,
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(
+              FSSpacing.lg,
+              0,
+              FSSpacing.lg,
+              FSSpacing.lg,
+            ),
+            leading: _CategoryIconBadge(icon: iconDataFromKey(category.icon)),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    category.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: FSSpacing.sm),
+                FSStatusBadge(
+                  label: category.subcategories.length.toString(),
+                  variant:
+                      category.subcategories.isEmpty
+                          ? FSStatusBadgeVariant.neutral
+                          : FSStatusBadgeVariant.info,
+                  icon: Icons.sell_outlined,
+                ),
+                const SizedBox(width: FSSpacing.xs),
+                PopupMenuButton<String>(
+                  tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'edit':
+                        onEditCategory();
+                        break;
+                      case 'delete':
+                        onDeleteCategory();
+                        break;
+                    }
+                  },
+                  itemBuilder:
+                      (ctx) => [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.edit_outlined, size: 18),
+                              const SizedBox(width: FSSpacing.sm),
+                              Text(I18n.tr(context, 'label.edit')),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.delete_outline, size: 18),
+                              const SizedBox(width: FSSpacing.sm),
+                              Text(I18n.tr(context, 'label.delete')),
+                            ],
+                          ),
+                        ),
+                      ],
+                ),
+              ],
+            ),
+            children: [
+              if (category.subcategories.isEmpty)
+                _EmptySubcategoriesCard(
+                  message: I18n.tr(context, 'categories.noSubcategories'),
+                )
+              else
+                ...category.subcategories.map(
+                  (sub) => _SubcategoryRow(
+                    subcategory: sub,
+                    onEdit: () => onEditSubcategory(sub),
+                    onDelete: () => onDeleteSubcategory(sub),
+                  ),
+                ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FSButton(
+                  label: I18n.tr(context, 'categories.addSubcategory'),
+                  icon: Icons.add_rounded,
+                  variant: FSButtonVariant.outline,
+                  size: FSButtonSize.sm,
+                  onPressed: onAddSubcategory,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SubcategoryRow extends StatelessWidget {
+  const _SubcategoryRow({
+    required this.subcategory,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final ExpenseSubcategory subcategory;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: FSSpacing.sm),
+      child: Container(
+        padding: const EdgeInsets.all(FSSpacing.md),
+        decoration: BoxDecoration(
+          color:
+              FSColors.isDark(context)
+                  ? FSColors.alpha(FSColors.surfaceDark, 0.68)
+                  : FSColors.backgroundLight,
+          borderRadius: BorderRadius.circular(FSRadius.lg),
+          border: Border.all(color: FSColors.border(context)),
+        ),
+        child: Row(
+          children: [
+            _CategoryIconBadge(
+              icon: iconDataFromKey(subcategory.icon),
+              size: 36,
+              iconSize: 18,
+              intent: FSIntent.info,
+            ),
+            const SizedBox(width: FSSpacing.md),
+            Expanded(
+              child: Text(
+                subcategory.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: FSSpacing.sm),
+            _CategoryActionButton(
+              tooltip: I18n.tr(context, 'label.edit'),
+              icon: Icons.edit_outlined,
+              onPressed: onEdit,
+            ),
+            const SizedBox(width: FSSpacing.xs),
+            _CategoryActionButton(
+              tooltip: I18n.tr(context, 'label.delete'),
+              icon: Icons.delete_outline,
+              danger: true,
+              onPressed: onDelete,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptySubcategoriesCard extends StatelessWidget {
+  const _EmptySubcategoriesCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: FSSpacing.md),
+      padding: const EdgeInsets.all(FSSpacing.md),
+      decoration: BoxDecoration(
+        color: FSColors.surface(context),
+        borderRadius: BorderRadius.circular(FSRadius.lg),
+        border: Border.all(color: FSColors.border(context)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.sell_outlined, color: FSColors.mutedText(context)),
+          const SizedBox(width: FSSpacing.md),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: FSColors.mutedText(context),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryIconBadge extends StatelessWidget {
+  const _CategoryIconBadge({
+    required this.icon,
+    this.size = 42,
+    this.iconSize = 21,
+    this.intent = FSIntent.primary,
+  });
+
+  final IconData icon;
+  final double size;
+  final double iconSize;
+  final FSIntent intent;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = FSColors.intent(intent);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: FSColors.intentContainer(context, intent),
+        borderRadius: BorderRadius.circular(FSRadius.md),
+        border: Border.all(color: FSColors.intentBorder(context, intent)),
+      ),
+      child: Icon(icon, color: color, size: iconSize),
+    );
+  }
+}
+
+class _CategoryActionButton extends StatelessWidget {
+  const _CategoryActionButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.danger = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        danger ? FSColors.danger : Theme.of(context).colorScheme.primary;
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(38),
+        backgroundColor: FSColors.alpha(color, 0.10),
+        foregroundColor: color,
+        side: BorderSide(color: FSColors.alpha(color, 0.18)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FSRadius.md),
+        ),
       ),
     );
   }

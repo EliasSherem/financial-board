@@ -9,6 +9,7 @@ import '../lang_store.dart';
 import '../state/auth_store.dart';
 import '../models.dart';
 import '../services/biometric_service.dart';
+import '../ui/finsight_ui.dart';
 import '../utils/links.dart';
 import '../utils/format.dart';
 import '../utils/savings_goal.dart';
@@ -238,277 +239,438 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final showLock =
         auth.isAuthenticated && auth.biometricEnabled && biometricReady;
     return Scaffold(
-      appBar: AppBar(title: Text(L('Settings', 'Ajustes'))),
+      backgroundColor: FSColors.background(context),
+      appBar: AppBar(
+        title: Text(L('Settings', 'Ajustes')),
+        backgroundColor: FSColors.background(context),
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(
+          FSSpacing.lg,
+          FSSpacing.lg,
+          FSSpacing.lg,
+          FSSpacing.xxl,
+        ),
         children: [
-          ListTile(
-            leading: const Icon(Icons.attach_money_outlined),
-            title: Text(L('Automate salary income', 'Automatizar salario')),
-            subtitle: Text(
-              L(
-                'Schedule recurring salary deposits',
-                'Programa depósitos de salario recurrentes',
+          _SettingsSection(
+            title: L('Account', 'Cuenta'),
+            children: [
+              _SettingsRow(
+                icon: Icons.person_outline,
+                title: L('Update Profile', 'Actualizar perfil'),
+                subtitle: L(
+                  'Name, email, password',
+                  'Nombre, correo, contraseña',
+                ),
+                onTap:
+                    () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const UpdateProfileScreen(),
+                      ),
+                    ),
               ),
-            ),
-            onTap: () => _openSalaryAutomation(context),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.person_outline),
-            title: Text(L('Update Profile', 'Actualizar perfil')),
-            subtitle: Text(
-              L('Name, email, password', 'Nombre, correo, contraseña'),
-            ),
-            onTap:
-                () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const UpdateProfileScreen(),
+              if (isIos)
+                _SettingsRow(
+                  icon: Icons.restore_outlined,
+                  title: L('Restore purchases', 'Restaurar compras'),
+                  subtitle: L(
+                    'Sync your App Store subscription',
+                    'Sincronizar tu suscripción de App Store',
                   ),
+                  onTap: () => PurchaseService().restorePurchases(context),
                 ),
+            ],
           ),
-          const Divider(),
-          if (isIos) ...[
-            ListTile(
-              leading: const Icon(Icons.restore_outlined),
-              title: Text(L('Restore purchases', 'Restaurar compras')),
-              subtitle: Text(
-                L(
-                  'Sync your App Store subscription',
-                  'Sincronizar tu suscripción de App Store',
-                ),
-              ),
-              onTap: () => PurchaseService().restorePurchases(context),
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.person_remove_outlined),
-              title: Text(L('Delete account', 'Eliminar cuenta')),
-              subtitle: Text(
-                L(
-                  'Open the secure account deletion page',
-                  'Abrir la página segura para eliminar la cuenta',
-                ),
-              ),
-              trailing: const Icon(Icons.open_in_new),
-              onTap: () => openLink(context, kDeleteAccountUrl),
-            ),
-            const Divider(),
-          ],
-          ListTile(
-            leading: const Icon(Icons.fingerprint),
-            title: Text(L('Biometric login', 'Inicio con biometr\u00EDa')),
-            subtitle: Text(biometricSubtitle),
-            trailing: FilledButton(
-              onPressed:
-                  canToggleBiometric
-                      ? () async {
-                        if (biometricEnabled) {
-                          await auth.setBiometricEnabled(false);
-                          return;
-                        }
-                        if (!canEnableBiometric) return;
-                        final ok = await _biometric.authenticate(
-                          reason: L(
-                            'Confirm biometrics to enable login',
-                            'Confirma biometria para habilitar el inicio',
-                          ),
-                        );
-                        if (!ok) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  L(
-                                    'Biometric authentication failed',
-                                    'Fallo la autenticacion biometrica',
-                                  ),
-                                ),
+          _SettingsSection(
+            title: L('Preferences', 'Preferencias'),
+            children: [
+              _SettingsRow(
+                icon: Icons.language_outlined,
+                title: L('Language', 'Idioma'),
+                subtitle: langStore.lang == 'es' ? 'Español' : 'English',
+                onTap: () async {
+                  await showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    builder: (sheetContext) {
+                      return FSBottomSheetShell(
+                        child: RadioGroup<String>(
+                          groupValue: langStore.lang,
+                          onChanged: (value) {
+                            Navigator.pop(sheetContext);
+                            if (value != null) {
+                              context.read<LangStore>().setLang(value);
+                            }
+                          },
+                          child: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              RadioListTile<String>(
+                                value: 'en',
+                                title: Text('English'),
                               ),
-                            );
-                          }
-                          return;
-                        }
-                        await auth.setBiometricEnabled(true);
-                      }
-                      : null,
-              child: Text(
-                biometricEnabled
-                    ? L('Disable', 'Desactivar')
-                    : L('Enable', 'Activar'),
-              ),
-            ),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.language_outlined),
-            title: Text(L('Language', 'Idioma')),
-            subtitle: Text(langStore.lang == 'es' ? 'Español' : 'English'),
-            onTap: () async {
-              await showModalBottomSheet(
-                context: context,
-                showDragHandle: true,
-                builder: (_) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      RadioListTile<String>(
-                        value: 'en',
-                        groupValue: langStore.lang,
-                        onChanged: (v) {
-                          Navigator.pop(context);
-                          context.read<LangStore>().setLang('en');
-                        },
-                        title: const Text('English'),
-                      ),
-                      RadioListTile<String>(
-                        value: 'es',
-                        groupValue: langStore.lang,
-                        onChanged: (v) {
-                          Navigator.pop(context);
-                          context.read<LangStore>().setLang('es');
-                        },
-                        title: const Text('Español'),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
+                              RadioListTile<String>(
+                                value: 'es',
+                                title: Text('Español'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
-              );
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.savings_outlined),
-            title: Text(L('Savings goal', 'Meta de ahorro')),
-            subtitle: Text(
-              _savingsGoal == null || _savingsGoal! <= 0
-                  ? L('Not set', 'Sin meta')
-                  : '${L('Monthly goal', 'Meta mensual')}: ${money(_savingsGoal!)}',
-            ),
-            onTap: () => _editSavingsGoal(L),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.help_outline),
-            title: Text(L('Finsight Assistant', 'Asistente Finsight')),
-            subtitle: Text(L('Open the support chat', 'Abrir chat de ayuda')),
-            onTap: () => openLink(context, _supportGptUrl),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.sync_problem_outlined),
-            title: Text(
-              L(
-                'Process overdue recurring payments',
-                'Procesar pagos recurrentes vencidos',
               ),
-            ),
-            onTap: () async {
-              try {
-                await data.processOverduePayments();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        L(
-                          'Processed overdue payments',
-                          'Pagos vencidos procesados',
-                        ),
-                      ),
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(L('Failed', 'Error') + ': $e')),
-                  );
-                }
-              }
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.swap_horiz_outlined),
-            title: Text(
-              L('Repair past transfers', 'Corregir transferencias pasadas'),
-            ),
-            subtitle: Text(
-              L(
-                'Fix old transfers that were counted as income or expense',
-                'Corrige transferencias antiguas que se contaron como ingreso o gasto',
+              _SettingsRow(
+                icon: Icons.savings_outlined,
+                title: L('Savings goal', 'Meta de ahorro'),
+                subtitle:
+                    _savingsGoal == null || _savingsGoal! <= 0
+                        ? L('Not set', 'Sin meta')
+                        : '${L('Monthly goal', 'Meta mensual')}: ${money(_savingsGoal!)}',
+                onTap: () => _editSavingsGoal(L),
               ),
-            ),
-            trailing:
-                _repairingTransfers
-                    ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : null,
-            onTap:
-                _repairingTransfers
-                    ? null
-                    : () => _repairPastTransfers(data, L),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.auto_graph_outlined),
-            title: Text(
-              L('Rebuild balance history', 'Reconstruir historial de saldo'),
-            ),
-            subtitle: Text(
-              L(
-                'Recompute monthly balances for analytics',
-                'Recalcular saldos mensuales para analítica',
-              ),
-            ),
-            onTap: () async {
-              try {
-                await data.rebuildBalanceHistory();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        L('Rebuild started', 'Reconstrucción iniciada'),
-                      ),
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(L('Failed', 'Error') + ': $e')),
-                  );
-                }
-              }
-            },
-          ),
-          const Divider(),
-          if (showLock)
-            ListTile(
-              leading: const Icon(Icons.lock_outline),
-              title: Text(L('Lock', 'Bloquear')),
-              subtitle: Text(
-                L(
-                  'Require biometrics to unlock',
-                  'Requiere biometr\u00EDa para desbloquear',
+          _SettingsSection(
+            title: L('Security', 'Seguridad'),
+            children: [
+              _SettingsRow(
+                icon: Icons.fingerprint,
+                title: L('Biometric login', 'Inicio con biometr\u00EDa'),
+                subtitle: biometricSubtitle,
+                trailing: FSButton(
+                  label:
+                      biometricEnabled
+                          ? L('Disable', 'Desactivar')
+                          : L('Enable', 'Activar'),
+                  size: FSButtonSize.sm,
+                  variant:
+                      biometricEnabled
+                          ? FSButtonVariant.outline
+                          : FSButtonVariant.primary,
+                  onPressed:
+                      canToggleBiometric
+                          ? () async {
+                            if (biometricEnabled) {
+                              await auth.setBiometricEnabled(false);
+                              return;
+                            }
+                            if (!canEnableBiometric) return;
+                            final ok = await _biometric.authenticate(
+                              reason: L(
+                                'Confirm biometrics to enable login',
+                                'Confirma biometria para habilitar el inicio',
+                              ),
+                            );
+                            if (!ok) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      L(
+                                        'Biometric authentication failed',
+                                        'Fallo la autenticacion biometrica',
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                              return;
+                            }
+                            await auth.setBiometricEnabled(true);
+                          }
+                          : null,
                 ),
               ),
-              onTap: () async => auth.lock(),
-            ),
-          if (showLock) const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: Text(L('Logout', 'Cerrar sesión')),
-            onTap: () async {
-              await context.read<AuthStore>().logout();
-              if (context.mounted) Navigator.of(context).pop();
-            },
+              if (showLock)
+                _SettingsRow(
+                  icon: Icons.lock_outline,
+                  title: L('Lock', 'Bloquear'),
+                  subtitle: L(
+                    'Require biometrics to unlock',
+                    'Requiere biometr\u00EDa para desbloquear',
+                  ),
+                  onTap: () async => auth.lock(),
+                ),
+            ],
+          ),
+          _SettingsSection(
+            title: L('Automation', 'Automatización'),
+            children: [
+              _SettingsRow(
+                icon: Icons.attach_money_outlined,
+                title: L('Automate salary income', 'Automatizar salario'),
+                subtitle: L(
+                  'Schedule recurring salary deposits',
+                  'Programa depósitos de salario recurrentes',
+                ),
+                onTap: () => _openSalaryAutomation(context),
+              ),
+              _SettingsRow(
+                icon: Icons.sync_problem_outlined,
+                title: L(
+                  'Process overdue recurring payments',
+                  'Procesar pagos recurrentes vencidos',
+                ),
+                onTap: () async {
+                  try {
+                    await data.processOverduePayments();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            L(
+                              'Processed overdue payments',
+                              'Pagos vencidos procesados',
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${L('Failed', 'Error')}: $e')),
+                      );
+                    }
+                  }
+                },
+              ),
+              _SettingsRow(
+                icon: Icons.swap_horiz_outlined,
+                title: L(
+                  'Repair past transfers',
+                  'Corregir transferencias pasadas',
+                ),
+                subtitle: L(
+                  'Fix old transfers that were counted as income or expense',
+                  'Corrige transferencias antiguas que se contaron como ingreso o gasto',
+                ),
+                trailing:
+                    _repairingTransfers
+                        ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : null,
+                onTap:
+                    _repairingTransfers
+                        ? null
+                        : () => _repairPastTransfers(data, L),
+              ),
+              _SettingsRow(
+                icon: Icons.auto_graph_outlined,
+                title: L(
+                  'Rebuild balance history',
+                  'Reconstruir historial de saldo',
+                ),
+                subtitle: L(
+                  'Recompute monthly balances for analytics',
+                  'Recalcular saldos mensuales para analítica',
+                ),
+                onTap: () async {
+                  try {
+                    await data.rebuildBalanceHistory();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            L('Rebuild started', 'Reconstrucción iniciada'),
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${L('Failed', 'Error')}: $e')),
+                      );
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: L('Support', 'Soporte'),
+            children: [
+              _SettingsRow(
+                icon: Icons.help_outline,
+                title: L('Finsight Assistant', 'Asistente Finsight'),
+                subtitle: L('Open the support chat', 'Abrir chat de ayuda'),
+                onTap: () => openLink(context, _supportGptUrl),
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: L('Session', 'Sesión'),
+            children: [
+              if (isIos)
+                _SettingsRow(
+                  icon: Icons.person_remove_outlined,
+                  title: L('Delete account', 'Eliminar cuenta'),
+                  subtitle: L(
+                    'Open the secure account deletion page',
+                    'Abrir la página segura para eliminar la cuenta',
+                  ),
+                  trailing: const Icon(Icons.open_in_new),
+                  danger: true,
+                  onTap: () => openLink(context, kDeleteAccountUrl),
+                ),
+              _SettingsRow(
+                icon: Icons.logout,
+                title: L('Logout', 'Cerrar sesión'),
+                danger: true,
+                onTap: () async {
+                  await context.read<AuthStore>().logout();
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: FSSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(
+              left: FSSpacing.xs,
+              bottom: FSSpacing.sm,
+            ),
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: FSColors.mutedText(context),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          FSCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (var i = 0; i < children.length; i++) ...[
+                  children[i],
+                  if (i != children.length - 1)
+                    Divider(height: 1, color: FSColors.border(context)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final intent = danger ? FSIntent.danger : FSIntent.primary;
+    final color = FSColors.intent(intent);
+    final content = Padding(
+      padding: const EdgeInsets.all(FSSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FSColors.intentContainer(context, intent),
+              borderRadius: BorderRadius.circular(FSRadius.md),
+              border: Border.all(color: FSColors.intentBorder(context, intent)),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: FSSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color:
+                        danger
+                            ? FSColors.danger
+                            : Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: FSSpacing.xs),
+                  Text(
+                    subtitle!,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: FSColors.mutedText(context),
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: FSSpacing.md),
+            trailing!,
+          ] else if (onTap != null) ...[
+            const SizedBox(width: FSSpacing.sm),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: FSColors.mutedText(context),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (onTap == null) return content;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(onTap: onTap, child: content),
     );
   }
 }
@@ -562,8 +724,6 @@ class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
     } catch (_) {}
   }
 
-  Future<void> _save() async {}
-
   void _addOrEdit({Map<String, dynamic>? initial, int? index}) async {
     final nameCtrl = TextEditingController(text: initial?['name'] ?? 'Salary');
     final amountCtrl = TextEditingController(
@@ -609,7 +769,7 @@ class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<int>(
-                          value: accountId,
+                          initialValue: accountId,
                           items:
                               _accounts.map((a) {
                                 final isInvestment =
@@ -639,7 +799,7 @@ class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
-                          value: schedule,
+                          initialValue: schedule,
                           items: [
                             DropdownMenuItem(
                               value: 'SemiMonthly',
@@ -690,7 +850,7 @@ class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
                           ),
                         if (schedule == 'Weekly')
                           DropdownButtonFormField<int>(
-                            value: weekday,
+                            initialValue: weekday,
                             items: const [
                               DropdownMenuItem(value: 7, child: Text('Sun')),
                               DropdownMenuItem(value: 1, child: Text('Mon')),
@@ -779,7 +939,7 @@ class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
                           }
                           await _load();
                         } catch (_) {}
-                        if (context.mounted) Navigator.pop(context);
+                        if (dctx.mounted) Navigator.pop(dctx);
                       },
                       child: Text(widget.L('Save', 'Guardar')),
                     ),
@@ -838,7 +998,7 @@ class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
                 shrinkWrap: true,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: _rules.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
+                separatorBuilder: (context, index) => const Divider(height: 1),
                 itemBuilder: (ctx, i) {
                   final r = _rules[i];
                   String subtitle;

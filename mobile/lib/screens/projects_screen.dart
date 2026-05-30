@@ -134,17 +134,33 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                 FSSpacing.xxl,
               ),
               children: [
-                FSPageHeader(
-                  title: I18n.t(context, 'title.projects'),
-                  subtitle: I18n.t(context, 'projects.subtitle'),
-                  leading: const _ProjectsHeaderIcon(),
-                  action: FSButton(
-                    label: I18n.t(context, 'projects.add'),
-                    icon: Icons.add_rounded,
-                    size: FSButtonSize.sm,
-                    onPressed: () => _showCreateProject(context, data),
+                FSCard(
+                  variant: FSCardVariant.subtle,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          I18n.t(context, 'projects.subtitle'),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.copyWith(
+                            color: FSColors.mutedText(context),
+                            fontWeight: FontWeight.w600,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: FSSpacing.md),
+                      FSButton(
+                        label: I18n.t(context, 'projects.add'),
+                        icon: Icons.add_rounded,
+                        size: FSButtonSize.sm,
+                        onPressed: () => _showCreateProject(context, data),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(height: FSSpacing.md),
                 if (items.isEmpty)
                   FSCard(
                     variant: FSCardVariant.elevated,
@@ -730,27 +746,6 @@ class _ProjectCard extends StatelessWidget {
       case FSIntent.neutral:
         return FSStatusBadgeVariant.neutral;
     }
-  }
-}
-
-class _ProjectsHeaderIcon extends StatelessWidget {
-  const _ProjectsHeaderIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 42,
-      height: 42,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: FSColors.intentContainer(context, FSIntent.primary),
-        borderRadius: BorderRadius.circular(FSRadius.md),
-        border: Border.all(
-          color: FSColors.intentBorder(context, FSIntent.primary),
-        ),
-      ),
-      child: const Icon(Icons.folder_open_outlined, color: FSColors.primary),
-    );
   }
 }
 

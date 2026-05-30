@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/biometric_service.dart';
 import '../state/auth_store.dart';
 import '../i18n.dart';
+import '../ui/finsight_ui.dart';
 
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key});
@@ -44,6 +45,7 @@ class _LockScreenState extends State<LockScreen> {
     final auth = context.read<AuthStore>();
     if (!auth.hasToken) return;
     final availability = await _biometric.availability();
+    if (!mounted) return;
     if (!availability.isSupported) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(I18n.tr(context, 'auth.biometricUnavailable'))),
@@ -59,15 +61,15 @@ class _LockScreenState extends State<LockScreen> {
     setState(() => _submitting = true);
     try {
       final messenger = ScaffoldMessenger.of(context);
+      final failedMessage = I18n.tr(context, 'auth.biometricFailed');
       final ok = await _biometric.authenticate(
         reason: I18n.tr(context, 'auth.biometricReason'),
       );
+      if (!mounted) return;
       if (ok) {
         await auth.unlock();
-      } else if (mounted) {
-        messenger.showSnackBar(
-          SnackBar(content: Text(I18n.tr(context, 'auth.biometricFailed'))),
-        );
+      } else {
+        messenger.showSnackBar(SnackBar(content: Text(failedMessage)));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -80,84 +82,93 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.65);
-    final canUnlock = _biometricChecked && _biometricSupported && _biometricEnrolled;
-    final subtitle = !_biometricChecked
-        ? I18n.t(context, 'auth.biometricReason')
-        : !_biometricSupported
+    final theme = Theme.of(context);
+    final canUnlock =
+        _biometricChecked && _biometricSupported && _biometricEnrolled;
+    final subtitle =
+        !_biometricChecked
+            ? I18n.t(context, 'auth.biometricReason')
+            : !_biometricSupported
             ? I18n.t(context, 'auth.biometricUnavailable')
             : !_biometricEnrolled
-                ? I18n.t(context, 'auth.biometricNotEnrolled')
-                : I18n.t(context, 'auth.biometricReason');
+            ? I18n.t(context, 'auth.biometricNotEnrolled')
+            : I18n.t(context, 'auth.biometricReason');
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Container(
-        decoration: isDark
-            ? null
-            : const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFF2F6FF), Color(0xFFEAF2FF)],
-                ),
-              ),
+      backgroundColor: FSColors.background(context),
+      body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            padding: const EdgeInsets.all(FSSpacing.xl),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
-              child: Card(
-                elevation: 12,
-                color: isDark ? Theme.of(context).colorScheme.surface : null,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Align(
+              child: FSCard(
+                variant: FSCardVariant.elevated,
+                padding: const EdgeInsets.all(FSSpacing.xl),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: Alignment.center,
+                      child: Container(
+                        width: 64,
+                        height: 64,
                         alignment: Alignment.center,
-                        child: CircleAvatar(
-                          radius: 28,
-                          backgroundColor: const Color(0xFF2563EB),
-                          child: const Icon(Icons.fingerprint, color: Colors.white, size: 28),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        'FinSight',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: Theme.of(context).colorScheme.onSurface,
+                        decoration: BoxDecoration(
+                          color: FSColors.intentContainer(
+                            context,
+                            FSIntent.primary,
+                          ),
+                          borderRadius: BorderRadius.circular(FSRadius.xl),
+                          border: Border.all(
+                            color: FSColors.intentBorder(
+                              context,
+                              FSIntent.primary,
                             ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        subtitle,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: _submitting || !canUnlock ? null : _unlock,
-                        icon: const Icon(Icons.fingerprint),
-                        label: Text(I18n.t(context, 'auth.signInBiometric')),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.fingerprint,
+                          color: FSColors.primary,
+                          size: 32,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: _submitting ? null : _logout,
-                        child: Text(I18n.t(context, 'menu.logout')),
+                    ),
+                    const SizedBox(height: FSSpacing.lg),
+                    Text(
+                      'FinSight',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: theme.colorScheme.onSurface,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: FSSpacing.sm),
+                    Text(
+                      subtitle,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: FSColors.mutedText(context),
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: FSSpacing.xl),
+                    FSButton(
+                      label: I18n.t(context, 'auth.signInBiometric'),
+                      icon: Icons.fingerprint,
+                      loading: _submitting,
+                      fullWidth: true,
+                      onPressed: _submitting || !canUnlock ? null : _unlock,
+                    ),
+                    const SizedBox(height: FSSpacing.md),
+                    FSButton(
+                      label: I18n.t(context, 'menu.logout'),
+                      variant: FSButtonVariant.outline,
+                      fullWidth: true,
+                      onPressed: _submitting ? null : _logout,
+                    ),
+                  ],
                 ),
               ),
             ),

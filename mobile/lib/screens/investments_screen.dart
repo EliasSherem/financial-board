@@ -368,16 +368,16 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
             FSSpacing.xxl,
           ),
           children: [
-            FSPageHeader(
-              title: I18n.t(context, 'title.investments'),
-              leading: const _InvestmentsHeaderIcon(),
-              action: FSButton(
+            Align(
+              alignment: Alignment.centerRight,
+              child: FSButton(
                 label: I18n.t(context, 'invest.add'),
                 icon: Icons.add_rounded,
                 size: FSButtonSize.sm,
                 onPressed: _addDialog,
               ),
             ),
+            const SizedBox(height: FSSpacing.md),
             if (_items.isEmpty)
               FSCard(
                 variant: FSCardVariant.elevated,
@@ -495,27 +495,6 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
           ],
         );
       },
-    );
-  }
-}
-
-class _InvestmentsHeaderIcon extends StatelessWidget {
-  const _InvestmentsHeaderIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 42,
-      height: 42,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: FSColors.intentContainer(context, FSIntent.primary),
-        borderRadius: BorderRadius.circular(FSRadius.md),
-        border: Border.all(
-          color: FSColors.intentBorder(context, FSIntent.primary),
-        ),
-      ),
-      child: const Icon(Icons.trending_up_rounded, color: FSColors.primary),
     );
   }
 }

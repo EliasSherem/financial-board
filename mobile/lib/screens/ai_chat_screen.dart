@@ -8,6 +8,7 @@ import '../i18n.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
+import '../ui/finsight_ui.dart';
 import '../widgets/pro_widgets.dart';
 
 class AiChatScreen extends StatefulWidget {
@@ -40,7 +41,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
     super.dispose();
   }
 
-  String _legacyHistoryKey(int? userId) => 'ai_chat_history_${userId ?? 'anon'}';
+  String _legacyHistoryKey(int? userId) =>
+      'ai_chat_history_${userId ?? 'anon'}';
   String _sessionsKey(int? userId) => 'ai_chat_sessions_${userId ?? 'anon'}';
   String _activeSessionKey(int? userId) => 'ai_chat_active_${userId ?? 'anon'}';
 
@@ -145,7 +147,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 
   _ChatSession _ensureActiveSession() {
-    final active = _activeSessionId != null ? _findSession(_activeSessionId!) : null;
+    final active =
+        _activeSessionId != null ? _findSession(_activeSessionId!) : null;
     if (active != null) return active;
     if (_sessions.isNotEmpty) {
       _activeSessionId = _sessions.first.id;
@@ -205,7 +208,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
             target.messages.add(
               _ChatMessage(
                 role: 'assistant',
-                content: reply.isEmpty ? I18n.t(context, 'aiChat.empty') : reply,
+                content:
+                    reply.isEmpty ? I18n.t(context, 'aiChat.empty') : reply,
               ),
             );
             target.updatedAt = DateTime.now();
@@ -214,9 +218,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('${I18n.t(context, 'label.failed')}: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${I18n.t(context, 'label.failed')}: $e')),
+        );
       }
     } finally {
       if (mounted) {
@@ -260,6 +264,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(true),
+              style: TextButton.styleFrom(foregroundColor: FSColors.danger),
               child: Text(I18n.t(ctx, 'label.delete')),
             ),
           ],
@@ -286,83 +291,59 @@ class _AiChatScreenState extends State<AiChatScreen> {
     if (_sessions.isEmpty) return;
     await showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) {
         final sessions = List<_ChatSession>.from(_sessions)
           ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-        final maxHeight = MediaQuery.of(ctx).size.height * 0.6;
-        return SafeArea(
-          child: SizedBox(
-            height: maxHeight,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          I18n.t(ctx, 'aiChat.chats'),
-                          style: Theme.of(ctx).textTheme.titleMedium,
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: _loading
-                            ? null
-                            : () async {
-                                Navigator.of(ctx).pop();
-                                await _createNewChat();
-                              },
-                        icon: const Icon(Icons.add_comment),
-                        label: Text(I18n.t(ctx, 'aiChat.newChat')),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: sessions.length,
-                    itemBuilder: (listCtx, i) {
-                      final session = sessions[i];
-                      final isActive = session.id == _activeSessionId;
-                      final preview =
-                          session.messages.isEmpty
-                              ? I18n.t(listCtx, 'aiChat.empty')
-                              : session.messages.last.content;
-                      return ListTile(
-                        selected: isActive,
-                        title: Text(
-                          session.title.isEmpty
-                              ? I18n.t(listCtx, 'aiChat.newChat')
-                              : session.title,
-                        ),
-                        subtitle: Text(
-                          preview,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        onTap: () async {
-                          Navigator.of(ctx).pop();
-                          await _selectSession(session);
-                        },
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: _loading && isActive
-                              ? null
-                              : () async {
-                                  final deleted = await _deleteSession(session);
-                                  if (deleted && mounted) {
-                                    Navigator.of(ctx).pop();
-                                  }
-                                },
-                        ),
-                      );
+        return FSBottomSheetShell(
+          title: I18n.t(ctx, 'aiChat.chats'),
+          scrollable: false,
+          maxHeightFactor: 0.72,
+          footer: FSButton(
+            label: I18n.t(ctx, 'aiChat.newChat'),
+            icon: Icons.add_comment_outlined,
+            fullWidth: true,
+            onPressed:
+                _loading
+                    ? null
+                    : () async {
+                      Navigator.of(ctx).pop();
+                      await _createNewChat();
                     },
-                  ),
-                ),
-              ],
-            ),
+          ),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: sessions.length,
+            itemBuilder: (listCtx, i) {
+              final session = sessions[i];
+              final isActive = session.id == _activeSessionId;
+              final preview =
+                  session.messages.isEmpty
+                      ? I18n.t(listCtx, 'aiChat.empty')
+                      : session.messages.last.content;
+              return _ChatSessionTile(
+                title:
+                    session.title.isEmpty
+                        ? I18n.t(listCtx, 'aiChat.newChat')
+                        : session.title,
+                preview: preview,
+                isActive: isActive,
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  await _selectSession(session);
+                },
+                onDelete:
+                    _loading && isActive
+                        ? null
+                        : () async {
+                          final deleted = await _deleteSession(session);
+                          if (deleted && mounted) {
+                            Navigator.of(ctx).pop();
+                          }
+                        },
+              );
+            },
           ),
         );
       },
@@ -385,17 +366,30 @@ class _AiChatScreenState extends State<AiChatScreen> {
     final auth = context.watch<AuthStore>();
     if (!auth.isProOrExempt) {
       return Scaffold(
-        appBar: AppBar(title: Text(I18n.t(context, 'title.aiChat'))),
+        backgroundColor: FSColors.background(context),
+        appBar: AppBar(
+          title: Text(I18n.t(context, 'title.aiChat')),
+          backgroundColor: FSColors.background(context),
+          foregroundColor: Theme.of(context).colorScheme.onSurface,
+          elevation: 0,
+          scrolledUnderElevation: 0.5,
+        ),
         body: const ProBlock(feature: 'AI Chat'),
       );
     }
 
-    final active = _activeSessionId != null ? _findSession(_activeSessionId!) : null;
+    final active =
+        _activeSessionId != null ? _findSession(_activeSessionId!) : null;
     final messages = active?.messages ?? const <_ChatMessage>[];
 
     return Scaffold(
+      backgroundColor: FSColors.background(context),
       appBar: AppBar(
         title: Text(I18n.t(context, 'title.aiChat')),
+        backgroundColor: FSColors.background(context),
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
         actions: [
           IconButton(
             tooltip: I18n.t(context, 'aiChat.chats'),
@@ -412,66 +406,124 @@ class _AiChatScreenState extends State<AiChatScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text(
-              I18n.t(context, 'aiChat.disclaimer'),
-              style: Theme.of(context).textTheme.bodySmall,
+            padding: const EdgeInsets.fromLTRB(
+              FSSpacing.lg,
+              FSSpacing.lg,
+              FSSpacing.lg,
+              FSSpacing.md,
+            ),
+            child: FSCard(
+              variant: FSCardVariant.subtle,
+              child: Row(
+                children: [
+                  const _AiHeaderIcon(),
+                  const SizedBox(width: FSSpacing.md),
+                  Expanded(
+                    child: Text(
+                      I18n.t(context, 'aiChat.disclaimer'),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: FSColors.mutedText(context),
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: FSSpacing.md),
+                  FSButton(
+                    label: I18n.t(context, 'aiChat.newChat'),
+                    icon: Icons.add_comment_outlined,
+                    size: FSButtonSize.sm,
+                    variant: FSButtonVariant.outline,
+                    onPressed: _loading ? null : _createNewChat,
+                  ),
+                ],
+              ),
             ),
           ),
           Expanded(
             child:
                 messages.isEmpty
-                    ? Center(child: Text(I18n.t(context, 'aiChat.empty')))
-                    : ListView.builder(
-                        controller: _scrollCtrl,
-                        padding: const EdgeInsets.all(16),
-                        itemCount: messages.length + (_loading ? 1 : 0),
-                        itemBuilder: (ctx, i) {
-                          if (_loading && i == messages.length) {
-                            return const Padding(
-                              padding: EdgeInsets.only(top: 8),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                              ),
-                            );
-                          }
-                          final msg = messages[i];
-                          return _ChatBubble(message: msg);
-                        },
+                    ? ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                        FSSpacing.lg,
+                        FSSpacing.md,
+                        FSSpacing.lg,
+                        FSSpacing.xl,
                       ),
+                      children: [
+                        FSCard(
+                          variant: FSCardVariant.elevated,
+                          child: FSEmptyState(
+                            icon: Icons.auto_awesome_outlined,
+                            title: I18n.t(context, 'aiChat.empty'),
+                          ),
+                        ),
+                        if (_loading) ...[
+                          const SizedBox(height: FSSpacing.md),
+                          const _ThinkingBubble(),
+                        ],
+                      ],
+                    )
+                    : ListView.builder(
+                      controller: _scrollCtrl,
+                      padding: const EdgeInsets.fromLTRB(
+                        FSSpacing.lg,
+                        FSSpacing.md,
+                        FSSpacing.lg,
+                        FSSpacing.xl,
+                      ),
+                      itemCount: messages.length + (_loading ? 1 : 0),
+                      itemBuilder: (ctx, i) {
+                        if (_loading && i == messages.length) {
+                          return const _ThinkingBubble();
+                        }
+                        final msg = messages[i];
+                        return _ChatBubble(message: msg);
+                      },
+                    ),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: FSColors.border(context)),
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _inputCtrl,
-                      textInputAction: TextInputAction.send,
-                      minLines: 1,
-                      maxLines: 4,
-                      onSubmitted: (_) => _send(),
-                      decoration: InputDecoration(
-                        hintText: I18n.t(context, 'aiChat.placeholder'),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
+              padding: const EdgeInsets.fromLTRB(
+                FSSpacing.lg,
+                FSSpacing.sm,
+                FSSpacing.lg,
+                FSSpacing.sm,
+              ),
+              child: FSCard(
+                variant: FSCardVariant.elevated,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: FSSpacing.md,
+                  vertical: FSSpacing.sm,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _inputCtrl,
+                        textInputAction: TextInputAction.send,
+                        minLines: 1,
+                        maxLines: 4,
+                        onSubmitted: (_) => _send(),
+                        decoration: InputDecoration(
+                          hintText: I18n.t(context, 'aiChat.placeholder'),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: FSSpacing.sm,
+                            vertical: FSSpacing.md,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: _loading ? null : _send,
-                    icon: const Icon(Icons.send),
-                  ),
-                ],
+                    const SizedBox(width: FSSpacing.sm),
+                    _SendButton(onPressed: _loading ? null : _send),
+                  ],
+                ),
               ),
             ),
           ),
@@ -536,14 +588,211 @@ class _ChatSession {
             .toList();
     final createdRaw = json['created_at'];
     final updatedRaw = json['updated_at'];
-    final createdAt = createdRaw is String ? DateTime.tryParse(createdRaw) : null;
-    final updatedAt = updatedRaw is String ? DateTime.tryParse(updatedRaw) : null;
+    final createdAt =
+        createdRaw is String ? DateTime.tryParse(createdRaw) : null;
+    final updatedAt =
+        updatedRaw is String ? DateTime.tryParse(updatedRaw) : null;
     return _ChatSession(
       id: id,
       title: title,
       messages: messages,
       createdAt: createdAt ?? DateTime.now(),
       updatedAt: updatedAt ?? DateTime.now(),
+    );
+  }
+}
+
+class _AiHeaderIcon extends StatelessWidget {
+  const _AiHeaderIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 42,
+      height: 42,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: FSColors.intentContainer(context, FSIntent.info),
+        borderRadius: BorderRadius.circular(FSRadius.md),
+        border: Border.all(
+          color: FSColors.intentBorder(context, FSIntent.info),
+        ),
+      ),
+      child: const Icon(Icons.auto_awesome_outlined, color: FSColors.info),
+    );
+  }
+}
+
+class _ChatSessionTile extends StatelessWidget {
+  const _ChatSessionTile({
+    required this.title,
+    required this.preview,
+    required this.isActive,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  final String title;
+  final String preview;
+  final bool isActive;
+  final VoidCallback onTap;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: FSSpacing.sm),
+      child: FSCard(
+        onTap: onTap,
+        variant: isActive ? FSCardVariant.interactive : FSCardVariant.subtle,
+        padding: const EdgeInsets.all(FSSpacing.md),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: FSColors.intentContainer(
+                  context,
+                  isActive ? FSIntent.primary : FSIntent.neutral,
+                ),
+                borderRadius: BorderRadius.circular(FSRadius.md),
+                border: Border.all(
+                  color: FSColors.intentBorder(
+                    context,
+                    isActive ? FSIntent.primary : FSIntent.neutral,
+                  ),
+                ),
+              ),
+              child: Icon(
+                Icons.chat_bubble_outline,
+                size: 19,
+                color: isActive ? FSColors.primary : FSColors.neutral,
+              ),
+            ),
+            const SizedBox(width: FSSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: FSSpacing.xs),
+                  Text(
+                    preview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: FSColors.mutedText(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: FSSpacing.sm),
+            IconButton(
+              tooltip: I18n.t(context, 'label.delete'),
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline),
+              style: IconButton.styleFrom(
+                fixedSize: const Size.square(40),
+                foregroundColor: FSColors.danger,
+                backgroundColor: FSColors.alpha(FSColors.danger, 0.10),
+                side: BorderSide(color: FSColors.alpha(FSColors.danger, 0.18)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(FSRadius.md),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ThinkingBubble extends StatelessWidget {
+  const _ThinkingBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.74,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: FSSpacing.sm),
+          child: FSCard(
+            variant: FSCardVariant.subtle,
+            padding: const EdgeInsets.symmetric(
+              horizontal: FSSpacing.md,
+              vertical: FSSpacing.md,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: FSColors.intentContainer(context, FSIntent.info),
+                    borderRadius: BorderRadius.circular(FSRadius.pill),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_outlined,
+                    size: 16,
+                    color: FSColors.info,
+                  ),
+                ),
+                const SizedBox(width: FSSpacing.md),
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2.2),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SendButton extends StatelessWidget {
+  const _SendButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: I18n.t(context, 'aiChat.placeholder'),
+      onPressed: onPressed,
+      icon: const Icon(Icons.send_rounded, size: 19),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(44),
+        backgroundColor:
+            onPressed == null
+                ? FSColors.alpha(FSColors.primary, 0.38)
+                : FSColors.primary,
+        foregroundColor: Colors.white,
+        disabledForegroundColor: FSColors.alpha(Colors.white, 0.72),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FSRadius.md),
+        ),
+      ),
     );
   }
 }
@@ -555,20 +804,69 @@ class _ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUser = message.role == 'user';
-    final cs = Theme.of(context).colorScheme;
-    final bg = isUser ? cs.primary : cs.surfaceVariant;
-    final fg = isUser ? cs.onPrimary : cs.onSurfaceVariant;
+    final theme = Theme.of(context);
+    final maxWidth = MediaQuery.of(context).size.width * 0.82;
+    final bubbleColor =
+        isUser ? FSColors.primary : FSColors.surfaceElevated(context);
+    final textColor =
+        isUser ? Colors.white : Theme.of(context).colorScheme.onSurface;
+    final borderColor =
+        isUser
+            ? FSColors.alpha(FSColors.primary, 0.22)
+            : FSColors.border(context);
+
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        constraints: const BoxConstraints(maxWidth: 320),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(12),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: FSSpacing.sm),
+          padding: const EdgeInsets.all(FSSpacing.md),
+          decoration: BoxDecoration(
+            color: bubbleColor,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(FSRadius.lg),
+              topRight: const Radius.circular(FSRadius.lg),
+              bottomLeft: Radius.circular(isUser ? FSRadius.lg : FSRadius.sm),
+              bottomRight: Radius.circular(isUser ? FSRadius.sm : FSRadius.lg),
+            ),
+            border: Border.all(color: borderColor),
+            boxShadow: isUser ? FSShadows.none : FSShadows.soft(context),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!isUser) ...[
+                Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: FSColors.intentContainer(context, FSIntent.info),
+                    borderRadius: BorderRadius.circular(FSRadius.pill),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_outlined,
+                    size: 16,
+                    color: FSColors.info,
+                  ),
+                ),
+                const SizedBox(width: FSSpacing.md),
+              ],
+              Flexible(
+                child: Text(
+                  message.content,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: textColor,
+                    height: 1.42,
+                    fontWeight: isUser ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        child: Text(message.content, style: TextStyle(color: fg)),
       ),
     );
   }

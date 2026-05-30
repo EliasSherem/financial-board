@@ -6,6 +6,7 @@ import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
+import '../ui/finsight_ui.dart';
 import '../utils/format.dart';
 import '../i18n.dart';
 import 'account_detail_screen.dart';
@@ -136,8 +137,9 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
       return WillPopScope(
         onWillPop: () async => !widget.forceCreate,
         child: Scaffold(
+          backgroundColor: FSColors.background(context),
           appBar: appBar,
-          body: const Center(child: CircularProgressIndicator()),
+          body: const FSLoadingState(),
         ),
       );
     }
@@ -149,8 +151,9 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
       return WillPopScope(
         onWillPop: () async => !widget.forceCreate,
         child: Scaffold(
+          backgroundColor: FSColors.background(context),
           appBar: appBar,
-          body: const Center(child: CircularProgressIndicator()),
+          body: const FSLoadingState(),
         ),
       );
     }
@@ -164,331 +167,190 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
               (a, b) => a.displayBalance >= b.displayBalance ? a : b,
             );
 
-    Widget kpi(
-      IconData ic,
-      String title,
-      String value, {
-      Color? iconColor,
-    }) => SizedBox(
-      height: 110,
-      child: Card(
-        color:
-            Theme.of(context).brightness == Brightness.dark
-                ? Theme.of(context).colorScheme.surface
-                : Colors.blue.shade50,
-        elevation: 6,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: (iconColor ?? Theme.of(context).colorScheme.primary)
-                      .withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  ic,
-                  color: iconColor ?? Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.labelLarge),
-                    const SizedBox(height: 2),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        value,
-                        maxLines: 1,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
     List<Widget> accountCards() =>
         accounts.map((a) {
-          final isDark = Theme.of(context).brightness == Brightness.dark;
-          final displayBalance = a.displayBalance;
-          final Color cardBg =
-              isDark
-                  ? Theme.of(context).colorScheme.surface
-                  : (displayBalance > 0
-                      ? Colors.green.shade50
-                      : (displayBalance == 0
-                          ? Colors.yellow.shade50
-                          : Colors.red.shade50));
-          final statusColor =
-              a.isActive ? const Color(0xFF16A34A) : Colors.grey;
-          final statusBg =
-              a.isActive ? const Color(0xFFE6F7EC) : Colors.grey.shade200;
-          return Card(
-            color: cardBg,
-            elevation: 6,
-            child: InkWell(
-              onTap: () {
-                Navigator.of(context)
-                    .push(
-                      MaterialPageRoute(
-                        builder: (_) => AccountDetailScreen(account: a),
-                      ),
-                    )
-                    .then((changed) {
-                      if (changed == true && mounted) {
-                        context.read<RefreshBus>().notifyAccounts();
-                        _refresh();
-                      }
-                    });
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            a.name,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                        if (a.isInvestment || (a.type ?? '').isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE5F0FF),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              a.isInvestment
-                                  ? I18n.t(context, 'accounts.type.investment')
-                                  : a.type!,
-                              style: const TextStyle(color: Color(0xFF2563EB)),
-                            ),
-                          ),
-                      ],
-                    ),
-                    if ((a.bankName ?? '').isNotEmpty ||
-                        (a.accountNumber ?? '').isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          '${a.bankName ?? ''}${(a.accountNumber ?? '').isNotEmpty ? '   ' + (a.accountNumber!.length > 4 ? a.accountNumber!.substring(a.accountNumber!.length - 4) : a.accountNumber!) : ''}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                    const SizedBox(height: 10),
-                    Text(
-                      I18n.t(
-                        context,
-                        a.isInvestment
-                            ? 'accounts.details.estimatedValue'
-                            : 'label.currentBalance',
-                      ),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      money(displayBalance),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusBg,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            a.isActive ? 'Active' : 'Inactive',
-                            style: TextStyle(color: statusColor),
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          tooltip: 'Edit',
-                          icon: const Icon(Icons.edit_outlined),
-                          onPressed: () => _showEditAccount(context, data, a),
-                        ),
-                        IconButton(
-                          tooltip: 'Delete',
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.redAccent,
-                          ),
-                          onPressed: () async {
-                            final ok = await showDialog<bool>(
-                              context: context,
-                              builder:
-                                  (dctx) => AlertDialog(
-                                    title: const Text('Delete account?'),
-                                    content: Text(
-                                      'Delete ${a.name}?\n\nThis will permanently delete this account and ALL of its related data:\n\n'
-                                      '- Transactions (cascade)\n'
-                                      '- Recurring payments (cascade)\n'
-                                      '- Balance history (cascade)\n\n'
-                                      'This action cannot be undone.',
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed:
-                                            () => Navigator.of(dctx).pop(false),
-                                        child: const Text('Cancel'),
-                                      ),
-                                      FilledButton(
-                                        onPressed:
-                                            () => Navigator.of(dctx).pop(true),
-                                        child: const Text('Delete'),
-                                      ),
-                                    ],
-                                  ),
-                            );
-                            if (ok == true) {
-                              try {
-                                await data.deleteAccount(a.id);
-                                if (mounted) {
-                                  context.read<RefreshBus>().notifyAccounts();
-                                  _refresh();
-                                }
-                              } catch (e) {
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Failed to delete account: $e',
-                                    ),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+          return _AccountCard(
+            account: a,
+            typeLabel:
+                a.isInvestment
+                    ? I18n.t(context, 'accounts.type.investment')
+                    : (a.type ?? ''),
+            balanceLabel: I18n.t(
+              context,
+              a.isInvestment
+                  ? 'accounts.details.estimatedValue'
+                  : 'label.currentBalance',
             ),
+            onTap: () {
+              Navigator.of(context)
+                  .push(
+                    MaterialPageRoute(
+                      builder: (_) => AccountDetailScreen(account: a),
+                    ),
+                  )
+                  .then((changed) {
+                    if (changed == true && mounted) {
+                      context.read<RefreshBus>().notifyAccounts();
+                      _refresh();
+                    }
+                  });
+            },
+            onEdit: () => _showEditAccount(context, data, a),
+            onDelete: () async {
+              final ok = await showDialog<bool>(
+                context: context,
+                builder:
+                    (dctx) => AlertDialog(
+                      title: const Text('Delete account?'),
+                      content: Text(
+                        'Delete ${a.name}?\n\nThis will permanently delete this account and ALL of its related data:\n\n'
+                        '- Transactions (cascade)\n'
+                        '- Recurring payments (cascade)\n'
+                        '- Balance history (cascade)\n\n'
+                        'This action cannot be undone.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(dctx).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.of(dctx).pop(true),
+                          child: const Text('Delete'),
+                        ),
+                      ],
+                    ),
+              );
+              if (ok == true) {
+                try {
+                  await data.deleteAccount(a.id);
+                  if (mounted) {
+                    context.read<RefreshBus>().notifyAccounts();
+                    _refresh();
+                  }
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to delete account: $e')),
+                  );
+                }
+              }
+            },
           );
         }).toList();
     return WillPopScope(
       onWillPop: () async => !widget.forceCreate,
       child: Scaffold(
+        backgroundColor: FSColors.background(context),
         appBar: appBar,
         body: RefreshIndicator(
+          color: Theme.of(context).colorScheme.primary,
           onRefresh: _refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(
+              FSSpacing.lg,
+              FSSpacing.lg,
+              FSSpacing.lg,
+              FSSpacing.xxl,
+            ),
             children: [
               if (widget.forceCreate && accounts.isEmpty) ...[
-                Card(
-                  elevation: 6,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.flag_outlined,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            I18n.t(context, 'onboarding.createFirstAccount'),
-                            style: Theme.of(context).textTheme.bodyMedium,
+                FSCard(
+                  variant: FSCardVariant.subtle,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: FSColors.intentContainer(
+                            context,
+                            FSIntent.primary,
                           ),
+                          borderRadius: BorderRadius.circular(FSRadius.md),
                         ),
-                      ],
-                    ),
+                        child: const Icon(
+                          Icons.flag_outlined,
+                          color: FSColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: FSSpacing.md),
+                      Expanded(
+                        child: Text(
+                          I18n.t(context, 'onboarding.createFirstAccount'),
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: FSSpacing.md),
               ],
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: FSSpacing.sm,
+                runSpacing: FSSpacing.sm,
                 children: [
-                  FilledButton.icon(
+                  FSButton(
+                    label: I18n.t(context, 'label.addAccount'),
+                    icon: Icons.add_rounded,
                     onPressed:
                         () => _showCreateAccount(
                           context,
                           data,
                           forceCreate: widget.forceCreate,
                         ),
-                    icon: const Icon(Icons.add),
-                    label: Text(I18n.t(context, 'label.addAccount')),
                   ),
-                  OutlinedButton.icon(
+                  FSButton(
+                    label: I18n.t(context, 'accounts.transferFunds'),
+                    icon: Icons.swap_horiz_rounded,
+                    variant: FSButtonVariant.outline,
                     onPressed:
                         _loading
                             ? null
                             : () => _showTransferDialog(context, data),
-                    icon: const Icon(Icons.swap_horiz),
-                    label: Text(I18n.t(context, 'accounts.transferFunds')),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: FSSpacing.md),
               LayoutBuilder(
                 builder: (context, c) {
                   final w = c.maxWidth;
-                  const gap = 12.0;
+                  const gap = FSSpacing.md;
+                  final columns = w < 360 ? 1 : 2;
+                  final itemW = (w - (columns - 1) * gap) / columns;
                   final cards = <Widget>[
-                    kpi(
-                      Icons.attach_money,
-                      I18n.t(context, 'kpi.totalBalance'),
-                      money(total),
+                    FSMetricCard(
+                      title: I18n.t(context, 'kpi.totalBalance'),
+                      value: money(total),
+                      icon: Icons.attach_money_rounded,
+                      accent: total >= 0 ? FSIntent.success : FSIntent.danger,
                     ),
-                    kpi(
-                      Icons.account_balance_wallet_outlined,
-                      I18n.t(context, 'kpi.accounts'),
-                      activeCount.toString(),
+                    FSMetricCard(
+                      title: I18n.t(context, 'kpi.accounts'),
+                      value: activeCount.toString(),
+                      icon: Icons.account_balance_wallet_outlined,
+                      accent: FSIntent.primary,
                     ),
-                    kpi(
-                      Icons.trending_up,
-                      I18n.t(context, 'analytics.highestBalanceAccount'),
-                      money(highest?.displayBalance ?? 0),
+                    FSMetricCard(
+                      title: I18n.t(context, 'analytics.highestBalanceAccount'),
+                      value: money(highest?.displayBalance ?? 0),
+                      subtitle: highest?.name,
+                      icon: Icons.trending_up_rounded,
+                      accent: FSIntent.info,
                     ),
                   ];
-                  final itemW =
-                      (w - gap) /
-                      2; // always 2 columns; last odd spans full width
                   final children = <Widget>[];
                   for (var i = 0; i < cards.length; i++) {
                     final isLastOdd =
-                        (cards.length % 2 == 1) && i == cards.length - 1;
+                        columns == 2 &&
+                        (cards.length % 2 == 1) &&
+                        i == cards.length - 1;
                     final width = isLastOdd ? w : itemW;
-                    children.add(SizedBox(width: width, child: cards[i]));
+                    children.add(
+                      SizedBox(width: width, height: 138, child: cards[i]),
+                    );
                   }
                   return Wrap(
                     spacing: gap,
@@ -497,8 +359,27 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                   );
                 },
               ),
-              const SizedBox(height: 16),
-              ...accountCards(),
+              const SizedBox(height: FSSpacing.md),
+              if (accounts.isEmpty)
+                FSCard(
+                  variant: FSCardVariant.elevated,
+                  child: FSEmptyState(
+                    icon: Icons.account_balance_wallet_outlined,
+                    title: I18n.t(context, 'onboarding.createFirstAccount'),
+                    action: FSButton(
+                      label: I18n.t(context, 'label.addAccount'),
+                      icon: Icons.add_rounded,
+                      onPressed:
+                          () => _showCreateAccount(
+                            context,
+                            data,
+                            forceCreate: widget.forceCreate,
+                          ),
+                    ),
+                  ),
+                )
+              else
+                ...accountCards(),
             ],
           ),
         ),
@@ -1011,5 +892,263 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
       context.read<RefreshBus>().notifyAccounts();
       _refresh();
     }
+  }
+}
+
+class _AccountCard extends StatelessWidget {
+  const _AccountCard({
+    required this.account,
+    required this.typeLabel,
+    required this.balanceLabel,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final Account account;
+  final String typeLabel;
+  final String balanceLabel;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final Future<void> Function() onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayBalance = account.displayBalance;
+    final balanceIntent =
+        displayBalance > 0
+            ? FSIntent.success
+            : (displayBalance == 0 ? FSIntent.warning : FSIntent.danger);
+    final balanceColor = FSColors.intent(balanceIntent);
+    final metadata = _accountMetadata(account);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: FSSpacing.md),
+      child: FSCard(
+        variant: FSCardVariant.interactive,
+        onTap: onTap,
+        padding: const EdgeInsets.all(FSSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: FSColors.intentContainer(context, balanceIntent),
+                    borderRadius: BorderRadius.circular(FSRadius.md),
+                    border: Border.all(
+                      color: FSColors.intentBorder(context, balanceIntent),
+                    ),
+                  ),
+                  child: Icon(
+                    account.isInvestment
+                        ? Icons.trending_up_rounded
+                        : Icons.account_balance_rounded,
+                    color: balanceColor,
+                  ),
+                ),
+                const SizedBox(width: FSSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        account.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      if (metadata.isNotEmpty) ...[
+                        const SizedBox(height: FSSpacing.xs),
+                        Text(
+                          metadata,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: FSColors.mutedText(context)),
+                        ),
+                      ],
+                      const SizedBox(height: FSSpacing.sm),
+                      Wrap(
+                        spacing: FSSpacing.sm,
+                        runSpacing: FSSpacing.xs,
+                        children: [
+                          if (typeLabel.isNotEmpty)
+                            FSStatusBadge(
+                              label: typeLabel,
+                              variant: FSStatusBadgeVariant.info,
+                            ),
+                          FSStatusBadge(
+                            label: account.isActive ? 'Active' : 'Inactive',
+                            variant:
+                                account.isActive
+                                    ? FSStatusBadgeVariant.active
+                                    : FSStatusBadgeVariant.neutral,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: FSSpacing.sm),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _AccountActionButton(
+                      tooltip: 'Edit',
+                      icon: Icons.edit_outlined,
+                      onPressed: onEdit,
+                    ),
+                    const SizedBox(height: FSSpacing.xs),
+                    _AccountActionButton(
+                      tooltip: 'Delete',
+                      icon: Icons.delete_outline_rounded,
+                      onPressed: onDelete,
+                      danger: true,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: FSSpacing.lg),
+            _AccountBalanceTile(
+              label: balanceLabel,
+              value: money(displayBalance),
+              intent: balanceIntent,
+              valueColor: balanceColor,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _accountMetadata(Account account) {
+    if ((account.bankName ?? '').isEmpty &&
+        (account.accountNumber ?? '').isEmpty) {
+      return '';
+    }
+    final accountNumber = account.accountNumber ?? '';
+    final suffix =
+        accountNumber.isEmpty
+            ? ''
+            : (accountNumber.length > 4
+                ? accountNumber.substring(accountNumber.length - 4)
+                : accountNumber);
+    return '${account.bankName ?? ''}${suffix.isNotEmpty ? '   $suffix' : ''}';
+  }
+}
+
+class _AccountBalanceTile extends StatelessWidget {
+  const _AccountBalanceTile({
+    required this.label,
+    required this.value,
+    required this.intent,
+    required this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final FSIntent intent;
+  final Color valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(FSSpacing.md),
+      decoration: BoxDecoration(
+        color: FSColors.surface(context),
+        borderRadius: BorderRadius.circular(FSRadius.lg),
+        border: Border.all(color: FSColors.border(context)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FSColors.intentContainer(context, intent),
+              borderRadius: BorderRadius.circular(FSRadius.md),
+            ),
+            child: Icon(
+              Icons.payments_outlined,
+              color: FSColors.intent(intent),
+            ),
+          ),
+          const SizedBox(width: FSSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: FSColors.mutedText(context),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: valueColor,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountActionButton extends StatelessWidget {
+  const _AccountActionButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.danger = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        danger ? FSColors.danger : Theme.of(context).colorScheme.primary;
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon, size: 20),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(40),
+        backgroundColor: FSColors.alpha(color, 0.10),
+        foregroundColor: color,
+        side: BorderSide(color: FSColors.alpha(color, 0.18)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FSRadius.md),
+        ),
+      ),
+    );
   }
 }

@@ -7,6 +7,7 @@ import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
+import '../ui/finsight_ui.dart';
 import '../utils/format.dart';
 import '../widgets/new_transaction_dialog.dart';
 import '../widgets/quick_create_dialogs.dart';
@@ -359,8 +360,6 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
     final account = _account ?? widget.account;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final heroCardColor = isDark ? colorScheme.surface : Colors.blue.shade50;
 
     final now = DateTime.now();
     final cutoff = now.subtract(const Duration(days: 30));
@@ -397,29 +396,14 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
       required String label,
       required String value,
       Color? valueColor,
+      FSIntent accent = FSIntent.primary,
     }) {
-      return Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, size: 20, color: valueColor ?? colorScheme.primary),
-              const SizedBox(height: 8),
-              Text(label, style: theme.textTheme.labelMedium),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: valueColor ?? theme.textTheme.titleMedium?.color,
-                ),
-              ),
-            ],
-          ),
-        ),
+      return FSMetricCard(
+        title: label,
+        value: value,
+        icon: icon,
+        accent: accent,
+        accentColor: valueColor,
       );
     }
 
@@ -430,22 +414,39 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
       Color? valueColor,
     }) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: FSSpacing.sm),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 20, color: colorScheme.primary),
-            const SizedBox(width: 12),
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: FSColors.intentContainer(context, FSIntent.primary),
+                borderRadius: BorderRadius.circular(FSRadius.md),
+                border: Border.all(
+                  color: FSColors.intentBorder(context, FSIntent.primary),
+                ),
+              ),
+              child: Icon(icon, size: 19, color: FSColors.primary),
+            ),
+            const SizedBox(width: FSSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: theme.textTheme.bodyMedium),
-                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: FSColors.mutedText(context),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: FSSpacing.xs),
                   Text(
                     value,
                     style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: valueColor ?? theme.textTheme.bodyLarge?.color,
                     ),
                   ),
@@ -461,142 +462,203 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
         account.isActive
             ? I18n.t(context, 'label.active')
             : I18n.t(context, 'label.inactive');
-    final statusColor =
-        account.isActive ? const Color(0xFF16A34A) : colorScheme.error;
+    final statusColor = account.isActive ? FSColors.success : colorScheme.error;
+    final statusVariant =
+        account.isActive
+            ? FSStatusBadgeVariant.active
+            : FSStatusBadgeVariant.danger;
 
     final Map<String, List<TransactionItem>> groupedTx = _groupTransactions();
 
     return Scaffold(
-      appBar: AppBar(title: Text(account.name)),
+      backgroundColor: FSColors.background(context),
+      appBar: AppBar(
+        title: Text(account.name),
+        backgroundColor: FSColors.background(context),
+        foregroundColor: colorScheme.onSurface,
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(
+            FSSpacing.lg,
+            FSSpacing.lg,
+            FSSpacing.lg,
+            FSSpacing.xxl,
+          ),
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            Card(
-              color: heroCardColor,
-              elevation: 6,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      I18n.t(
-                        context,
-                        isInvestmentAccount
-                            ? 'accounts.details.estimatedValue'
-                            : 'label.currentBalance',
-                      ),
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        money(displayBalance),
-                        maxLines: 1,
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+            FSCard(
+              variant: FSCardVariant.elevated,
+              padding: const EdgeInsets.all(FSSpacing.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: FSColors.intentContainer(
+                            context,
+                            isInvestmentAccount
+                                ? FSIntent.info
+                                : FSIntent.primary,
+                          ),
+                          borderRadius: BorderRadius.circular(FSRadius.lg),
+                          border: Border.all(
+                            color: FSColors.intentBorder(
+                              context,
+                              isInvestmentAccount
+                                  ? FSIntent.info
+                                  : FSIntent.primary,
+                            ),
+                          ),
+                        ),
+                        child: Icon(
+                          isInvestmentAccount
+                              ? Icons.trending_up
+                              : Icons.account_balance_wallet_outlined,
                           color:
-                              displayBalance >= 0
-                                  ? const Color(0xFF16A34A)
-                                  : colorScheme.error,
+                              isInvestmentAccount
+                                  ? FSColors.info
+                                  : FSColors.primary,
                         ),
                       ),
+                      const Spacer(),
+                      FSStatusBadge(
+                        label: statusLabel,
+                        variant: statusVariant,
+                        icon:
+                            account.isActive
+                                ? Icons.check_circle_outline
+                                : Icons.error_outline,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: FSSpacing.lg),
+                  Text(
+                    I18n.t(
+                      context,
+                      isInvestmentAccount
+                          ? 'accounts.details.estimatedValue'
+                          : 'label.currentBalance',
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        if ((account.type ?? '').isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: ShapeDecoration(
-                              color: colorScheme.primary.withValues(
-                                alpha: 0.14,
-                              ),
-                              shape: const StadiumBorder(),
-                            ),
-                            child: Text(
-                              account.type!,
-                              style: TextStyle(
-                                color: colorScheme.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        const Spacer(),
-                        Text(
-                          statusLabel,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: statusColor,
-                          ),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: FSColors.mutedText(context),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: FSSpacing.sm),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      money(displayBalance),
+                      maxLines: 1,
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color:
+                            displayBalance >= 0
+                                ? FSColors.success
+                                : colorScheme.error,
+                        height: 1.05,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: FSSpacing.md),
+                  Wrap(
+                    spacing: FSSpacing.sm,
+                    runSpacing: FSSpacing.sm,
+                    children: [
+                      if ((account.type ?? '').isNotEmpty)
+                        FSStatusBadge(
+                          label: account.type!,
+                          variant: FSStatusBadgeVariant.info,
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      if ((account.bankName ?? '').isNotEmpty)
+                        FSStatusBadge(
+                          label: account.bankName!,
+                          variant: FSStatusBadgeVariant.neutral,
+                          icon: Icons.account_balance_outlined,
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _accountBusy ? null : _editAccount,
-                  icon: const Icon(Icons.edit_outlined),
-                  label: Text(I18n.t(context, 'accounts.details.edit')),
-                ),
-                const SizedBox(width: 12),
-                TextButton.icon(
-                  onPressed: _accountBusy ? null : _deleteAccount,
-                  icon: const Icon(Icons.delete_outline),
-                  label: Text(I18n.t(context, 'accounts.details.delete')),
-                  style: TextButton.styleFrom(
-                    foregroundColor: colorScheme.error,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Text(
-              I18n.t(context, 'accounts.details.quickActions'),
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: FSSpacing.lg),
             Wrap(
-              spacing: 12,
-              runSpacing: 12,
+              spacing: FSSpacing.md,
+              runSpacing: FSSpacing.sm,
               children: [
-                FilledButton.tonalIcon(
-                  onPressed: _processingQuickAction ? null : _createTransaction,
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: Text(
-                    I18n.t(context, 'accounts.details.newTransaction'),
-                  ),
+                FSButton(
+                  label: I18n.t(context, 'accounts.details.edit'),
+                  onPressed: _accountBusy ? null : _editAccount,
+                  icon: Icons.edit_outlined,
+                  variant: FSButtonVariant.outline,
                 ),
-                FilledButton.tonalIcon(
-                  onPressed:
-                      _processingQuickAction ? null : _createRecurringPayment,
-                  icon: const Icon(Icons.autorenew),
-                  label: Text(I18n.t(context, 'accounts.details.recurring')),
+                FSButton(
+                  label: I18n.t(context, 'accounts.details.delete'),
+                  onPressed: _accountBusy ? null : _deleteAccount,
+                  icon: Icons.delete_outline,
+                  variant: FSButtonVariant.danger,
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: FSSpacing.lg),
+            FSCard(
+              variant: FSCardVariant.subtle,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    I18n.t(context, 'accounts.details.quickActions'),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: FSSpacing.md),
+                  Wrap(
+                    spacing: FSSpacing.md,
+                    runSpacing: FSSpacing.sm,
+                    children: [
+                      FSButton(
+                        label: I18n.t(
+                          context,
+                          'accounts.details.newTransaction',
+                        ),
+                        onPressed:
+                            _processingQuickAction ? null : _createTransaction,
+                        icon: Icons.add_circle_outline,
+                        variant: FSButtonVariant.primary,
+                      ),
+                      FSButton(
+                        label: I18n.t(context, 'accounts.details.recurring'),
+                        onPressed:
+                            _processingQuickAction
+                                ? null
+                                : _createRecurringPayment,
+                        icon: Icons.autorenew,
+                        variant: FSButtonVariant.outline,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: FSSpacing.xl),
             Text(
               I18n.t(context, 'accounts.details.metrics'),
-              style: theme.textTheme.titleMedium,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: FSSpacing.md),
             LayoutBuilder(
               builder: (context, constraints) {
                 final width = constraints.maxWidth;
@@ -614,32 +676,35 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                     icon: Icons.swap_vert,
                     label: I18n.t(context, 'accounts.details.count30'),
                     value: count30.toString(),
+                    accent: FSIntent.info,
                   ),
                   metricTile(
                     icon: Icons.call_received,
                     label: I18n.t(context, 'accounts.details.inflow30'),
                     value: money(inflow30),
-                    valueColor: const Color(0xFF16A34A),
+                    valueColor: FSColors.success,
+                    accent: FSIntent.success,
                   ),
                   metricTile(
                     icon: Icons.call_made,
                     label: I18n.t(context, 'accounts.details.outflow30'),
                     value: money(outflow30),
                     valueColor: colorScheme.error,
+                    accent: FSIntent.danger,
                   ),
                   metricTile(
                     icon: Icons.trending_up,
                     label: I18n.t(context, 'accounts.details.net30'),
                     value: money(net30),
                     valueColor:
-                        net30 >= 0
-                            ? const Color(0xFF16A34A)
-                            : colorScheme.error,
+                        net30 >= 0 ? FSColors.success : colorScheme.error,
+                    accent: net30 >= 0 ? FSIntent.success : FSIntent.danger,
                   ),
                   metricTile(
                     icon: Icons.payments_outlined,
                     label: I18n.t(context, 'accounts.details.avgTicket'),
                     value: money(avgTicket),
+                    accent: FSIntent.neutral,
                   ),
                 ];
                 return Wrap(
@@ -652,109 +717,140 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                 );
               },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: FSSpacing.xl),
             Text(
               I18n.t(context, 'accounts.details.accountInfo'),
-              style: theme.textTheme.titleMedium,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
             ),
-            const SizedBox(height: 12),
-            Card(
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
+            const SizedBox(height: FSSpacing.md),
+            FSCard(
+              child: Column(
+                children: [
+                  infoRow(
+                    icon: Icons.account_balance,
+                    label: I18n.t(context, 'accounts.details.bank'),
+                    value:
+                        (account.bankName ?? '').isEmpty
+                            ? I18n.t(context, 'accounts.details.notSet')
+                            : account.bankName!,
+                  ),
+                  Divider(color: FSColors.border(context)),
+                  infoRow(
+                    icon: Icons.confirmation_number_outlined,
+                    label: I18n.t(context, 'accounts.details.accountNumber'),
+                    value: maskAccountNumber(account.accountNumber),
+                  ),
+                  Divider(color: FSColors.border(context)),
+                  infoRow(
+                    icon: Icons.style_outlined,
+                    label: I18n.t(context, 'accounts.details.type'),
+                    value:
+                        (account.type ?? '').isEmpty
+                            ? I18n.t(context, 'accounts.details.notSet')
+                            : account.type!,
+                  ),
+                  Divider(color: FSColors.border(context)),
+                  infoRow(
+                    icon: Icons.verified_user_outlined,
+                    label: I18n.t(context, 'accounts.details.status'),
+                    value: statusLabel,
+                    valueColor: statusColor,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: FSSpacing.xl),
+            Text(
+              I18n.t(context, 'accounts.details.transactions'),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: FSSpacing.md),
+            if (_loading)
+              const FSCard(
+                variant: FSCardVariant.subtle,
+                child: FSLoadingState(),
+              )
+            else if (_error != null)
+              FSCard(
+                variant: FSCardVariant.subtle,
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    infoRow(
-                      icon: Icons.account_balance,
-                      label: I18n.t(context, 'accounts.details.bank'),
-                      value:
-                          (account.bankName ?? '').isEmpty
-                              ? I18n.t(context, 'accounts.details.notSet')
-                              : account.bankName!,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: FSColors.intentContainer(
+                              context,
+                              FSIntent.danger,
+                            ),
+                            borderRadius: BorderRadius.circular(FSRadius.md),
+                            border: Border.all(
+                              color: FSColors.intentBorder(
+                                context,
+                                FSIntent.danger,
+                              ),
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.error_outline,
+                            color: colorScheme.error,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: FSSpacing.md),
+                        Expanded(
+                          child: Text(
+                            I18n.t(context, 'accounts.details.error'),
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const Divider(),
-                    infoRow(
-                      icon: Icons.confirmation_number_outlined,
-                      label: I18n.t(context, 'accounts.details.accountNumber'),
-                      value: maskAccountNumber(account.accountNumber),
-                    ),
-                    const Divider(),
-                    infoRow(
-                      icon: Icons.style_outlined,
-                      label: I18n.t(context, 'accounts.details.type'),
-                      value:
-                          (account.type ?? '').isEmpty
-                              ? I18n.t(context, 'accounts.details.notSet')
-                              : account.type!,
-                    ),
-                    const Divider(),
-                    infoRow(
-                      icon: Icons.verified_user_outlined,
-                      label: I18n.t(context, 'accounts.details.status'),
-                      value: statusLabel,
-                      valueColor: statusColor,
+                    const SizedBox(height: FSSpacing.md),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FSButton(
+                        label: I18n.t(context, 'accounts.details.retry'),
+                        onPressed: _load,
+                        icon: Icons.refresh,
+                        variant: FSButtonVariant.outline,
+                        size: FSButtonSize.sm,
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              I18n.t(context, 'accounts.details.transactions'),
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_error != null)
-              Card(
-                color: colorScheme.errorContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        I18n.t(context, 'accounts.details.error'),
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: colorScheme.onErrorContainer,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: _load,
-                          child: Text(
-                            I18n.t(context, 'accounts.details.retry'),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               )
             else if (_txs.isEmpty)
-              Card(
-                elevation: 0,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(
-                    I18n.t(context, 'accounts.details.noTransactions'),
-                  ),
+              FSCard(
+                variant: FSCardVariant.subtle,
+                child: FSEmptyState(
+                  icon: Icons.receipt_long_outlined,
+                  title: I18n.t(context, 'accounts.details.noTransactions'),
                 ),
               )
             else
               ...groupedTx.entries.expand((entry) sync* {
                 yield Padding(
-                  padding: const EdgeInsets.only(bottom: 6, top: 12),
+                  padding: const EdgeInsets.only(
+                    bottom: FSSpacing.sm,
+                    top: FSSpacing.lg,
+                  ),
                   child: Text(
                     entry.key,
                     style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
+                      color: FSColors.mutedText(context),
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 );
@@ -762,7 +858,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                   yield _TxRow(item: tx);
                 }
               }),
-            const SizedBox(height: 24),
+            const SizedBox(height: FSSpacing.xl),
           ],
         ),
       ),
@@ -780,65 +876,81 @@ class _TxRow extends StatelessWidget {
     final isIncome = !isTransfer && item.amount >= 0;
     final amountStr = signedMoney(item.amount);
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final Color bg =
-        isDark
-            ? (isTransfer
-                ? const Color(0xFF1D2A44)
-                : (isIncome
-                    ? const Color(0xFF103521)
-                    : const Color(0xFF3A1C1C)))
-            : (isTransfer
-                ? Colors.blue.shade50
-                : (isIncome ? Colors.green.shade50 : Colors.red.shade50));
+    final intent =
+        isTransfer
+            ? FSIntent.info
+            : (isIncome ? FSIntent.success : FSIntent.danger);
+    final amountColor = FSColors.intent(intent);
 
-    return Card(
-      color: bg,
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.description.isEmpty
-                        ? '(No description)'
-                        : item.description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+    return FSCard(
+      variant: FSCardVariant.subtle,
+      padding: const EdgeInsets.all(FSSpacing.md),
+      margin: const EdgeInsets.only(bottom: FSSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: FSColors.intentContainer(context, intent),
+              borderRadius: BorderRadius.circular(FSRadius.md),
+              border: Border.all(color: FSColors.intentBorder(context, intent)),
+            ),
+            child: Icon(
+              isTransfer
+                  ? Icons.swap_horiz
+                  : (isIncome ? Icons.arrow_downward : Icons.arrow_upward),
+              color: amountColor,
+              size: 19,
+            ),
+          ),
+          const SizedBox(width: FSSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.description.isEmpty
+                      ? '(No description)'
+                      : item.description,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${formatDate(item.date)}'
-                    '${(item.effectiveCategory ?? '').isNotEmpty ? ' - ${item.effectiveCategory}' : ''}',
-                    style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(height: FSSpacing.xs),
+                Text(
+                  '${formatDate(item.date)}'
+                  '${(item.effectiveCategory ?? '').isNotEmpty ? ' - ${item.effectiveCategory}' : ''}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: FSColors.mutedText(context),
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: FSSpacing.sm),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 124),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                amountStr,
+                maxLines: 1,
+                textAlign: TextAlign.right,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: amountColor,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
-            const SizedBox(width: 8),
-            Text(
-              amountStr,
-              style: TextStyle(
-                color:
-                    isTransfer
-                        ? Colors.blue
-                        : (isIncome
-                            ? const Color(0xFF16A34A)
-                            : theme.colorScheme.error),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
