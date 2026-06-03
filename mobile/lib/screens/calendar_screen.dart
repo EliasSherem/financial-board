@@ -7,8 +7,8 @@ import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
 import '../models.dart';
 import '../i18n.dart';
-import '../ui/finsight_ui.dart';
 import '../utils/format.dart';
+import '../liquid_glass/liquid_glass.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -75,7 +75,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final end = DateTime(month.year, month.month + 1, 0); // last day
     if (next.isAfter(end)) return out;
     // Use a non-null working variable
-    var n = next;
+    var n = next!;
     // Advance to on/after start
     while (n.isBefore(start)) {
       final nn = _addFrequency(n, p.frequency);
@@ -178,7 +178,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
       '${I18n.t(context, 'calendar.duePayment')}: ${p.name}',
     );
     final details = Uri.encodeComponent(
-      'Amount: ${money(p.amount)}${p.accountName != null ? '\nAccount: ${p.accountName}' : ''}',
+      'Amount: ' +
+          money(p.amount) +
+          (p.accountName != null ? '\nAccount: ${p.accountName}' : ''),
     );
     final url =
         'https://calendar.google.com/calendar/render?action=TEMPLATE&text=$title&details=$details&dates=${fmt(start)}/${fmt(end)}';
@@ -192,7 +194,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     String fmt(DateTime x) =>
         '${x.year.toString().padLeft(4, '0')}${x.month.toString().padLeft(2, '0')}${x.day.toString().padLeft(2, '0')}';
     final title = Uri.encodeComponent('Salary: ${r.name}');
-    final details = Uri.encodeComponent('Amount: ${money(r.amount)}');
+    final details = Uri.encodeComponent('Amount: ' + money(r.amount));
     final url =
         'https://calendar.google.com/calendar/render?action=TEMPLATE&text=$title&details=$details&dates=${fmt(start)}/${fmt(end)}';
     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
@@ -200,8 +202,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     final byDay = _eventsForMonth(_month);
     final bySalary = _salaryEventsForMonth(_month);
     final firstWeekday =
@@ -212,13 +212,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final rows = ((totalCells + 6) / 7).floor();
 
     return Scaffold(
-      backgroundColor: FSColors.background(context),
       appBar: AppBar(
-        title: Text(I18n.t(context, 'title.calendar')),
-        backgroundColor: FSColors.background(context),
-        foregroundColor: cs.onSurface,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        scrolledUnderElevation: 0.5,
+        scrolledUnderElevation: 0,
         actions: [
           IconButton(
             onPressed: _load,
@@ -229,124 +227,79 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
       body:
           _loading
-              ? const FSLoadingState()
-              : Column(
+              ? ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      FSSpacing.lg,
-                      FSSpacing.lg,
-                      FSSpacing.lg,
-                      FSSpacing.md,
-                    ),
-                    child: FSCard(
-                      variant: FSCardVariant.subtle,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: FSSpacing.sm,
-                        vertical: FSSpacing.sm,
-                      ),
-                      child: Row(
-                        children: [
-                          _CalendarNavButton(
-                            tooltip: 'Prev',
-                            icon: Icons.chevron_left_rounded,
-                            onPressed:
-                                () => setState(
-                                  () =>
-                                      _month = DateTime(
-                                        _month.year,
-                                        _month.month - 1,
-                                        1,
-                                      ),
-                                ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              DateFormat.yMMMM(
-                                Localizations.localeOf(context).toString(),
-                              ).format(_month),
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          _CalendarNavButton(
-                            tooltip: 'Next',
-                            icon: Icons.chevron_right_rounded,
-                            onPressed:
-                                () => setState(
-                                  () =>
-                                      _month = DateTime(
-                                        _month.year,
-                                        _month.month + 1,
-                                        1,
-                                      ),
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: FSSpacing.lg,
-                    ),
-                    child: FSCard(
-                      variant: FSCardVariant.elevated,
-                      padding: const EdgeInsets.all(FSSpacing.sm),
-                      child: _weekHeader(context),
-                    ),
-                  ),
-                  const SizedBox(height: FSSpacing.md),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        FSSpacing.lg,
-                        0,
-                        FSSpacing.lg,
-                        FSSpacing.xxl,
-                      ),
-                      child: FSCard(
-                        variant: FSCardVariant.elevated,
-                        padding: const EdgeInsets.all(FSSpacing.sm),
-                        child: GridView.builder(
-                          padding: EdgeInsets.zero,
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 7,
-                                mainAxisSpacing: FSSpacing.sm,
-                                crossAxisSpacing: FSSpacing.sm,
-                              ),
-                          itemCount: rows * 7,
-                          itemBuilder: (context, idx) {
-                            final dayNum = idx - cellsBefore + 1;
-                            if (dayNum < 1 || dayNum > daysInMonth) {
-                              return const SizedBox.shrink();
-                            }
-                            final date = DateTime(
-                              _month.year,
-                              _month.month,
-                              dayNum,
-                            );
-                            final now = DateTime.now();
-                            final isToday =
-                                date.year == now.year &&
-                                date.month == now.month &&
-                                date.day == now.day;
-                            final key = date.toIso8601String().substring(0, 10);
-                            final list = byDay[key] ?? const [];
-                            final sals = bySalary[key] ?? const [];
-                            final has = list.isNotEmpty || sals.isNotEmpty;
-                            return _CalendarDayCell(
-                              dayNum: dayNum,
-                              isToday: isToday,
-                              eventCount: list.length + sals.length,
-                              onTap: has ? () => _openDay(date, list) : null,
+                  _pageHeader(context),
+                  const SizedBox(height: LGSpacing.md),
+                  const LGLoadingState(),
+                ],
+              )
+              : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
+                children: [
+                  _pageHeader(context),
+                  const SizedBox(height: LGSpacing.md),
+                  _monthControls(context),
+                  const SizedBox(height: LGSpacing.md),
+                  LGSolidCard(
+                    variant: LGCardVariant.elevated,
+                    padding: const EdgeInsets.all(LGSpacing.sm),
+                    child: Column(
+                      children: [
+                        _weekHeader(context),
+                        const SizedBox(height: LGSpacing.sm),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final cellHeight =
+                                constraints.maxWidth < 380 ? 66.0 : 78.0;
+                            return GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 7,
+                                    mainAxisSpacing: 6,
+                                    crossAxisSpacing: 6,
+                                    mainAxisExtent: cellHeight,
+                                  ),
+                              itemCount: rows * 7,
+                              itemBuilder: (context, idx) {
+                                final dayNum = idx - cellsBefore + 1;
+                                if (dayNum < 1 || dayNum > daysInMonth) {
+                                  return const SizedBox.shrink();
+                                }
+                                final date = DateTime(
+                                  _month.year,
+                                  _month.month,
+                                  dayNum,
+                                );
+                                final now = DateTime.now();
+                                final isToday =
+                                    date.year == now.year &&
+                                    date.month == now.month &&
+                                    date.day == now.day;
+                                final key = date.toIso8601String().substring(
+                                  0,
+                                  10,
+                                );
+                                final list = byDay[key] ?? const [];
+                                final sals = bySalary[key] ?? const [];
+                                final has = list.isNotEmpty || sals.isNotEmpty;
+                                return _dayCell(
+                                  context: context,
+                                  dayNum: dayNum,
+                                  isToday: isToday,
+                                  hasEvents: has,
+                                  eventCount: list.length + sals.length,
+                                  onTap:
+                                      has ? () => _openDay(date, list) : null,
+                                );
+                              },
                             );
                           },
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ],
@@ -354,53 +307,176 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
+  Widget _pageHeader(BuildContext context) {
+    return LGPageHeader(
+      title: I18n.t(context, 'title.calendar'),
+      leading: _CalendarIconBox(
+        icon: Icons.calendar_today_outlined,
+        color: Theme.of(context).colorScheme.primary,
+        size: 52,
+      ),
+    );
+  }
+
+  Widget _monthControls(BuildContext context) {
+    return LGGlassCard(
+      padding: const EdgeInsets.all(LGSpacing.md),
+      borderRadius: BorderRadius.circular(LGRadius.xxl),
+      child: Row(
+        children: [
+          _SoftIconButton(
+            tooltip: 'Prev',
+            icon: Icons.chevron_left,
+            onPressed:
+                () => setState(
+                  () => _month = DateTime(_month.year, _month.month - 1, 1),
+                ),
+          ),
+          Expanded(
+            child: Text(
+              DateFormat.yMMMM(
+                Localizations.localeOf(context).toString(),
+              ).format(_month),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: LGColors.textPrimary(context),
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          _SoftIconButton(
+            tooltip: 'Next',
+            icon: Icons.chevron_right,
+            onPressed:
+                () => setState(
+                  () => _month = DateTime(_month.year, _month.month + 1, 1),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dayCell({
+    required BuildContext context,
+    required int dayNum,
+    required bool isToday,
+    required bool hasEvents,
+    required int eventCount,
+    required VoidCallback? onTap,
+  }) {
+    final primary = Theme.of(context).colorScheme.primary;
+    final borderColor =
+        isToday
+            ? primary.withValues(alpha: 0.70)
+            : LGColors.textSecondary(context).withValues(alpha: 0.14);
+    final background =
+        hasEvents
+            ? primary.withValues(alpha: LGColors.isDark(context) ? 0.18 : 0.08)
+            : isToday
+            ? primary.withValues(alpha: LGColors.isDark(context) ? 0.14 : 0.06)
+            : LGColors.surfaceTinted(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(LGRadius.md),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(LGRadius.md),
+            border: Border.all(color: borderColor, width: isToday ? 1.6 : 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$dayNum',
+                maxLines: 1,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: isToday ? FontWeight.w900 : FontWeight.w700,
+                  color: isToday ? primary : LGColors.textPrimary(context),
+                ),
+              ),
+              if (hasEvents) ...[
+                const Spacer(),
+                Align(
+                  alignment: Alignment.bottomLeft,
+                  child: _eventCountBadge(context, eventCount),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _eventCountBadge(BuildContext context, int count) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 22, minHeight: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary,
+        borderRadius: BorderRadius.circular(LGRadius.pill),
+      ),
+      child: Text(
+        count.toString(),
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          height: 1,
+        ),
+      ),
+    );
+  }
+
   void _openDay(DateTime date, List<PaymentItem> payments) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         final sals =
             _salaryEventsForMonth(DateTime(date.year, date.month, 1))[date
                 .toIso8601String()
                 .substring(0, 10)] ??
             const [];
-        final dateLabel = DateFormat.yMMMMd(
-          Localizations.localeOf(context).toString(),
-        ).format(date);
         if (payments.isEmpty && sals.isEmpty) {
-          return FSBottomSheetShell(
-            title: dateLabel,
-            child: FSEmptyState(
+          return LGBottomSheetShell(
+            title: DateFormat.yMMMMd(
+              Localizations.localeOf(context).toString(),
+            ).format(date),
+            child: LGEmptyState(
               icon: Icons.event_busy_outlined,
               title: I18n.t(context, 'calendar.noEvents'),
+              message: DateFormat.yMMMMd(
+                Localizations.localeOf(context).toString(),
+              ).format(date),
             ),
           );
         }
-        return FSBottomSheetShell(
-          title: dateLabel,
+        return LGBottomSheetShell(
+          title: DateFormat.yMMMMd(
+            Localizations.localeOf(context).toString(),
+          ).format(date),
           child: Column(
             children: [
-              for (final p in payments)
-                _CalendarEventCard(
-                  icon: Icons.payments_outlined,
-                  title: p.name,
-                  subtitle: '${p.frequency} • ${money(p.amount)}',
-                  intent: FSIntent.warning,
-                  onExport: () => _exportToCalendar(p, date),
-                  exportLabel: I18n.t(context, 'calendar.addToCalendar'),
-                ),
-              for (final r in sals)
-                _CalendarEventCard(
-                  icon: Icons.attach_money,
-                  title: r.name,
-                  subtitle:
-                      'Salary • ${money(r.amount)}'
-                      '${r.accountName != null ? ' • ${r.accountName}' : ''}',
-                  intent: FSIntent.success,
-                  onExport: () => _exportSalaryToCalendar(r, date),
-                  exportLabel: I18n.t(context, 'calendar.addToCalendar'),
-                ),
+              for (var i = 0; i < payments.length; i++) ...[
+                _paymentEventRow(payments[i], date),
+                if (i != payments.length - 1 || sals.isNotEmpty)
+                  const SizedBox(height: LGSpacing.sm),
+              ],
+              for (var i = 0; i < sals.length; i++) ...[
+                _salaryEventRow(sals[i], date),
+                if (i != sals.length - 1) const SizedBox(height: LGSpacing.sm),
+              ],
             ],
           ),
         );
@@ -411,13 +487,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget _weekHeader(BuildContext context) {
     const names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     final style = Theme.of(context).textTheme.labelSmall?.copyWith(
-      color: FSColors.mutedText(context),
-      fontWeight: FontWeight.w800,
+      color: LGColors.textSecondary(context),
+      fontWeight: FontWeight.w900,
+      letterSpacing: 0,
     );
-    return Padding(
+    return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: FSSpacing.xs,
-        vertical: FSSpacing.xs,
+        horizontal: LGSpacing.xs,
+        vertical: LGSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: LGColors.surfaceTinted(context),
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        border: Border.all(
+          color: LGColors.textSecondary(context).withValues(alpha: 0.12),
+        ),
       ),
       child: Row(
         children: [
@@ -427,10 +511,124 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
   }
+
+  Widget _paymentEventRow(PaymentItem p, DateTime date) {
+    return _eventRow(
+      icon: Icons.payments_outlined,
+      iconColor: Theme.of(context).colorScheme.primary,
+      title: p.name,
+      subtitle: '${p.frequency} • ${money(p.amount)}',
+      action: LGButton(
+        label: I18n.t(context, 'calendar.addToCalendar'),
+        icon: Icons.event_available_outlined,
+        size: LGButtonSize.sm,
+        variant: LGButtonVariant.outline,
+        onPressed: () => _exportToCalendar(p, date),
+      ),
+    );
+  }
+
+  Widget _salaryEventRow(SalaryRule r, DateTime date) {
+    return _eventRow(
+      icon: Icons.attach_money,
+      iconColor: LGColors.success,
+      title: r.name,
+      subtitle:
+          'Salary • ${money(r.amount)}${r.accountName != null ? ' • ${r.accountName}' : ''}',
+      action: LGButton(
+        label: I18n.t(context, 'calendar.addToCalendar'),
+        icon: Icons.event_available_outlined,
+        size: LGButtonSize.sm,
+        variant: LGButtonVariant.outline,
+        onPressed: () => _exportSalaryToCalendar(r, date),
+      ),
+    );
+  }
+
+  Widget _eventRow({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required Widget action,
+  }) {
+    return LGSolidCard(
+      tinted: true,
+      padding: const EdgeInsets.all(LGSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _CalendarIconBox(icon: icon, color: iconColor, size: 42),
+              const SizedBox(width: LGSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: LGColors.textPrimary(context),
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: LGSpacing.xs),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: LGColors.textSecondary(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: LGSpacing.md),
+          action,
+        ],
+      ),
+    );
+  }
 }
 
-class _CalendarNavButton extends StatelessWidget {
-  const _CalendarNavButton({
+class _CalendarIconBox extends StatelessWidget {
+  const _CalendarIconBox({
+    required this.icon,
+    required this.color,
+    this.size = 44,
+  });
+
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: LGColors.isDark(context) ? 0.18 : 0.10),
+        borderRadius: BorderRadius.circular(
+          size >= 48 ? LGRadius.lg : LGRadius.md,
+        ),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Icon(icon, color: color, size: size >= 48 ? 25 : 20),
+    );
+  }
+}
+
+class _SoftIconButton extends StatelessWidget {
+  const _SoftIconButton({
     required this.tooltip,
     required this.icon,
     required this.onPressed,
@@ -442,201 +640,27 @@ class _CalendarNavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      icon: Icon(icon),
-      style: IconButton.styleFrom(
-        fixedSize: const Size.square(42),
-        backgroundColor: FSColors.intentContainer(context, FSIntent.primary),
-        foregroundColor: FSColors.primary,
-        side: BorderSide(
-          color: FSColors.intentBorder(context, FSIntent.primary),
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FSRadius.md),
-        ),
-      ),
-    );
-  }
-}
-
-class _CalendarDayCell extends StatelessWidget {
-  const _CalendarDayCell({
-    required this.dayNum,
-    required this.isToday,
-    required this.eventCount,
-    required this.onTap,
-  });
-
-  final int dayNum;
-  final bool isToday;
-  final int eventCount;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasEvents = eventCount > 0;
-    final borderColor =
-        isToday
-            ? FSColors.primary
-            : hasEvents
-            ? FSColors.intentBorder(context, FSIntent.info)
-            : FSColors.border(context);
-    final backgroundColor =
-        hasEvents
-            ? FSColors.intentContainer(context, FSIntent.info)
-            : isToday
-            ? FSColors.intentContainer(context, FSIntent.primary)
-            : FSColors.surface(context);
-
+    final color = Theme.of(context).colorScheme.primary;
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(FSRadius.md),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.all(FSSpacing.xs),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(FSRadius.md),
-            border: Border.all(color: borderColor, width: isToday ? 1.8 : 1),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$dayNum',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: isToday ? FSColors.primary : null,
-                  fontWeight: isToday ? FontWeight.w900 : FontWeight.w700,
-                ),
+        borderRadius: BorderRadius.circular(LGRadius.md),
+        onTap: onPressed,
+        child: Tooltip(
+          message: tooltip,
+          child: Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(
+                alpha: LGColors.isDark(context) ? 0.18 : 0.09,
               ),
-              if (hasEvents) ...[
-                const Spacer(),
-                Align(
-                  alignment: Alignment.bottomLeft,
-                  child: _CalendarCountBadge(count: eventCount),
-                ),
-              ],
-            ],
+              borderRadius: BorderRadius.circular(LGRadius.md),
+              border: Border.all(color: color.withValues(alpha: 0.22)),
+            ),
+            child: Icon(icon, color: color, size: 24),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CalendarCountBadge extends StatelessWidget {
-  const _CalendarCountBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: FSColors.primary,
-        borderRadius: BorderRadius.circular(FSRadius.pill),
-        boxShadow: FSShadows.soft(context),
-      ),
-      child: Text(
-        count.toString(),
-        maxLines: 1,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          height: 1.1,
-        ),
-      ),
-    );
-  }
-}
-
-class _CalendarEventCard extends StatelessWidget {
-  const _CalendarEventCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.intent,
-    required this.exportLabel,
-    required this.onExport,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final FSIntent intent;
-  final String exportLabel;
-  final VoidCallback onExport;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = FSColors.intent(intent);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: FSSpacing.md),
-      child: FSCard(
-        variant: FSCardVariant.subtle,
-        padding: const EdgeInsets.all(FSSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: FSColors.intentContainer(context, intent),
-                    borderRadius: BorderRadius.circular(FSRadius.md),
-                    border: Border.all(
-                      color: FSColors.intentBorder(context, intent),
-                    ),
-                  ),
-                  child: Icon(icon, color: color, size: 21),
-                ),
-                const SizedBox(width: FSSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: FSSpacing.xs),
-                      Text(
-                        subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: FSColors.mutedText(context),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: FSSpacing.md),
-            FSButton(
-              label: exportLabel,
-              icon: Icons.calendar_month_outlined,
-              variant: FSButtonVariant.outline,
-              size: FSButtonSize.sm,
-              fullWidth: true,
-              onPressed: onExport,
-            ),
-          ],
         ),
       ),
     );

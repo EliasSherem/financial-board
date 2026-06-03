@@ -21,10 +21,10 @@
             android:layout_height="wrap_content"
             android:text="@string/widget_spent_title"
             android:textAllCaps="true"
-            android:textColor="#E0EAFF"
+            android:textColor="@color/widget_text_secondary"
             android:textSize="12sp"
             android:fontFamily="sans-serif-medium"
-            android:letterSpacing="0.08" />
+            android:letterSpacing="0.04" />
 
         <TextView
             android:id="@+id/widget_amount"
@@ -32,7 +32,7 @@
             android:layout_height="wrap_content"
             android:paddingTop="6dp"
             android:text="@string/widget_default_amount"
-            android:textColor="@android:color/white"
+            android:textColor="@color/widget_text_primary"
             android:textSize="22sp"
             android:textStyle="bold"
             android:fontFamily="sans-serif-medium" />
@@ -43,7 +43,7 @@
             android:layout_height="wrap_content"
             android:paddingTop="4dp"
             android:text="@string/widget_default_month"
-            android:textColor="#E0EAFF"
+            android:textColor="@color/widget_text_secondary"
             android:textSize="12sp"
             android:fontFamily="sans-serif" />
     </LinearLayout>
@@ -66,7 +66,7 @@
             android:layout_height="20dp"
             android:contentDescription="@string/widget_cta"
             android:src="@android:drawable/ic_input_add"
-            android:tint="#2563EB" />
+            android:tint="@color/widget_primary" />
 
         <TextView
             android:id="@+id/widget_action_text"
@@ -74,10 +74,12 @@
             android:layout_height="wrap_content"
             android:paddingStart="8dp"
             android:text="@string/widget_cta"
-            android:textColor="#2563EB"
+            android:textColor="@color/widget_primary"
             android:textSize="13sp"
             android:textStyle="bold"
-            android:fontFamily="sans-serif-medium" />
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:ellipsize="end" />
     </LinearLayout>
 
     <LinearLayout
@@ -98,7 +100,7 @@
             android:layout_height="20dp"
             android:contentDescription="@string/widget_cta_recurring"
             android:src="@android:drawable/ic_popup_sync"
-            android:tint="#2563EB" />
+            android:tint="@color/widget_primary" />
 
         <TextView
             android:id="@+id/widget_recurring_text"
@@ -106,10 +108,12 @@
             android:layout_height="wrap_content"
             android:paddingStart="8dp"
             android:text="@string/widget_cta_recurring"
-            android:textColor="#2563EB"
+            android:textColor="@color/widget_primary"
             android:textSize="13sp"
             android:textStyle="bold"
-            android:fontFamily="sans-serif-medium" />
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:ellipsize="end" />
     </LinearLayout>
 
 </LinearLayout>

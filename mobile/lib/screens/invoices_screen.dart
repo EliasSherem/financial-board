@@ -10,6 +10,7 @@ import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
 import '../i18n.dart';
+import '../liquid_glass/liquid_glass.dart';
 import '../utils/invoice_pdf.dart';
 
 Future<Map<String, dynamic>> _emailInvoicePdf({
@@ -147,25 +148,57 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         body: const ProBlock(feature: 'Invoices'),
       );
     }
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(LGSpacing.lg),
+          child: LGLoadingState(label: I18n.t(context, 'title.invoices')),
+        ),
+      );
+    }
+    final totalDue = _invoices.fold<double>(
+      0,
+      (sum, inv) => sum + inv.amountDue,
+    );
+    final paidCount =
+        _invoices
+            .where(
+              (inv) => inv.amountDue <= 0 || inv.status.toLowerCase() == 'paid',
+            )
+            .length;
     // Two tabs: Invoices and Customers
     Widget invoicesTab() => RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(
+          LGSpacing.lg,
+          LGSpacing.lg,
+          LGSpacing.lg,
+          132,
+        ),
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton.icon(
-              onPressed: _showAddInvoice,
-              icon: const Icon(Icons.receipt_long_outlined),
-              label: Text(I18n.t(context, 'invoices.add')),
-            ),
+          _InvoiceSummaryPanel(
+            invoiceCount: _invoices.length,
+            paidCount: paidCount,
+            totalDue: totalDue,
           ),
-          const SizedBox(height: 16),
-          ..._invoices
-              .map(
-                (inv) => _InvoiceCard(
+          const SizedBox(height: LGSpacing.lg),
+          if (_invoices.isEmpty)
+            LGEmptyState(
+              icon: Icons.receipt_long_outlined,
+              title: I18n.t(context, 'title.invoices'),
+              message: I18n.t(context, 'invoices.add'),
+              action: LGButton(
+                label: I18n.t(context, 'invoices.add'),
+                icon: Icons.add,
+                onPressed: _showAddInvoice,
+              ),
+            )
+          else
+            ..._invoices.map(
+              (inv) => Padding(
+                padding: const EdgeInsets.only(bottom: LGSpacing.md),
+                child: _InvoiceCard(
                   inv: inv,
                   onOpen: () => _openInvoice(inv),
                   onPay: () => _markPaid(inv),
@@ -175,8 +208,8 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                           : () => _shareInvoice(inv),
                   isSharing: _sharingInvoiceId == inv.id,
                 ),
-              )
-              .toList(),
+              ),
+            ),
         ],
       ),
     );
@@ -184,57 +217,116 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     Widget customersTab() => RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(
+          LGSpacing.lg,
+          LGSpacing.lg,
+          LGSpacing.lg,
+          132,
+        ),
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton.icon(
-              onPressed: _showAddCustomer,
-              icon: const Icon(Icons.person_add_alt_1),
-              label: Text(I18n.t(context, 'invoices.addCustomer')),
+          LGGlassCard(
+            variant: LGCardVariant.elevated,
+            child: Row(
+              children: [
+                _InvoiceHeaderIcon(
+                  icon: Icons.people_alt_outlined,
+                  intent: LGIntent.info,
+                ),
+                const SizedBox(width: LGSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        I18n.t(context, 'title.customers'),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: LGColors.textPrimary(context),
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: LGSpacing.xs),
+                      Text(
+                        '${_customers.length}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: LGColors.textSecondary(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                LGButton(
+                  label: I18n.t(context, 'invoices.addCustomer'),
+                  icon: Icons.person_add_alt_1,
+                  variant: LGButtonVariant.glass,
+                  onPressed: _showAddCustomer,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          Card(
-            color:
-                Theme.of(context).brightness == Brightness.dark
-                    ? Theme.of(context).colorScheme.surface
-                    : Colors.blue.shade50,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                children:
-                    _customers
-                        .map(
-                          (c) => _CustomerRow(
-                            customer: c,
-                            onEdit: () => _editCustomer(c),
-                            onDelete: () => _deleteCustomer(c),
-                          ),
-                        )
-                        .toList(),
+          const SizedBox(height: LGSpacing.lg),
+          if (_customers.isEmpty)
+            LGEmptyState(
+              icon: Icons.person_add_alt_1,
+              title: I18n.t(context, 'title.customers'),
+              message: I18n.t(context, 'invoices.addCustomer'),
+              action: LGButton(
+                label: I18n.t(context, 'invoices.addCustomer'),
+                icon: Icons.add,
+                onPressed: _showAddCustomer,
+              ),
+            )
+          else
+            ..._customers.map(
+              (c) => Padding(
+                padding: const EdgeInsets.only(bottom: LGSpacing.md),
+                child: _CustomerRow(
+                  customer: c,
+                  onEdit: () => _editCustomer(c),
+                  onDelete: () => _deleteCustomer(c),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
 
-    final cs = Theme.of(context).colorScheme;
     return DefaultTabController(
       length: 2,
       child: Column(
         children: [
-          Container(
-            color: cs.surface,
-            child: TabBar(
-              labelColor: cs.primary,
-              unselectedLabelColor: cs.onSurfaceVariant,
-              indicatorColor: cs.primary,
-              tabs: [
-                Tab(text: I18n.t(context, 'title.invoices')),
-                Tab(text: I18n.t(context, 'title.customers')),
-              ],
+          LGPageHeader(
+            title: I18n.t(context, 'title.invoices'),
+            leading: const _InvoiceBackButton(),
+            action: LGButton(
+              label: I18n.t(context, 'invoices.add'),
+              icon: Icons.add,
+              size: LGButtonSize.sm,
+              onPressed: _showAddInvoice,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: LGSpacing.lg),
+            child: LGGlassCard(
+              padding: const EdgeInsets.all(LGSpacing.xs),
+              variant: LGCardVariant.standard,
+              child: TabBar(
+                dividerHeight: 0,
+                labelColor: LGColors.primaryBlue,
+                unselectedLabelColor: LGColors.textSecondary(context),
+                indicator: BoxDecoration(
+                  color: LGColors.intentContainer(context, LGIntent.primary),
+                  borderRadius: BorderRadius.circular(LGRadius.pill),
+                  border: Border.all(
+                    color: LGColors.intentStroke(context, LGIntent.primary),
+                  ),
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelStyle: const TextStyle(fontWeight: FontWeight.w900),
+                tabs: [
+                  Tab(text: I18n.t(context, 'title.invoices')),
+                  Tab(text: I18n.t(context, 'title.customers')),
+                ],
+              ),
             ),
           ),
           Expanded(
@@ -730,12 +822,12 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                   controller: customerCtrl,
                                   readOnly: true,
                                   onTap: _pickCustomer,
-                                  decoration: InputDecoration(
+                                  decoration: LGForm.dropdownDecoration(
+                                    context,
                                     labelText: I18n.t(
                                       context,
                                       'invoices.customer',
                                     ),
-                                    border: const OutlineInputBorder(),
                                     suffixIcon: const Icon(
                                       Icons.arrow_drop_down,
                                     ),
@@ -759,12 +851,12 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                   ],
                                   onChanged:
                                       (v) => setLocal(() => projectId = v),
-                                  decoration: InputDecoration(
+                                  decoration: LGForm.dropdownDecoration(
+                                    context,
                                     labelText: I18n.t(
                                       context,
                                       'tx.projectOptional',
                                     ),
-                                    border: const OutlineInputBorder(),
                                   ),
                                 ),
                               ),
@@ -775,60 +867,51 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                 TextField(
                                   readOnly: true,
                                   controller: issueCtrl,
-                                  decoration: InputDecoration(
+                                  decoration: LGForm.dateFieldDecoration(
+                                    context,
                                     labelText: I18n.t(
                                       context,
                                       'invoices.issueDate',
                                     ),
-                                    border: const OutlineInputBorder(),
-                                    suffixIcon: IconButton(
-                                      icon: const Icon(
-                                        Icons.calendar_today_outlined,
-                                      ),
-                                      onPressed: () async {
-                                        final p = await showDatePicker(
-                                          context: ctx,
-                                          initialDate: DateTime.now(),
-                                          firstDate: DateTime(2000),
-                                          lastDate: DateTime(2100),
+                                    onCalendarTap: () async {
+                                      final p = await showDatePicker(
+                                        context: ctx,
+                                        initialDate: DateTime.now(),
+                                        firstDate: DateTime(2000),
+                                        lastDate: DateTime(2100),
+                                      );
+                                      if (p != null) {
+                                        setLocal(
+                                          () => issueCtrl.text = formatDate(p),
                                         );
-                                        if (p != null)
-                                          setLocal(
-                                            () =>
-                                                issueCtrl.text = formatDate(p),
-                                          );
-                                      },
-                                    ),
+                                      }
+                                    },
                                   ),
                                 ),
                                 TextField(
                                   readOnly: true,
                                   controller: dueCtrl,
-                                  decoration: InputDecoration(
+                                  decoration: LGForm.dateFieldDecoration(
+                                    context,
                                     labelText: I18n.t(
                                       context,
                                       'invoices.dueDate',
                                     ),
-                                    border: const OutlineInputBorder(),
-                                    suffixIcon: IconButton(
-                                      icon: const Icon(
-                                        Icons.calendar_today_outlined,
-                                      ),
-                                      onPressed: () async {
-                                        final p = await showDatePicker(
-                                          context: ctx,
-                                          initialDate: DateTime.now().add(
-                                            const Duration(days: 7),
-                                          ),
-                                          firstDate: DateTime(2000),
-                                          lastDate: DateTime(2100),
+                                    onCalendarTap: () async {
+                                      final p = await showDatePicker(
+                                        context: ctx,
+                                        initialDate: DateTime.now().add(
+                                          const Duration(days: 7),
+                                        ),
+                                        firstDate: DateTime(2000),
+                                        lastDate: DateTime(2100),
+                                      );
+                                      if (p != null) {
+                                        setLocal(
+                                          () => dueCtrl.text = formatDate(p),
                                         );
-                                        if (p != null)
-                                          setLocal(
-                                            () => dueCtrl.text = formatDate(p),
-                                          );
-                                      },
-                                    ),
+                                      }
+                                    },
                                   ),
                                 ),
                               ),
@@ -867,8 +950,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                   for (int i = 0; i < items.length; i++) ...[
                                     LayoutBuilder(
                                       builder: (ctx, constraints) {
-                                        final isNarrow =
-                                            constraints.maxWidth < 520;
                                         Widget descField() => TextFormField(
                                           key: ValueKey('desc_$i'),
                                           initialValue:
@@ -878,13 +959,14 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                           onChanged:
                                               (v) =>
                                                   items[i]['description'] = v,
-                                          decoration: InputDecoration(
-                                            labelText: I18n.t(
-                                              context,
-                                              'invoices.description',
-                                            ),
-                                            border: const OutlineInputBorder(),
-                                          ),
+                                          decoration:
+                                              LGForm.solidInputDecoration(
+                                                context,
+                                                labelText: I18n.t(
+                                                  context,
+                                                  'invoices.description',
+                                                ),
+                                              ),
                                         );
                                         Widget qtyField() => TextFormField(
                                           key: ValueKey('qty_$i'),
@@ -903,13 +985,14 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                                         double.tryParse(v) ??
                                                         0.0,
                                               ),
-                                          decoration: InputDecoration(
-                                            labelText: I18n.t(
-                                              context,
-                                              'invoices.qty',
-                                            ),
-                                            border: const OutlineInputBorder(),
-                                          ),
+                                          decoration:
+                                              LGForm.solidInputDecoration(
+                                                context,
+                                                labelText: I18n.t(
+                                                  context,
+                                                  'invoices.qty',
+                                                ),
+                                              ),
                                         );
                                         Widget priceField() => TextFormField(
                                           key: ValueKey('price_$i'),
@@ -928,13 +1011,14 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                                         double.tryParse(v) ??
                                                         0.0,
                                               ),
-                                          decoration: InputDecoration(
-                                            labelText: I18n.t(
-                                              context,
-                                              'invoices.unitPrice',
-                                            ),
-                                            border: const OutlineInputBorder(),
-                                          ),
+                                          decoration:
+                                              LGForm.solidInputDecoration(
+                                                context,
+                                                labelText: I18n.t(
+                                                  context,
+                                                  'invoices.unitPrice',
+                                                ),
+                                              ),
                                         );
                                         final removeBtn = IconButton(
                                           tooltip: I18n.t(
@@ -958,33 +1042,13 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                             ],
                                           ],
                                         );
-                                        if (isNarrow) {
-                                          return Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              descField(),
-                                              const SizedBox(height: 8),
-                                              qtyPriceRow,
-                                            ],
-                                          );
-                                        }
-                                        return Row(
+                                        return Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Expanded(
-                                              flex: 3,
-                                              child: descField(),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(child: qtyField()),
-                                            const SizedBox(width: 8),
-                                            Expanded(child: priceField()),
-                                            if (items.length > 1) ...[
-                                              const SizedBox(width: 8),
-                                              removeBtn,
-                                            ],
+                                            descField(),
+                                            const SizedBox(height: 8),
+                                            qtyPriceRow,
                                           ],
                                         );
                                       },
@@ -1003,10 +1067,10 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                       const TextInputType.numberWithOptions(
                                         decimal: true,
                                       ),
-                                  decoration: InputDecoration(
+                                  decoration: LGForm.solidInputDecoration(
+                                    context,
                                     labelText:
                                         '${I18n.t(context, 'invoices.discount')} (%)',
-                                    border: const OutlineInputBorder(),
                                     suffixText: '%',
                                   ),
                                   onChanged: (_) => setLocal(() {}),
@@ -1017,10 +1081,10 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                       const TextInputType.numberWithOptions(
                                         decimal: true,
                                       ),
-                                  decoration: InputDecoration(
+                                  decoration: LGForm.solidInputDecoration(
+                                    context,
                                     labelText:
                                         '${I18n.t(context, 'invoices.tax')} (%)',
-                                    border: const OutlineInputBorder(),
                                     suffixText: '%',
                                   ),
                                   onChanged: (_) => setLocal(() {}),
@@ -1358,6 +1422,101 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   }
 }
 
+class _InvoiceSummaryPanel extends StatelessWidget {
+  const _InvoiceSummaryPanel({
+    required this.invoiceCount,
+    required this.paidCount,
+    required this.totalDue,
+  });
+
+  final int invoiceCount;
+  final int paidCount;
+  final double totalDue;
+
+  @override
+  Widget build(BuildContext context) {
+    return LGGlassCard(
+      variant: LGCardVariant.hero,
+      child: Wrap(
+        spacing: LGSpacing.sm,
+        runSpacing: LGSpacing.sm,
+        children: [
+          _InvoiceSummaryMetric(
+            label: I18n.t(context, 'title.invoices'),
+            value: '$invoiceCount',
+            intent: LGIntent.primary,
+          ),
+          _InvoiceSummaryMetric(
+            label: I18n.t(context, 'invoices.paid'),
+            value: '$paidCount',
+            intent: LGIntent.success,
+          ),
+          _InvoiceSummaryMetric(
+            label: I18n.t(context, 'invoices.dueAmount'),
+            value: money(totalDue),
+            intent: totalDue > 0 ? LGIntent.warning : LGIntent.success,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InvoiceSummaryMetric extends StatelessWidget {
+  const _InvoiceSummaryMetric({
+    required this.label,
+    required this.value,
+    required this.intent,
+  });
+
+  final String label;
+  final String value;
+  final LGIntent intent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 112),
+      padding: const EdgeInsets.symmetric(
+        horizontal: LGSpacing.md,
+        vertical: LGSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: LGColors.intentContainer(context, intent),
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        border: Border.all(color: LGColors.intentStroke(context, intent)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: LGColors.textSecondary(context),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: LGSpacing.xs),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: LGColors.textPrimary(context),
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InvoiceCard extends StatelessWidget {
   const _InvoiceCard({
     required this.inv,
@@ -1366,162 +1525,154 @@ class _InvoiceCard extends StatelessWidget {
     this.onShare,
     this.isSharing = false,
   });
+
   final InvoiceSummary inv;
   final VoidCallback onOpen;
   final VoidCallback onPay;
   final VoidCallback? onShare;
   final bool isSharing;
+
   @override
   Widget build(BuildContext context) {
     final isPaid = inv.amountDue <= 0 || inv.status.toLowerCase() == 'paid';
     final now = DateTime.now();
     final isOverdue =
         inv.dueDate.isBefore(DateTime(now.year, now.month, now.day)) && !isPaid;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color bg =
-        isDark
-            ? (isPaid
-                ? const Color(0xFF103521)
-                : isOverdue
-                ? const Color(0xFF3A1C1C)
-                : const Color(0xFF3A3618))
-            : (isPaid
-                ? Colors.green.shade50
-                : isOverdue
-                ? Colors.red.shade50
-                : Colors.yellow.shade50);
-    return Card(
-      color: bg,
-      elevation: 6,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onOpen,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+    final label = _invoiceSummaryLabel(inv);
+    final statusLabel = isPaid ? I18n.t(context, 'invoices.paid') : inv.status;
+
+    return LGSolidCard(
+      variant: LGCardVariant.interactive,
+      tinted: true,
+      onTap: onOpen,
+      padding: const EdgeInsets.all(LGSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Builder(
-                    builder: (context) {
-                      final raw = inv.number.trim();
-                      final label =
-                          (raw.isEmpty || raw == '#')
-                              ? '#${inv.id}'
-                              : (raw.startsWith('#') ? raw : '#$raw');
-                      return Text(
-                        label,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          isPaid
-                              ? const Color(0xFFE6F7EC)
-                              : const Color(0xFFFFF7E6),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      isPaid ? I18n.t(context, 'invoices.paid') : inv.status,
-                      style: TextStyle(
-                        color:
-                            isPaid
-                                ? const Color(0xFF16A34A)
-                                : const Color(0xFFB45309),
+              _InvoiceHeaderIcon(
+                icon: Icons.receipt_long_outlined,
+                intent:
+                    isPaid
+                        ? LGIntent.success
+                        : isOverdue
+                        ? LGIntent.danger
+                        : LGIntent.warning,
+              ),
+              const SizedBox(width: LGSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: LGColors.textPrimary(context),
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                  ),
-                  const Spacer(),
-                  if (onShare != null)
-                    isSharing
-                        ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                        : IconButton(
-                          tooltip: I18n.t(context, 'invoices.share'),
-                          icon: const Icon(Icons.ios_share_outlined),
-                          onPressed: onShare,
-                        ),
-                  if (!isPaid)
-                    IconButton(
-                      tooltip: I18n.t(context, 'invoices.markPaid'),
-                      icon: const Icon(Icons.check_circle_outline),
-                      onPressed: onPay,
+                    const SizedBox(height: LGSpacing.xs),
+                    Text(
+                      inv.customerName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: LGColors.textSecondary(context),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                '${I18n.t(context, 'invoices.customer')}: ${inv.customerName}',
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _kv(
-                      context,
-                      I18n.t(context, 'invoices.date'),
-                      formatDate(inv.issueDate),
-                    ),
-                  ),
-                  Expanded(
-                    child: _kv(
-                      context,
-                      I18n.t(context, 'invoices.due'),
-                      formatDate(inv.dueDate),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: _kv(
-                      context,
-                      I18n.t(context, 'invoices.total'),
-                      money(inv.total),
-                    ),
-                  ),
-                  Expanded(
-                    child: _kv(
-                      context,
-                      I18n.t(context, 'invoices.dueAmount'),
-                      money(inv.amountDue),
-                    ),
-                  ),
-                ],
+              const SizedBox(width: LGSpacing.sm),
+              LGStatusBadge(
+                label: statusLabel.isEmpty ? '-' : statusLabel,
+                variant: _invoiceSummaryStatusVariant(inv, isOverdue),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: LGSpacing.lg),
+          Row(
+            children: [
+              Expanded(
+                child: _InvoiceInfoTile(
+                  label: I18n.t(context, 'invoices.total'),
+                  value: money(inv.total),
+                  icon: Icons.payments_outlined,
+                  intent: LGIntent.primary,
+                ),
+              ),
+              const SizedBox(width: LGSpacing.sm),
+              Expanded(
+                child: _InvoiceInfoTile(
+                  label: I18n.t(context, 'invoices.dueAmount'),
+                  value: money(inv.amountDue),
+                  icon: Icons.pending_actions_outlined,
+                  intent: isPaid ? LGIntent.success : LGIntent.warning,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: LGSpacing.md),
+          Wrap(
+            spacing: LGSpacing.sm,
+            runSpacing: LGSpacing.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              LGStatusBadge(
+                label:
+                    '${I18n.t(context, 'invoices.date')}: ${formatDate(inv.issueDate)}',
+                variant: LGStatusBadgeVariant.neutral,
+                icon: Icons.calendar_today_outlined,
+              ),
+              LGStatusBadge(
+                label:
+                    '${I18n.t(context, 'invoices.due')}: ${formatDate(inv.dueDate)}',
+                variant:
+                    isOverdue
+                        ? LGStatusBadgeVariant.overdue
+                        : LGStatusBadgeVariant.info,
+                icon: Icons.event_outlined,
+              ),
+            ],
+          ),
+          if (onShare != null || !isPaid) ...[
+            const SizedBox(height: LGSpacing.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (onShare != null)
+                  isSharing
+                      ? const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: LGSpacing.md),
+                        child: LGLoadingState(compact: true),
+                      )
+                      : _InvoiceIconAction(
+                        tooltip: I18n.t(context, 'invoices.share'),
+                        icon: Icons.ios_share_outlined,
+                        intent: LGIntent.info,
+                        onPressed: onShare,
+                      ),
+                if (onShare != null && !isPaid)
+                  const SizedBox(width: LGSpacing.sm),
+                if (!isPaid)
+                  _InvoiceIconAction(
+                    tooltip: I18n.t(context, 'invoices.markPaid'),
+                    icon: Icons.check_circle_outline,
+                    intent: LGIntent.success,
+                    onPressed: onPay,
+                  ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
-
-  Widget _kv(BuildContext context, String k, String v) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(k, style: Theme.of(context).textTheme.bodySmall),
-      Text(
-        v,
-        style: Theme.of(
-          context,
-        ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-      ),
-    ],
-  );
 }
 
 class _CustomerRow extends StatelessWidget {
@@ -1530,26 +1681,251 @@ class _CustomerRow extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
   });
+
   final Customer customer;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(customer.name),
-      subtitle: Text(customer.email ?? ''),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+    return LGSolidCard(
+      tinted: true,
+      padding: const EdgeInsets.all(LGSpacing.md),
+      child: Row(
         children: [
-          IconButton(
-            tooltip: 'Edit',
-            icon: const Icon(Icons.edit_outlined),
+          _InvoiceHeaderIcon(icon: Icons.person_outline, intent: LGIntent.info),
+          const SizedBox(width: LGSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  customer.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: LGColors.textPrimary(context),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                if ((customer.email ?? '').isNotEmpty) ...[
+                  const SizedBox(height: LGSpacing.xs),
+                  Text(
+                    customer.email!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: LGColors.textSecondary(context),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: LGSpacing.sm),
+          _InvoiceIconAction(
+            tooltip: I18n.t(context, 'label.edit'),
+            icon: Icons.edit_outlined,
+            intent: LGIntent.primary,
             onPressed: onEdit,
           ),
-          IconButton(
-            tooltip: 'Delete',
-            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+          const SizedBox(width: LGSpacing.xs),
+          _InvoiceIconAction(
+            tooltip: I18n.t(context, 'label.delete'),
+            icon: Icons.delete_outline,
+            intent: LGIntent.danger,
             onPressed: onDelete,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InvoiceHeaderIcon extends StatelessWidget {
+  const _InvoiceHeaderIcon({required this.icon, required this.intent});
+
+  final IconData icon;
+  final LGIntent intent;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = LGColors.intentColor(intent);
+    return Container(
+      width: 54,
+      height: 54,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: LGColors.intentContainer(context, intent),
+        borderRadius: BorderRadius.circular(LGRadius.xl),
+        border: Border.all(color: LGColors.intentStroke(context, intent)),
+      ),
+      child: Icon(icon, color: color, size: 27),
+    );
+  }
+}
+
+class _InvoiceBackButton extends StatelessWidget {
+  const _InvoiceBackButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+      onPressed: () => Navigator.of(context).maybePop(),
+      icon: const Icon(Icons.arrow_back_rounded),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(46),
+        minimumSize: const Size.square(46),
+        foregroundColor: LGColors.textPrimary(context),
+        backgroundColor: LGColors.surfaceTinted(context),
+        side: BorderSide(
+          color: LGColors.alpha(LGColors.textSecondary(context), 0.14),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(LGRadius.lg),
+        ),
+      ),
+    );
+  }
+}
+
+class _InvoiceMiniIcon extends StatelessWidget {
+  const _InvoiceMiniIcon({required this.icon, required this.intent});
+
+  final IconData icon;
+  final LGIntent intent;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = LGColors.intentColor(intent);
+    return Container(
+      width: 38,
+      height: 38,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: LGColors.intentContainer(context, intent),
+        borderRadius: BorderRadius.circular(LGRadius.md),
+      ),
+      child: Icon(icon, color: color, size: 20),
+    );
+  }
+}
+
+class _InvoiceIconAction extends StatelessWidget {
+  const _InvoiceIconAction({
+    required this.tooltip,
+    required this.icon,
+    required this.intent,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final LGIntent intent;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = LGColors.intentColor(intent);
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(LGRadius.pill),
+          onTap: onPressed,
+          child: Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: LGColors.intentContainer(context, intent),
+              borderRadius: BorderRadius.circular(LGRadius.pill),
+              border: Border.all(color: LGColors.intentStroke(context, intent)),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _invoiceSummaryLabel(InvoiceSummary inv) {
+  final raw = inv.number.trim();
+  if (raw.isEmpty || raw == '#') return '#${inv.id}';
+  return raw.startsWith('#') ? raw : '#$raw';
+}
+
+LGStatusBadgeVariant _invoiceSummaryStatusVariant(
+  InvoiceSummary inv,
+  bool isOverdue,
+) {
+  final status = inv.status.toLowerCase();
+  if (inv.amountDue <= 0 || status == 'paid') return LGStatusBadgeVariant.paid;
+  if (isOverdue || status == 'overdue') return LGStatusBadgeVariant.overdue;
+  if (status.contains('partial')) return LGStatusBadgeVariant.partial;
+  if (status.contains('draft')) return LGStatusBadgeVariant.neutral;
+  return LGStatusBadgeVariant.info;
+}
+
+class _InvoiceInfoTile extends StatelessWidget {
+  const _InvoiceInfoTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.intent,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final LGIntent intent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(LGSpacing.md),
+      decoration: BoxDecoration(
+        color: LGColors.surfaceSolid(context),
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        border: Border.all(
+          color: LGColors.alpha(LGColors.textSecondary(context), 0.14),
+        ),
+      ),
+      child: Row(
+        children: [
+          _InvoiceMiniIcon(icon: icon, intent: intent),
+          const SizedBox(width: LGSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: LGColors.textSecondary(context),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: LGSpacing.xs),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: LGColors.textPrimary(context),
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1634,12 +2010,25 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           if (snap.hasError) {
             return Scaffold(
               appBar: AppBar(),
-              body: Center(child: Text('Error: ${snap.error}')),
+              body: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(LGSpacing.lg),
+                  child: LGSolidCard(
+                    tinted: true,
+                    child: Text('Error: ${snap.error}'),
+                  ),
+                ),
+              ),
             );
           }
           return Scaffold(
             appBar: AppBar(),
-            body: const Center(child: CircularProgressIndicator()),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(LGSpacing.lg),
+                child: LGLoadingState(label: I18n.t(context, 'title.invoices')),
+              ),
+            ),
           );
         }
         final d = snap.data!;
@@ -1693,292 +2082,360 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           body: LayoutBuilder(
             builder: (context, c) {
               final wide = c.maxWidth >= 900;
-              final itemsCard = Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        I18n.t(context, 'invoices.items'),
-                        style: Theme.of(context).textTheme.titleMedium,
+              final itemsCard = LGSolidCard(
+                variant: LGCardVariant.elevated,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      I18n.t(context, 'invoices.items'),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: LGColors.textPrimary(context),
+                        fontWeight: FontWeight.w900,
                       ),
-                      const SizedBox(height: 8),
-                      Container(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceVariant.withOpacity(0.2),
+                    ),
+                    const SizedBox(height: LGSpacing.md),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: LGSpacing.md,
+                        vertical: LGSpacing.sm,
+                      ),
+                      decoration: BoxDecoration(
+                        color: LGColors.surfaceTinted(context),
+                        borderRadius: BorderRadius.circular(LGRadius.md),
+                        border: Border.all(
+                          color: LGColors.alpha(
+                            LGColors.textSecondary(context),
+                            0.12,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 5,
+                            child: Text(
+                              I18n.t(context, 'invoices.description'),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(I18n.t(context, 'invoices.qty')),
+                          ),
+                          Expanded(
+                            flex: 3,
+                            child: Text(I18n.t(context, 'invoices.unitPrice')),
+                          ),
+                          Expanded(
+                            flex: 3,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Text(I18n.t(context, 'invoices.amount')),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: LGSpacing.sm),
+                    ...d.items.map(
+                      (it) => Container(
+                        margin: const EdgeInsets.only(bottom: LGSpacing.sm),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 6,
+                          horizontal: LGSpacing.md,
+                          vertical: LGSpacing.sm,
+                        ),
+                        decoration: BoxDecoration(
+                          color: LGColors.surfaceSolid(context),
+                          borderRadius: BorderRadius.circular(LGRadius.md),
+                          border: Border.all(
+                            color: LGColors.alpha(
+                              LGColors.textSecondary(context),
+                              0.10,
+                            ),
+                          ),
                         ),
                         child: Row(
                           children: [
                             Expanded(
                               flex: 5,
                               child: Text(
-                                I18n.t(context, 'invoices.description'),
+                                it.description,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             Expanded(
                               flex: 2,
-                              child: Text(I18n.t(context, 'invoices.qty')),
+                              child: Text(it.quantity.toStringAsFixed(0)),
                             ),
+                            Expanded(flex: 3, child: Text(money(it.unitPrice))),
                             Expanded(
                               flex: 3,
-                              child: Text(
-                                I18n.t(context, 'invoices.unitPrice'),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  money(it.amount),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
                               ),
-                            ),
-                            Expanded(
-                              flex: 3,
-                              child: Text(I18n.t(context, 'invoices.amount')),
                             ),
                           ],
                         ),
                       ),
-                      ...d.items.map(
-                        (it) => Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 10,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(flex: 5, child: Text(it.description)),
-                              Expanded(
-                                flex: 2,
-                                child: Text(it.quantity.toStringAsFixed(0)),
-                              ),
-                              Expanded(
-                                flex: 3,
-                                child: Text(money(it.unitPrice)),
-                              ),
-                              Expanded(
-                                flex: 3,
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Text(money(it.amount)),
-                                ),
-                              ),
-                            ],
+                    ),
+                    const SizedBox(height: LGSpacing.sm),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        width: 280,
+                        padding: const EdgeInsets.all(LGSpacing.md),
+                        decoration: BoxDecoration(
+                          color: LGColors.surfaceTinted(context),
+                          borderRadius: BorderRadius.circular(LGRadius.lg),
+                          border: Border.all(
+                            color: LGColors.alpha(
+                              LGColors.textSecondary(context),
+                              0.12,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Container(
-                          width: 260,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
+                        child: Column(
+                          children: [
+                            _kvRow(
                               context,
-                            ).colorScheme.surfaceVariant.withOpacity(0.4),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Column(
-                            children: [
-                              _kvRow(
-                                context,
-                                I18n.t(context, 'invoices.subtotal'),
-                                money(inv.subtotal),
-                              ),
-                              _kvRow(
-                                context,
-                                '${I18n.t(context, 'invoices.discount')} (${discountPercentDisplay.toStringAsFixed(2)}%)',
-                                '-${money(inv.discount)}',
-                              ),
-                              _kvRow(
-                                context,
-                                '${I18n.t(context, 'invoices.tax')} (${taxPercentDisplay.toStringAsFixed(2)}%)',
-                                '+${money(inv.tax)}',
-                              ),
-                              const Divider(height: 12),
-                              _kvRow(
-                                context,
-                                I18n.t(context, 'invoices.total'),
-                                money(inv.total),
-                                isBold: true,
-                              ),
-                            ],
-                          ),
+                              I18n.t(context, 'invoices.subtotal'),
+                              money(inv.subtotal),
+                            ),
+                            _kvRow(
+                              context,
+                              '${I18n.t(context, 'invoices.discount')} (${discountPercentDisplay.toStringAsFixed(2)}%)',
+                              '-${money(inv.discount)}',
+                            ),
+                            _kvRow(
+                              context,
+                              '${I18n.t(context, 'invoices.tax')} (${taxPercentDisplay.toStringAsFixed(2)}%)',
+                              '+${money(inv.tax)}',
+                            ),
+                            const Divider(height: 16),
+                            _kvRow(
+                              context,
+                              I18n.t(context, 'invoices.total'),
+                              money(inv.total),
+                              isBold: true,
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               );
 
               final sidebar = Column(
                 children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                'Details',
-                                style: Theme.of(context).textTheme.titleMedium,
+                  LGSolidCard(
+                    variant: LGCardVariant.elevated,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Details',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.titleMedium?.copyWith(
+                                color: LGColors.textPrimary(context),
+                                fontWeight: FontWeight.w900,
                               ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color:
-                                      inv.status.toLowerCase() == 'paid'
-                                          ? const Color(0xFFE6F7EC)
-                                          : const Color(0xFFE5F0FF),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  inv.status,
-                                  style: TextStyle(
-                                    color:
-                                        inv.status.toLowerCase() == 'paid'
-                                            ? const Color(0xFF16A34A)
-                                            : const Color(0xFF2563EB),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text('Customer: ${inv.customerName}'),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Issue: ${formatDate(inv.issueDate)}  |  Due: ${formatDate(inv.dueDate)}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 8),
-                          _kvRow(
-                            context,
-                            I18n.t(context, 'invoices.total'),
-                            money(inv.total),
-                            isBold: true,
-                          ),
-                          _kvRow(
-                            context,
-                            I18n.t(context, 'invoices.dueAmount'),
-                            money(inv.amountDue),
-                          ),
-                          const SizedBox(height: 10),
-                          TextButton(
-                            onPressed: () async {
-                              final yes = await showDialog<bool>(
-                                context: context,
-                                builder:
-                                    (dialogCtx) => AlertDialog(
-                                      title: Text(
-                                        I18n.t(
-                                          context,
-                                          'invoices.deleteInvoiceTitle',
-                                        ),
-                                      ),
-                                      content: Text(
-                                        I18n.t(
-                                          context,
-                                          'invoices.deleteInvoiceNotice',
-                                        ),
-                                      ),
-                                      actions: [
-                                        TextButton(
+                            ),
+                            const Spacer(),
+                            LGStatusBadge(
+                              label: inv.status,
+                              variant:
+                                  inv.status.toLowerCase() == 'paid'
+                                      ? LGStatusBadgeVariant.paid
+                                      : LGStatusBadgeVariant.info,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: LGSpacing.md),
+                        _InvoiceDetailLine(
+                          label: I18n.t(context, 'invoices.customer'),
+                          value: inv.customerName,
+                        ),
+                        _InvoiceDetailLine(
+                          label: I18n.t(context, 'invoices.date'),
+                          value: formatDate(inv.issueDate),
+                        ),
+                        _InvoiceDetailLine(
+                          label: I18n.t(context, 'invoices.due'),
+                          value: formatDate(inv.dueDate),
+                        ),
+                        const Divider(height: 20),
+                        _kvRow(
+                          context,
+                          I18n.t(context, 'invoices.total'),
+                          money(inv.total),
+                          isBold: true,
+                        ),
+                        _kvRow(
+                          context,
+                          I18n.t(context, 'invoices.dueAmount'),
+                          money(inv.amountDue),
+                        ),
+                        const SizedBox(height: LGSpacing.md),
+                        _InvoiceSoftDangerButton(
+                          label:
+                              '${I18n.t(context, 'label.delete')} ${I18n.t(context, 'invoices.invoice')}',
+                          onPressed: () async {
+                            final yes = await showDialog<bool>(
+                              context: context,
+                              builder:
+                                  (dialogCtx) => LGDialogShell(
+                                    title: I18n.t(
+                                      context,
+                                      'invoices.deleteInvoiceTitle',
+                                    ),
+                                    footer: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        LGButton(
+                                          label: I18n.t(
+                                            context,
+                                            'label.cancel',
+                                          ),
+                                          variant: LGButtonVariant.glass,
                                           onPressed:
                                               () => Navigator.of(
                                                 dialogCtx,
                                               ).pop(false),
-                                          child: Text(
-                                            I18n.t(context, 'label.cancel'),
-                                          ),
                                         ),
-                                        FilledButton(
+                                        const SizedBox(width: LGSpacing.sm),
+                                        _InvoiceSoftDangerButton(
+                                          label: I18n.t(
+                                            context,
+                                            'label.delete',
+                                          ),
                                           onPressed:
                                               () => Navigator.of(
                                                 dialogCtx,
                                               ).pop(true),
-                                          child: Text(
-                                            I18n.t(context, 'label.delete'),
-                                          ),
                                         ),
                                       ],
                                     ),
-                              );
-                              if (yes == true) {
-                                await data.deleteInvoice(inv.id);
-                                if (context.mounted) Navigator.pop(context);
-                              }
-                            },
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.red,
-                            ),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                '${I18n.t(context, 'label.delete')} ${I18n.t(context, 'invoices.invoice')}',
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                                    child: Text(
+                                      I18n.t(
+                                        context,
+                                        'invoices.deleteInvoiceNotice',
+                                      ),
+                                      style: TextStyle(
+                                        color: LGColors.textSecondary(context),
+                                      ),
+                                    ),
+                                  ),
+                            );
+                            if (yes == true) {
+                              await data.deleteInvoice(inv.id);
+                              if (context.mounted) Navigator.pop(context);
+                            }
+                          },
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            I18n.t(context, 'nav.payments'),
-                            style: Theme.of(context).textTheme.titleMedium,
+                  const SizedBox(height: LGSpacing.md),
+                  LGSolidCard(
+                    variant: LGCardVariant.elevated,
+                    tinted: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          I18n.t(context, 'nav.payments'),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleMedium?.copyWith(
+                            color: LGColors.textPrimary(context),
+                            fontWeight: FontWeight.w900,
                           ),
-                          const SizedBox(height: 8),
-                          if (d.payments.isEmpty)
-                            Text(I18n.t(context, 'invoices.noPayments'))
-                          else
-                            ...d.payments.map(
-                              (p) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 6,
+                        ),
+                        const SizedBox(height: LGSpacing.md),
+                        if (d.payments.isEmpty)
+                          Text(
+                            I18n.t(context, 'invoices.noPayments'),
+                            style: TextStyle(
+                              color: LGColors.textSecondary(context),
+                            ),
+                          )
+                        else
+                          ...d.payments.map(
+                            (p) => Container(
+                              margin: const EdgeInsets.only(
+                                bottom: LGSpacing.sm,
+                              ),
+                              padding: const EdgeInsets.all(LGSpacing.md),
+                              decoration: BoxDecoration(
+                                color: LGColors.surfaceSolid(context),
+                                borderRadius: BorderRadius.circular(
+                                  LGRadius.lg,
                                 ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(formatYmd(p.date)),
-                                          if (p.accountName != null)
-                                            Text(
-                                              'Deposited to: ${p.accountName}',
-                                              style:
-                                                  Theme.of(
-                                                    context,
-                                                  ).textTheme.bodySmall,
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    Text(
-                                      money(p.amount),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
+                                border: Border.all(
+                                  color: LGColors.alpha(
+                                    LGColors.textSecondary(context),
+                                    0.10,
+                                  ),
                                 ),
                               ),
+                              child: Row(
+                                children: [
+                                  _InvoiceMiniIcon(
+                                    icon: Icons.payments_outlined,
+                                    intent: LGIntent.success,
+                                  ),
+                                  const SizedBox(width: LGSpacing.sm),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          formatYmd(p.date),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        if (p.accountName != null)
+                                          Text(
+                                            'Deposited to: ${p.accountName}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall?.copyWith(
+                                              color: LGColors.textSecondary(
+                                                context,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: LGSpacing.sm),
+                                  Text(
+                                    money(p.amount),
+                                    style: TextStyle(
+                                      color: LGColors.success,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -1986,7 +2443,12 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
 
               if (wide) {
                 return Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(
+                    LGSpacing.lg,
+                    LGSpacing.lg,
+                    LGSpacing.lg,
+                    132,
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1998,82 +2460,97 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                 );
               }
               return ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(
+                  LGSpacing.lg,
+                  LGSpacing.lg,
+                  LGSpacing.lg,
+                  132,
+                ),
                 children: [
                   // Header summary
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                'Invoice $label',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color:
-                                      inv.status.toLowerCase() == 'paid'
-                                          ? const Color(0xFFE6F7EC)
-                                          : const Color(0xFFE5F0FF),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  inv.status,
-                                  style: TextStyle(
-                                    color:
-                                        inv.status.toLowerCase() == 'paid'
-                                            ? const Color(0xFF16A34A)
-                                            : const Color(0xFF2563EB),
+                  LGGlassCard(
+                    variant: LGCardVariant.hero,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _InvoiceHeaderIcon(
+                              icon: Icons.receipt_long_outlined,
+                              intent: LGIntent.primary,
+                            ),
+                            const SizedBox(width: LGSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Invoice $label',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge?.copyWith(
+                                      color: LGColors.textPrimary(context),
+                                      fontWeight: FontWeight.w900,
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(height: LGSpacing.xs),
+                                  Text(
+                                    '${I18n.t(context, 'invoices.date')}: ${formatDate(inv.issueDate)}  •  ${I18n.t(context, 'invoices.due')}: ${formatDate(inv.dueDate)}',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall?.copyWith(
+                                      color: LGColors.textSecondary(context),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Issue: ${formatDate(inv.issueDate)}  •  Due: ${formatDate(inv.dueDate)}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Text(
-                                'Total: ',
-                                style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            const SizedBox(width: LGSpacing.sm),
+                            LGStatusBadge(
+                              label: inv.status,
+                              variant:
+                                  inv.status.toLowerCase() == 'paid'
+                                      ? LGStatusBadgeVariant.paid
+                                      : LGStatusBadgeVariant.info,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: LGSpacing.lg),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _InvoiceInfoTile(
+                                label: I18n.t(context, 'invoices.total'),
+                                value: money(inv.total),
+                                icon: Icons.payments_outlined,
+                                intent: LGIntent.primary,
                               ),
-                              Text(
-                                money(inv.total),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            ),
+                            const SizedBox(width: LGSpacing.sm),
+                            Expanded(
+                              child: _InvoiceInfoTile(
+                                label: I18n.t(context, 'invoices.dueAmount'),
+                                value: money(inv.amountDue),
+                                icon: Icons.pending_actions_outlined,
+                                intent:
+                                    inv.amountDue > 0
+                                        ? LGIntent.warning
+                                        : LGIntent.success,
                               ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Text(
-                                'Amount Due: ',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              Text(money(inv.amountDue)),
-                            ],
-                          ),
-                        ],
-                      ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: LGSpacing.md),
                   itemsCard,
-                  const SizedBox(height: 12),
+                  const SizedBox(height: LGSpacing.md),
                   sidebar,
                 ],
               );
@@ -2101,6 +2578,101 @@ Widget _kvRow(BuildContext context, String k, String v, {bool isBold = false}) {
       ],
     ),
   );
+}
+
+class _InvoiceDetailLine extends StatelessWidget {
+  const _InvoiceDetailLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: LGSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: LGColors.textSecondary(context),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: LGSpacing.md),
+          Expanded(
+            flex: 2,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: LGColors.textPrimary(context),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InvoiceSoftDangerButton extends StatelessWidget {
+  const _InvoiceSoftDangerButton({
+    required this.label,
+    required this.onPressed,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(LGRadius.pill),
+        onTap: onPressed,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: LGSpacing.lg),
+          decoration: BoxDecoration(
+            color: LGColors.intentContainer(context, LGIntent.danger),
+            borderRadius: BorderRadius.circular(LGRadius.pill),
+            border: Border.all(
+              color: LGColors.intentStroke(context, LGIntent.danger),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.delete_outline,
+                color: LGColors.danger,
+                size: 18,
+              ),
+              const SizedBox(width: LGSpacing.sm),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: LGColors.danger,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // --- Edit Invoice Screen ---

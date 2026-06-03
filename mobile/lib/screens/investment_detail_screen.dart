@@ -8,9 +8,14 @@ import '../state/refresh_bus.dart';
 import '../utils/format.dart';
 import '../widgets/pro_widgets.dart';
 import '../i18n.dart';
+import '../liquid_glass/liquid_glass.dart';
 
 class InvestmentDetailScreen extends StatefulWidget {
-  const InvestmentDetailScreen({super.key, required this.investmentId, required this.name});
+  const InvestmentDetailScreen({
+    super.key,
+    required this.investmentId,
+    required this.name,
+  });
   final int investmentId;
   final String name;
 
@@ -45,7 +50,8 @@ class _InvestmentDetailScreenState extends State<InvestmentDetailScreen> {
     try {
       final res = await _data.getInvestmentDetail(widget.investmentId);
       _inv = res['investment'] as Map<String, dynamic>;
-      _cons = (res['contributions'] as List<dynamic>).cast<Map<String, dynamic>>();
+      _cons =
+          (res['contributions'] as List<dynamic>).cast<Map<String, dynamic>>();
       _error = null;
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -80,46 +86,92 @@ class _InvestmentDetailScreenState extends State<InvestmentDetailScreen> {
     DateTime date = DateTime.now();
     final ok = await showDialog<bool>(
       context: context,
-      builder: (dctx) => AlertDialog(
-        title: Text(I18n.t(context, 'invest.addContribution')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: amtCtrl,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: I18n.t(context, 'invest.amount'), border: const OutlineInputBorder()),
+      builder:
+          (dctx) => AlertDialog(
+            title: Text(I18n.t(context, 'invest.addContribution')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: amtCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: I18n.t(context, 'invest.amount'),
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${I18n.t(context, 'invoices.date')}: ${formatDate(date)}',
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () async {
+                        final p = await showDatePicker(
+                          context: context,
+                          initialDate: date,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (p != null) {
+                          date = p;
+                          (dctx as Element).markNeedsBuild();
+                        }
+                      },
+                      icon: const Icon(Icons.calendar_today_outlined),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: Text('${I18n.t(context, 'invoices.date')}: ${formatDate(date)}')),
-              IconButton(onPressed: () async { final p = await showDatePicker(context: context, initialDate: date, firstDate: DateTime(2000), lastDate: DateTime(2100)); if (p != null) { date = p; (dctx as Element).markNeedsBuild(); } }, icon: const Icon(Icons.calendar_today_outlined))
-            ])
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(dctx).pop(false), child: Text(I18n.t(context, 'label.cancel'))),
-          FilledButton(onPressed: () => Navigator.of(dctx).pop(true), child: Text(I18n.t(context, 'label.save'))),
-        ],
-      ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dctx).pop(false),
+                child: Text(I18n.t(context, 'label.cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dctx).pop(true),
+                child: Text(I18n.t(context, 'label.save')),
+              ),
+            ],
+          ),
     );
     if (ok == true) {
       try {
         final amt = double.tryParse(amtCtrl.text.replaceAll(',', '')) ?? 0;
         if (amt <= 0) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(I18n.tr(context, 'invest.validationAmount'))));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(I18n.tr(context, 'invest.validationAmount')),
+            ),
+          );
           return;
         }
-        await _data.addInvestmentContribution(investmentId: widget.investmentId, amount: amt, date: date.toIso8601String().substring(0,10));
+        await _data.addInvestmentContribution(
+          investmentId: widget.investmentId,
+          amount: amt,
+          date: date.toIso8601String().substring(0, 10),
+        );
         if (mounted) {
           context.read<RefreshBus>().notifyInvestments();
         }
         await _load();
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(I18n.tr(context, 'invest.contributionAdded'))));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(I18n.tr(context, 'invest.contributionAdded')),
+            ),
+          );
+        }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${I18n.tr(context, 'invest.addFailed')}: $e')),
+            SnackBar(
+              content: Text('${I18n.tr(context, 'invest.addFailed')}: $e'),
+            ),
           );
         }
       }
@@ -128,14 +180,16 @@ class _InvestmentDetailScreenState extends State<InvestmentDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final store = context.watch<AuthStore>();
     if (!store.isProOrExempt) {
       return const Scaffold(body: ProBlock(feature: 'Investments'));
     }
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.name),
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         actions: [
           IconButton(
             tooltip: 'Add contribution',
@@ -144,65 +198,99 @@ class _InvestmentDetailScreenState extends State<InvestmentDetailScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(onPressed: _addContribution, child: const Icon(Icons.add)),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : (_error != null)
+      floatingActionButton: FloatingActionButton(
+        onPressed: _addContribution,
+        child: const Icon(Icons.add),
+      ),
+      body:
+          _loading
+              ? const Center(child: LGLoadingState())
+              : (_error != null)
               ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: LGSolidCard(
+                    tinted: true,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Failed to load investment', style: Theme.of(context).textTheme.titleMedium),
-                        const SizedBox(height: 8),
-                        Text(_error!, textAlign: TextAlign.center),
-                        const SizedBox(height: 12),
-                        FilledButton(onPressed: _load, child: const Text('Retry')),
+                        _DetailIcon(
+                          icon: Icons.error_outline_rounded,
+                          color: LGColors.danger,
+                        ),
+                        const SizedBox(height: LGSpacing.md),
+                        Text(
+                          'Failed to load investment',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleMedium?.copyWith(
+                            color: LGColors.textPrimary(context),
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: LGSpacing.sm),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.copyWith(
+                            color: LGColors.textSecondary(context),
+                          ),
+                        ),
+                        const SizedBox(height: LGSpacing.lg),
+                        LGButton(
+                          label: 'Retry',
+                          icon: Icons.refresh_rounded,
+                          onPressed: _load,
+                        ),
                       ],
                     ),
                   ),
-                )
-              : (_inv == null)
-                  ? const Center(child: Text('Investment not found'))
-                  : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _summary(),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(child: Text('Contributions', style: Theme.of(context).textTheme.titleMedium)),
-                    TextButton.icon(onPressed: _addContribution, icon: const Icon(Icons.add), label: const Text('Add')),
-                  ],
                 ),
-                const SizedBox(height: 8),
-                if (_cons.isEmpty)
-                  Card(
-                    color: cs.surface,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('No contributions yet'),
-                          const SizedBox(height: 8),
-                          FilledButton.icon(onPressed: _addContribution, icon: const Icon(Icons.add), label: const Text('Add contribution')),
-                        ],
-                      ),
+              )
+              : (_inv == null)
+              ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: LGEmptyState(
+                    icon: Icons.trending_up_rounded,
+                    title: 'Investment not found',
+                    message: widget.name,
+                  ),
+                ),
+              )
+              : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
+                children: [
+                  _summary(),
+                  const SizedBox(height: LGSpacing.lg),
+                  _sectionHeader(
+                    title: 'Contributions',
+                    action: LGButton(
+                      label: 'Add',
+                      icon: Icons.add,
+                      size: LGButtonSize.sm,
+                      variant: LGButtonVariant.outline,
+                      onPressed: _addContribution,
                     ),
-                  )
-                else
-                  ..._cons.map((c) => Card(
-                        color: cs.surface,
-                        child: ListTile(
-                          leading: const Icon(Icons.savings_outlined),
-                          title: Text(money(_toDouble(c['amount']))),
-                          subtitle: Text(formatYmd(c['date'] as String)),
-                        ),
-                      )),
-              ],
-            ),
+                  ),
+                  const SizedBox(height: LGSpacing.sm),
+                  if (_cons.isEmpty)
+                    LGEmptyState(
+                      icon: Icons.savings_outlined,
+                      title: 'No contributions yet',
+                      message: I18n.t(context, 'invest.addContribution'),
+                      action: LGEmptyAction(
+                        label: I18n.t(context, 'invest.addContribution'),
+                        icon: Icons.add,
+                        onPressed: _addContribution,
+                      ),
+                    )
+                  else
+                    ..._cons.map((c) => _contributionRow(c)),
+                ],
+              ),
     );
   }
 
@@ -211,36 +299,387 @@ class _InvestmentDetailScreenState extends State<InvestmentDetailScreen> {
     final principal = _toDouble(inv['principal']);
     final rate = _toDouble(inv['annual_rate']);
     final start = DateTime.parse(inv['start_date'] as String);
-    final daysActive = DateTime.now().difference(DateTime(start.year, start.month, start.day)).inDays;
-    final totalContrib = principal + _cons.fold<double>(0, (s, c) => s + _toDouble(c['amount']));
+    final daysActive =
+        DateTime.now()
+            .difference(DateTime(start.year, start.month, start.day))
+            .inDays;
+    final totalContrib =
+        principal + _cons.fold<double>(0, (s, c) => s + _toDouble(c['amount']));
     final current = _valueToday();
     final revenue = current - totalContrib;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(child: _kv('Initial Amount', money(principal))),
-            Expanded(child: _kv('Rate (APR)', rate.toStringAsFixed(2) + '%')),
-          ]),
-          const SizedBox(height: 8),
-          Row(children: [
-            Expanded(child: _kv('Days Active', daysActive.toString())),
-            Expanded(child: _kv('Total Contributed', money(totalContrib))),
-          ]),
-          const SizedBox(height: 8),
-          Row(children: [
-            Expanded(child: _kv('Current Value', money(current))),
-            Expanded(child: _kv('Revenue', money(revenue))),
-          ]),
-        ]),
+    final revenueColor = revenue >= 0 ? LGColors.success : LGColors.danger;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LGGlassCard(
+          variant: LGCardVariant.hero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _DetailIcon(
+                    icon: Icons.trending_up_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: LGSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          inv['name']?.toString().isNotEmpty == true
+                              ? inv['name'].toString()
+                              : widget.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleLarge?.copyWith(
+                            color: LGColors.textPrimary(context),
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: LGSpacing.sm),
+                        Wrap(
+                          spacing: LGSpacing.sm,
+                          runSpacing: LGSpacing.xs,
+                          children: [
+                            _metaPill(
+                              Icons.calendar_today_outlined,
+                              formatDate(start),
+                            ),
+                            _metaPill(
+                              Icons.percent_rounded,
+                              '${rate.toStringAsFixed(2)}%',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: LGSpacing.xl),
+              Text(
+                'Current Value',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: LGColors.textSecondary(context),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: LGSpacing.xs),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  money(current),
+                  maxLines: 1,
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    color: LGColors.textPrimary(context),
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: LGSpacing.md),
+              Wrap(
+                spacing: LGSpacing.sm,
+                runSpacing: LGSpacing.sm,
+                children: [
+                  _valuePill(
+                    Icons.account_balance_wallet_outlined,
+                    'Invested ${money(totalContrib)}',
+                    Theme.of(context).colorScheme.primary,
+                  ),
+                  _valuePill(
+                    revenue >= 0
+                        ? Icons.trending_up_rounded
+                        : Icons.trending_down_rounded,
+                    'Revenue ${money(revenue)}',
+                    revenueColor,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: LGSpacing.md),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final twoColumns = constraints.maxWidth >= 360;
+            final gap = twoColumns ? LGSpacing.md : LGSpacing.sm;
+            final itemWidth =
+                twoColumns
+                    ? (constraints.maxWidth - gap) / 2
+                    : constraints.maxWidth;
+            final metrics = [
+              _kv(
+                'Initial Amount',
+                money(principal),
+                Icons.account_balance_wallet_outlined,
+                Theme.of(context).colorScheme.primary,
+              ),
+              _kv(
+                'Rate (APR)',
+                '${rate.toStringAsFixed(2)}%',
+                Icons.percent_rounded,
+                LGColors.info,
+              ),
+              _kv(
+                'Days Active',
+                daysActive.toString(),
+                Icons.calendar_view_day_outlined,
+                LGColors.warning,
+              ),
+              _kv(
+                'Total Contributed',
+                money(totalContrib),
+                Icons.add_card_outlined,
+                LGColors.info,
+              ),
+              _kv(
+                'Current Value',
+                money(current),
+                Icons.stacked_line_chart_rounded,
+                LGColors.success,
+              ),
+              _kv(
+                'Revenue',
+                money(revenue),
+                revenue >= 0
+                    ? Icons.trending_up_rounded
+                    : Icons.trending_down_rounded,
+                revenueColor,
+                valueColor: revenueColor,
+              ),
+            ];
+
+            return Wrap(
+              spacing: gap,
+              runSpacing: LGSpacing.sm,
+              children: [
+                for (final metric in metrics)
+                  SizedBox(width: itemWidth, child: metric),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionHeader({required String title, Widget? action}) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: LGColors.textPrimary(context),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        if (action != null) ...[const SizedBox(width: LGSpacing.md), action],
+      ],
+    );
+  }
+
+  Widget _contributionRow(Map<String, dynamic> c) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: LGSpacing.sm),
+      child: LGSolidCard(
+        tinted: true,
+        padding: const EdgeInsets.all(LGSpacing.md),
+        child: Row(
+          children: [
+            _DetailIcon(
+              icon: Icons.savings_outlined,
+              color: LGColors.info,
+              size: 42,
+            ),
+            const SizedBox(width: LGSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      money(_toDouble(c['amount'])),
+                      maxLines: 1,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: LGColors.textPrimary(context),
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: LGSpacing.xs),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today_outlined,
+                        color: LGColors.textSecondary(context),
+                        size: 15,
+                      ),
+                      const SizedBox(width: LGSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          formatYmd(c['date'] as String),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
+                            color: LGColors.textSecondary(context),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _kv(String k, String v) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(k, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 2),
-        Text(v, style: const TextStyle(fontWeight: FontWeight.w700)),
-      ]);
+  Widget _kv(
+    String k,
+    String v,
+    IconData icon,
+    Color accentColor, {
+    Color? valueColor,
+  }) {
+    return LGSolidCard(
+      tinted: true,
+      padding: const EdgeInsets.all(LGSpacing.md),
+      child: Row(
+        children: [
+          _DetailIcon(icon: icon, color: accentColor, size: 38),
+          const SizedBox(width: LGSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  k,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: LGColors.textSecondary(context),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    v,
+                    maxLines: 1,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: valueColor ?? LGColors.textPrimary(context),
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metaPill(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: LGSpacing.sm,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: LGColors.surfaceTinted(context),
+        borderRadius: BorderRadius.circular(LGRadius.pill),
+        border: Border.all(
+          color: LGColors.textSecondary(context).withValues(alpha: 0.14),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: LGColors.textSecondary(context)),
+          const SizedBox(width: LGSpacing.xs),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: LGColors.textSecondary(context),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _valuePill(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: LGSpacing.md,
+        vertical: LGSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: LGColors.isDark(context) ? 0.18 : 0.10),
+        borderRadius: BorderRadius.circular(LGRadius.pill),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: LGSpacing.xs),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailIcon extends StatelessWidget {
+  const _DetailIcon({required this.icon, required this.color, this.size = 48});
+
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: LGColors.isDark(context) ? 0.18 : 0.10),
+        borderRadius: BorderRadius.circular(
+          size >= 48 ? LGRadius.lg : LGRadius.md,
+        ),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Icon(icon, color: color, size: size >= 48 ? 25 : 18),
+    );
+  }
 }

@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../i18n.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../state/auth_store.dart';
-import '../ui/finsight_ui.dart';
+import '../liquid_glass/liquid_glass.dart';
 
 class UpdateProfileScreen extends StatefulWidget {
   const UpdateProfileScreen({super.key});
@@ -131,162 +131,196 @@ class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
     final isPro = store.isProOrExempt;
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: FSColors.background(context),
-      appBar: AppBar(
-        title: Text(I18n.t(context, 'title.updateProfile')),
-        backgroundColor: FSColors.background(context),
-        foregroundColor: theme.colorScheme.onSurface,
-        elevation: 0,
-        scrolledUnderElevation: 0.5,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          FSSpacing.lg,
-          FSSpacing.lg,
-          FSSpacing.lg,
-          FSSpacing.xxl,
-        ),
-        child: Form(
-          key: _form,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _ProfileSection(
-                title: I18n.t(context, 'nav.account'),
-                icon: Icons.person_outline,
-                child: Column(
-                  children: [
-                    TextFormField(
-                      controller: _name,
-                      decoration: FSForm.textFieldDecoration(
-                        context,
-                        labelText: I18n.t(context, 'profile.username'),
-                        prefixIcon: const Icon(Icons.badge_outlined),
-                      ), // web parity key name
-                      validator:
-                          (v) =>
-                              (v == null || v.trim().isEmpty)
-                                  ? I18n.t(context, 'validation.required')
-                                  : null,
-                    ),
-                    const SizedBox(height: FSSpacing.md),
-                    TextFormField(
-                      controller: _email,
-                      decoration: FSForm.textFieldDecoration(
-                        context,
-                        labelText: I18n.t(context, 'profile.email'),
-                        prefixIcon: const Icon(Icons.mail_outline),
-                      ),
-                    ),
-                  ],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            LGSpacing.lg,
+            LGSpacing.lg,
+            LGSpacing.lg,
+            120,
+          ),
+          child: Form(
+            key: _form,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LGPageHeader(
+                  title: I18n.t(context, 'title.updateProfile'),
+                  subtitle: I18n.t(context, 'profile.changePassword'),
+                  leading: const _ProfileBackButton(),
                 ),
-              ),
-              const SizedBox(height: FSSpacing.lg),
-              _ProfileSection(
-                title: I18n.t(context, 'profile.changePassword'),
-                icon: Icons.lock_outline,
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: _current,
-                      obscureText: true,
-                      decoration: FSForm.textFieldDecoration(
-                        context,
-                        labelText: I18n.t(context, 'profile.currentPassword'),
-                        prefixIcon: const Icon(Icons.key_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: FSSpacing.md),
-                    TextField(
-                      controller: _new,
-                      obscureText: true,
-                      decoration: FSForm.textFieldDecoration(
-                        context,
-                        labelText: I18n.t(context, 'profile.newPassword'),
-                        prefixIcon: const Icon(Icons.lock_reset_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: FSSpacing.md),
-                    TextField(
-                      controller: _confirm,
-                      obscureText: true,
-                      decoration: FSForm.textFieldDecoration(
-                        context,
-                        labelText: I18n.t(
+                const SizedBox(height: LGSpacing.md),
+                _ProfileSection(
+                  title: I18n.t(context, 'nav.account'),
+                  icon: Icons.person_outline,
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: _name,
+                        decoration: LGForm.solidInputDecoration(
                           context,
-                          'profile.confirmNewPassword',
-                        ),
-                        prefixIcon: const Icon(Icons.verified_user_outlined),
+                          labelText: I18n.t(context, 'profile.username'),
+                          prefixIcon: const Icon(Icons.badge_outlined),
+                        ), // web parity key name
+                        validator:
+                            (v) =>
+                                (v == null || v.trim().isEmpty)
+                                    ? I18n.t(context, 'validation.required')
+                                    : null,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: FSSpacing.lg),
-              _ProfileSection(
-                title: I18n.t(context, 'profile.subscription'),
-                icon: Icons.workspace_premium_outlined,
-                trailing:
-                    isPro
-                        ? const FSStatusBadge(
-                          label: 'Pro',
-                          variant: FSStatusBadgeVariant.success,
-                        )
-                        : null,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      isPro
-                          ? I18n.t(context, 'profile.proPlanText')
-                          : I18n.t(context, 'profile.freePlanText'),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: FSColors.mutedText(context),
-                        height: 1.35,
-                      ),
-                    ),
-                    if (isPro) ...[
-                      const SizedBox(height: FSSpacing.md),
-                      FSButton(
-                        label: I18n.t(
+                      const SizedBox(height: LGSpacing.md),
+                      TextFormField(
+                        controller: _email,
+                        decoration: LGForm.solidInputDecoration(
                           context,
-                          !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
-                              ? 'label.manageInAppStore'
-                              : 'label.manageInPlay',
+                          labelText: I18n.t(context, 'profile.email'),
+                          prefixIcon: const Icon(Icons.mail_outline),
                         ),
-                        icon: Icons.open_in_new,
-                        variant: FSButtonVariant.outline,
-                        fullWidth: true,
-                        onPressed: _openSubscriptionManagement,
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: LGSpacing.lg),
+                _ProfileSection(
+                  title: I18n.t(context, 'profile.changePassword'),
+                  icon: Icons.lock_outline,
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _current,
+                        obscureText: true,
+                        decoration: LGForm.solidInputDecoration(
+                          context,
+                          labelText: I18n.t(context, 'profile.currentPassword'),
+                          prefixIcon: const Icon(Icons.key_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: LGSpacing.md),
+                      TextField(
+                        controller: _new,
+                        obscureText: true,
+                        decoration: LGForm.solidInputDecoration(
+                          context,
+                          labelText: I18n.t(context, 'profile.newPassword'),
+                          prefixIcon: const Icon(Icons.lock_reset_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: LGSpacing.md),
+                      TextField(
+                        controller: _confirm,
+                        obscureText: true,
+                        decoration: LGForm.solidInputDecoration(
+                          context,
+                          labelText: I18n.t(
+                            context,
+                            'profile.confirmNewPassword',
+                          ),
+                          prefixIcon: const Icon(Icons.verified_user_outlined),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: LGSpacing.lg),
+                _ProfileSection(
+                  title: I18n.t(context, 'profile.subscription'),
+                  icon: Icons.workspace_premium_outlined,
+                  trailing:
+                      isPro
+                          ? const LGStatusBadge(
+                            label: 'Pro',
+                            variant: LGStatusBadgeVariant.success,
+                          )
+                          : null,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        isPro
+                            ? I18n.t(context, 'profile.proPlanText')
+                            : I18n.t(context, 'profile.freePlanText'),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: LGColors.textSecondary(context),
+                          height: 1.35,
+                        ),
+                      ),
+                      if (isPro) ...[
+                        const SizedBox(height: LGSpacing.md),
+                        LGButton(
+                          label: I18n.t(
+                            context,
+                            !kIsWeb &&
+                                    defaultTargetPlatform == TargetPlatform.iOS
+                                ? 'label.manageInAppStore'
+                                : 'label.manageInPlay',
+                          ),
+                          icon: Icons.open_in_new,
+                          variant: LGButtonVariant.outline,
+                          fullWidth: true,
+                          onPressed: _openSubscriptionManagement,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: LGSpacing.xl),
+                Row(
+                  children: [
+                    Expanded(
+                      child: LGButton(
+                        label: I18n.t(context, 'label.cancel'),
+                        variant: LGButtonVariant.outline,
+                        onPressed:
+                            _saving ? null : () => Navigator.pop(context),
+                      ),
+                    ),
+                    const SizedBox(width: LGSpacing.md),
+                    Expanded(
+                      child: LGButton(
+                        label:
+                            _saving
+                                ? I18n.t(context, 'label.updating')
+                                : I18n.t(context, 'label.update'),
+                        loading: _saving,
+                        onPressed: _saving ? null : _save,
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              const SizedBox(height: FSSpacing.xl),
-              Row(
-                children: [
-                  Expanded(
-                    child: FSButton(
-                      label: I18n.t(context, 'label.cancel'),
-                      variant: FSButtonVariant.outline,
-                      onPressed: _saving ? null : () => Navigator.pop(context),
-                    ),
-                  ),
-                  const SizedBox(width: FSSpacing.md),
-                  Expanded(
-                    child: FSButton(
-                      label:
-                          _saving
-                              ? I18n.t(context, 'label.updating')
-                              : I18n.t(context, 'label.update'),
-                      loading: _saving,
-                      onPressed: _saving ? null : _save,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileBackButton extends StatelessWidget {
+  const _ProfileBackButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(LGRadius.pill),
+        onTap: () => Navigator.maybePop(context),
+        child: Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: LGColors.surfaceTinted(context),
+            borderRadius: BorderRadius.circular(LGRadius.pill),
+            border: Border.all(
+              color: LGColors.alpha(LGColors.textSecondary(context), 0.18),
+            ),
+          ),
+          child: Icon(
+            Icons.arrow_back_rounded,
+            color: LGColors.textPrimary(context),
           ),
         ),
       ),
@@ -310,47 +344,60 @@ class _ProfileSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return FSCard(
+    return LGSolidCard(
+      variant: LGCardVariant.elevated,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: FSColors.intentContainer(context, FSIntent.primary),
-                  borderRadius: BorderRadius.circular(FSRadius.md),
-                  border: Border.all(
-                    color: FSColors.intentBorder(context, FSIntent.primary),
-                  ),
-                ),
-                child: Icon(icon, color: FSColors.primary, size: 20),
-              ),
-              const SizedBox(width: FSSpacing.md),
+              _ProfileIconBox(icon: icon),
+              const SizedBox(width: LGSpacing.md),
               Expanded(
                 child: Text(
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    color: LGColors.textPrimary(context),
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
               if (trailing != null) ...[
-                const SizedBox(width: FSSpacing.sm),
+                const SizedBox(width: LGSpacing.sm),
                 trailing!,
               ],
             ],
           ),
-          const SizedBox(height: FSSpacing.lg),
+          const SizedBox(height: LGSpacing.lg),
           child,
         ],
       ),
+    );
+  }
+}
+
+class _ProfileIconBox extends StatelessWidget {
+  const _ProfileIconBox({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 42,
+      height: 42,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: LGColors.intentContainer(context, LGIntent.primary),
+        borderRadius: BorderRadius.circular(LGRadius.md),
+        border: Border.all(
+          color: LGColors.intentStroke(context, LGIntent.primary),
+        ),
+      ),
+      child: Icon(icon, color: LGColors.primaryBlue, size: 20),
     );
   }
 }

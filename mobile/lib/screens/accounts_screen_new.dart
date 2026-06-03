@@ -6,9 +6,9 @@ import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
-import '../ui/finsight_ui.dart';
 import '../utils/format.dart';
 import '../i18n.dart';
+import '../liquid_glass/liquid_glass.dart';
 import 'account_detail_screen.dart';
 
 class AccountsScreenNew extends StatefulWidget {
@@ -131,15 +131,22 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
     final api = ApiClient()..setToken(token);
     final data = DataService(api);
     final accounts = _accounts;
-    final appBar = AppBar(title: Text(I18n.t(context, 'title.accounts')));
 
     if (_loading && accounts.isEmpty) {
       return WillPopScope(
         onWillPop: () async => !widget.forceCreate,
         child: Scaffold(
-          backgroundColor: FSColors.background(context),
-          appBar: appBar,
-          body: const FSLoadingState(),
+          body: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
+            children: [
+              LGPageHeader(
+                title: I18n.t(context, 'title.accounts'),
+                leading: const _AccountsHeaderIcon(),
+              ),
+              const Center(child: LGLoadingState()),
+            ],
+          ),
         ),
       );
     }
@@ -151,9 +158,17 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
       return WillPopScope(
         onWillPop: () async => !widget.forceCreate,
         child: Scaffold(
-          backgroundColor: FSColors.background(context),
-          appBar: appBar,
-          body: const FSLoadingState(),
+          body: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
+            children: [
+              LGPageHeader(
+                title: I18n.t(context, 'title.accounts'),
+                leading: const _AccountsHeaderIcon(),
+              ),
+              const Center(child: LGLoadingState()),
+            ],
+          ),
         ),
       );
     }
@@ -167,20 +182,22 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
               (a, b) => a.displayBalance >= b.displayBalance ? a : b,
             );
 
+    Widget kpi(IconData ic, String title, String value, Color accentColor) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 132),
+        child: LGMetricCard(
+          title: title,
+          value: value,
+          icon: ic,
+          accentColor: accentColor,
+        ),
+      );
+    }
+
     List<Widget> accountCards() =>
         accounts.map((a) {
           return _AccountCard(
             account: a,
-            typeLabel:
-                a.isInvestment
-                    ? I18n.t(context, 'accounts.type.investment')
-                    : (a.type ?? ''),
-            balanceLabel: I18n.t(
-              context,
-              a.isInvestment
-                  ? 'accounts.details.estimatedValue'
-                  : 'label.currentBalance',
-            ),
             onTap: () {
               Navigator.of(context)
                   .push(
@@ -241,60 +258,70 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
     return WillPopScope(
       onWillPop: () async => !widget.forceCreate,
       child: Scaffold(
-        backgroundColor: FSColors.background(context),
-        appBar: appBar,
         body: RefreshIndicator(
-          color: Theme.of(context).colorScheme.primary,
           onRefresh: _refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(
-              FSSpacing.lg,
-              FSSpacing.lg,
-              FSSpacing.lg,
-              FSSpacing.xxl,
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
             children: [
+              LGPageHeader(
+                title: I18n.t(context, 'title.accounts'),
+                leading: const _AccountsHeaderIcon(),
+              ),
               if (widget.forceCreate && accounts.isEmpty) ...[
-                FSCard(
-                  variant: FSCardVariant.subtle,
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: FSColors.intentContainer(
-                            context,
-                            FSIntent.primary,
+                LGSolidCard(
+                  tinted: true,
+                  child: Padding(
+                    padding: EdgeInsets.zero,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: LGColors.intentContainer(
+                              context,
+                              LGIntent.primary,
+                            ),
+                            borderRadius: BorderRadius.circular(LGRadius.lg),
+                            border: Border.all(
+                              color: LGColors.intentStroke(
+                                context,
+                                LGIntent.primary,
+                              ),
+                            ),
                           ),
-                          borderRadius: BorderRadius.circular(FSRadius.md),
+                          child: const Icon(
+                            Icons.flag_outlined,
+                            color: LGColors.primaryBlue,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.flag_outlined,
-                          color: FSColors.primary,
+                        const SizedBox(width: LGSpacing.md),
+                        Expanded(
+                          child: Text(
+                            I18n.t(context, 'onboarding.createFirstAccount'),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyMedium?.copyWith(
+                              color: LGColors.textSecondary(context),
+                              height: 1.35,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: FSSpacing.md),
-                      Expanded(
-                        child: Text(
-                          I18n.t(context, 'onboarding.createFirstAccount'),
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: FSSpacing.md),
+                const SizedBox(height: LGSpacing.md),
               ],
               Wrap(
-                spacing: FSSpacing.sm,
-                runSpacing: FSSpacing.sm,
+                spacing: LGSpacing.sm,
+                runSpacing: LGSpacing.sm,
                 children: [
-                  FSButton(
+                  LGButton(
                     label: I18n.t(context, 'label.addAccount'),
-                    icon: Icons.add_rounded,
+                    icon: Icons.add,
                     onPressed:
                         () => _showCreateAccount(
                           context,
@@ -302,10 +329,10 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                           forceCreate: widget.forceCreate,
                         ),
                   ),
-                  FSButton(
+                  LGButton(
                     label: I18n.t(context, 'accounts.transferFunds'),
-                    icon: Icons.swap_horiz_rounded,
-                    variant: FSButtonVariant.outline,
+                    icon: Icons.swap_horiz,
+                    variant: LGButtonVariant.outline,
                     onPressed:
                         _loading
                             ? null
@@ -313,44 +340,41 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                   ),
                 ],
               ),
-              const SizedBox(height: FSSpacing.md),
+              const SizedBox(height: LGSpacing.md),
               LayoutBuilder(
                 builder: (context, c) {
                   final w = c.maxWidth;
-                  const gap = FSSpacing.md;
-                  final columns = w < 360 ? 1 : 2;
-                  final itemW = (w - (columns - 1) * gap) / columns;
+                  const gap = LGSpacing.md;
                   final cards = <Widget>[
-                    FSMetricCard(
-                      title: I18n.t(context, 'kpi.totalBalance'),
-                      value: money(total),
-                      icon: Icons.attach_money_rounded,
-                      accent: total >= 0 ? FSIntent.success : FSIntent.danger,
+                    kpi(
+                      Icons.attach_money,
+                      I18n.t(context, 'kpi.totalBalance'),
+                      money(total),
+                      total >= 0 ? LGColors.success : LGColors.danger,
                     ),
-                    FSMetricCard(
-                      title: I18n.t(context, 'kpi.accounts'),
-                      value: activeCount.toString(),
-                      icon: Icons.account_balance_wallet_outlined,
-                      accent: FSIntent.primary,
+                    kpi(
+                      Icons.account_balance_wallet_outlined,
+                      I18n.t(context, 'kpi.accounts'),
+                      activeCount.toString(),
+                      Theme.of(context).colorScheme.primary,
                     ),
-                    FSMetricCard(
-                      title: I18n.t(context, 'analytics.highestBalanceAccount'),
-                      value: money(highest?.displayBalance ?? 0),
-                      subtitle: highest?.name,
-                      icon: Icons.trending_up_rounded,
-                      accent: FSIntent.info,
+                    kpi(
+                      Icons.trending_up,
+                      I18n.t(context, 'analytics.highestBalanceAccount'),
+                      money(highest?.displayBalance ?? 0),
+                      LGColors.info,
                     ),
                   ];
+                  final columns = w < 360 ? 1 : 2;
+                  final itemW = (w - (columns - 1) * gap) / columns;
                   final children = <Widget>[];
                   for (var i = 0; i < cards.length; i++) {
                     final isLastOdd =
-                        columns == 2 &&
+                        columns > 1 &&
                         (cards.length % 2 == 1) &&
                         i == cards.length - 1;
                     final width = isLastOdd ? w : itemW;
-                    children.add(
-                      SizedBox(width: width, height: 138, child: cards[i]),
-                    );
+                    children.add(SizedBox(width: width, child: cards[i]));
                   }
                   return Wrap(
                     spacing: gap,
@@ -359,23 +383,21 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                   );
                 },
               ),
-              const SizedBox(height: FSSpacing.md),
+              const SizedBox(height: LGSpacing.lg),
               if (accounts.isEmpty)
-                FSCard(
-                  variant: FSCardVariant.elevated,
-                  child: FSEmptyState(
-                    icon: Icons.account_balance_wallet_outlined,
-                    title: I18n.t(context, 'onboarding.createFirstAccount'),
-                    action: FSButton(
-                      label: I18n.t(context, 'label.addAccount'),
-                      icon: Icons.add_rounded,
-                      onPressed:
-                          () => _showCreateAccount(
-                            context,
-                            data,
-                            forceCreate: widget.forceCreate,
-                          ),
-                    ),
+                LGEmptyState(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: I18n.t(context, 'title.accounts'),
+                  message: I18n.t(context, 'onboarding.createFirstAccount'),
+                  action: LGEmptyAction(
+                    label: I18n.t(context, 'label.addAccount'),
+                    icon: Icons.add,
+                    onPressed:
+                        () => _showCreateAccount(
+                          context,
+                          data,
+                          forceCreate: widget.forceCreate,
+                        ),
                   ),
                 )
               else
@@ -634,9 +656,9 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                         children: [
                           TextField(
                             controller: nameCtrl,
-                            decoration: InputDecoration(
+                            decoration: LGForm.solidInputDecoration(
+                              context,
                               labelText: I18n.t(context, 'accounts.name'),
-                              border: const OutlineInputBorder(),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -653,45 +675,45 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                                     .toList(),
                             onChanged:
                                 (v) => setState(() => type = v ?? 'Checking'),
-                            decoration: InputDecoration(
+                            decoration: LGForm.dropdownDecoration(
+                              context,
                               labelText: I18n.t(context, 'accounts.type'),
-                              border: const OutlineInputBorder(),
                             ),
                           ),
                           const SizedBox(height: 8),
                           TextField(
                             controller: balanceCtrl,
                             keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
+                            decoration: LGForm.solidInputDecoration(
+                              context,
                               labelText: I18n.t(
                                 context,
                                 'accounts.initialBalance',
                               ),
-                              border: const OutlineInputBorder(),
                             ),
                           ),
                           const SizedBox(height: 8),
                           TextField(
                             controller: bankCtrl,
-                            decoration: InputDecoration(
+                            decoration: LGForm.solidInputDecoration(
+                              context,
                               labelText: I18n.t(
                                 context,
                                 'accounts.bankNameOptional',
                               ),
-                              border: const OutlineInputBorder(),
                             ),
                           ),
                           const SizedBox(height: 8),
                           TextField(
                             controller: numberCtrl,
                             keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
+                            decoration: LGForm.solidInputDecoration(
+                              context,
                               labelText: I18n.t(
                                 context,
                                 'accounts.accountNumberOptional',
                               ),
                               hintText: '****1234',
-                              border: const OutlineInputBorder(),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -898,16 +920,12 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
 class _AccountCard extends StatelessWidget {
   const _AccountCard({
     required this.account,
-    required this.typeLabel,
-    required this.balanceLabel,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
 
   final Account account;
-  final String typeLabel;
-  final String balanceLabel;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final Future<void> Function() onDelete;
@@ -915,19 +933,17 @@ class _AccountCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayBalance = account.displayBalance;
-    final balanceIntent =
-        displayBalance > 0
-            ? FSIntent.success
-            : (displayBalance == 0 ? FSIntent.warning : FSIntent.danger);
-    final balanceColor = FSColors.intent(balanceIntent);
-    final metadata = _accountMetadata(account);
+    final primary = Theme.of(context).colorScheme.primary;
+    final balanceColor = _balanceColor(displayBalance);
+    final accountType = _accountTypeLabel(context, account);
+    final meta = _accountMeta(account);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: FSSpacing.md),
-      child: FSCard(
-        variant: FSCardVariant.interactive,
+      padding: const EdgeInsets.only(bottom: LGSpacing.md),
+      child: LGSolidCard(
+        variant: LGCardVariant.elevated,
+        padding: const EdgeInsets.all(LGSpacing.lg),
         onTap: onTap,
-        padding: const EdgeInsets.all(FSSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -935,24 +951,21 @@ class _AccountCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 48,
+                  height: 48,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: FSColors.intentContainer(context, balanceIntent),
-                    borderRadius: BorderRadius.circular(FSRadius.md),
+                    color: balanceColor.withValues(
+                      alpha: LGColors.isDark(context) ? 0.18 : 0.10,
+                    ),
+                    borderRadius: BorderRadius.circular(LGRadius.lg),
                     border: Border.all(
-                      color: FSColors.intentBorder(context, balanceIntent),
+                      color: balanceColor.withValues(alpha: 0.22),
                     ),
                   ),
-                  child: Icon(
-                    account.isInvestment
-                        ? Icons.trending_up_rounded
-                        : Icons.account_balance_rounded,
-                    color: balanceColor,
-                  ),
+                  child: Icon(_accountIcon(account), color: balanceColor),
                 ),
-                const SizedBox(width: FSSpacing.md),
+                const SizedBox(width: LGSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -961,67 +974,153 @@ class _AccountCard extends StatelessWidget {
                         account.name,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      if (metadata.isNotEmpty) ...[
-                        const SizedBox(height: FSSpacing.xs),
-                        Text(
-                          metadata,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: FSColors.mutedText(context)),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: LGColors.textPrimary(context),
+                          fontWeight: FontWeight.w900,
                         ),
-                      ],
-                      const SizedBox(height: FSSpacing.sm),
+                      ),
+                      const SizedBox(height: LGSpacing.sm),
                       Wrap(
-                        spacing: FSSpacing.sm,
-                        runSpacing: FSSpacing.xs,
+                        spacing: LGSpacing.sm,
+                        runSpacing: LGSpacing.xs,
                         children: [
-                          if (typeLabel.isNotEmpty)
-                            FSStatusBadge(
-                              label: typeLabel,
-                              variant: FSStatusBadgeVariant.info,
+                          if (accountType != null)
+                            LGStatusBadge(
+                              label: accountType,
+                              variant:
+                                  account.isInvestment
+                                      ? LGStatusBadgeVariant.info
+                                      : LGStatusBadgeVariant.neutral,
+                              icon:
+                                  account.isInvestment
+                                      ? Icons.trending_up_rounded
+                                      : Icons.account_balance_wallet_outlined,
                             ),
-                          FSStatusBadge(
+                          LGStatusBadge(
                             label: account.isActive ? 'Active' : 'Inactive',
                             variant:
                                 account.isActive
-                                    ? FSStatusBadgeVariant.active
-                                    : FSStatusBadgeVariant.neutral,
+                                    ? LGStatusBadgeVariant.active
+                                    : LGStatusBadgeVariant.neutral,
+                            icon:
+                                account.isActive
+                                    ? Icons.check_rounded
+                                    : Icons.pause_rounded,
                           ),
+                          if (meta != null)
+                            _AccountMetaPill(
+                              icon: Icons.account_balance_outlined,
+                              label: meta,
+                            ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: FSSpacing.sm),
-                Column(
+                const SizedBox(width: LGSpacing.sm),
+                Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _AccountActionButton(
                       tooltip: 'Edit',
                       icon: Icons.edit_outlined,
+                      color: primary,
                       onPressed: onEdit,
                     ),
-                    const SizedBox(height: FSSpacing.xs),
+                    const SizedBox(width: LGSpacing.xs),
                     _AccountActionButton(
                       tooltip: 'Delete',
-                      icon: Icons.delete_outline_rounded,
-                      onPressed: onDelete,
-                      danger: true,
+                      icon: Icons.delete_outline,
+                      color: LGColors.danger,
+                      onPressed: () {
+                        onDelete();
+                      },
                     ),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: FSSpacing.lg),
-            _AccountBalanceTile(
-              label: balanceLabel,
-              value: money(displayBalance),
-              intent: balanceIntent,
-              valueColor: balanceColor,
+            const SizedBox(height: LGSpacing.lg),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(LGSpacing.md),
+              decoration: BoxDecoration(
+                color: LGColors.surfaceTinted(context),
+                borderRadius: BorderRadius.circular(LGRadius.lg),
+                border: Border.all(
+                  color: LGColors.textSecondary(
+                    context,
+                  ).withValues(alpha: 0.14),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: balanceColor.withValues(
+                        alpha: LGColors.isDark(context) ? 0.18 : 0.10,
+                      ),
+                      borderRadius: BorderRadius.circular(LGRadius.md),
+                    ),
+                    child: Icon(
+                      account.isInvestment
+                          ? Icons.stacked_line_chart_rounded
+                          : Icons.payments_outlined,
+                      color: balanceColor,
+                      size: 19,
+                    ),
+                  ),
+                  const SizedBox(width: LGSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          I18n.t(
+                            context,
+                            account.isInvestment
+                                ? 'accounts.details.estimatedValue'
+                                : 'label.currentBalance',
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
+                            color: LGColors.textSecondary(context),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            money(displayBalance),
+                            maxLines: 1,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.headlineSmall?.copyWith(
+                              color: balanceColor,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: LGSpacing.sm),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: LGColors.textSecondary(context),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1029,91 +1128,65 @@ class _AccountCard extends StatelessWidget {
     );
   }
 
-  String _accountMetadata(Account account) {
-    if ((account.bankName ?? '').isEmpty &&
-        (account.accountNumber ?? '').isEmpty) {
-      return '';
+  Color _balanceColor(double balance) {
+    if (balance < 0) return LGColors.danger;
+    if (balance == 0) return LGColors.warning;
+    return LGColors.success;
+  }
+
+  IconData _accountIcon(Account account) {
+    if (account.isInvestment) return Icons.trending_up_rounded;
+    final type = (account.type ?? '').toLowerCase();
+    if (type.contains('credit')) return Icons.credit_card_rounded;
+    if (type.contains('business')) return Icons.business_center_outlined;
+    if (type.contains('savings')) return Icons.savings_outlined;
+    return Icons.account_balance_wallet_outlined;
+  }
+
+  String? _accountTypeLabel(BuildContext context, Account account) {
+    if (account.isInvestment) {
+      return I18n.t(context, 'accounts.type.investment');
     }
-    final accountNumber = account.accountNumber ?? '';
-    final suffix =
-        accountNumber.isEmpty
+    final type = account.type;
+    if (type == null || type.isEmpty) return null;
+    return type;
+  }
+
+  String? _accountMeta(Account account) {
+    final bank = account.bankName ?? '';
+    final number = account.accountNumber ?? '';
+    final lastDigits =
+        number.isEmpty
             ? ''
-            : (accountNumber.length > 4
-                ? accountNumber.substring(accountNumber.length - 4)
-                : accountNumber);
-    return '${account.bankName ?? ''}${suffix.isNotEmpty ? '   $suffix' : ''}';
+            : (number.length > 4
+                ? number.substring(number.length - 4)
+                : number);
+    if (bank.isEmpty && lastDigits.isEmpty) return null;
+    if (bank.isEmpty) return lastDigits;
+    if (lastDigits.isEmpty) return bank;
+    return '$bank   $lastDigits';
   }
 }
 
-class _AccountBalanceTile extends StatelessWidget {
-  const _AccountBalanceTile({
-    required this.label,
-    required this.value,
-    required this.intent,
-    required this.valueColor,
-  });
-
-  final String label;
-  final String value;
-  final FSIntent intent;
-  final Color valueColor;
+class _AccountsHeaderIcon extends StatelessWidget {
+  const _AccountsHeaderIcon();
 
   @override
   Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(FSSpacing.md),
+      width: 52,
+      height: 52,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: FSColors.surface(context),
-        borderRadius: BorderRadius.circular(FSRadius.lg),
-        border: Border.all(color: FSColors.border(context)),
+        color: color.withValues(alpha: LGColors.isDark(context) ? 0.18 : 0.10),
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: FSColors.intentContainer(context, intent),
-              borderRadius: BorderRadius.circular(FSRadius.md),
-            ),
-            child: Icon(
-              Icons.payments_outlined,
-              color: FSColors.intent(intent),
-            ),
-          ),
-          const SizedBox(width: FSSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: FSColors.mutedText(context),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    maxLines: 1,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: valueColor,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: Icon(
+        Icons.account_balance_wallet_outlined,
+        color: color,
+        size: 25,
       ),
     );
   }
@@ -1123,30 +1196,80 @@ class _AccountActionButton extends StatelessWidget {
   const _AccountActionButton({
     required this.tooltip,
     required this.icon,
+    required this.color,
     required this.onPressed,
-    this.danger = false,
   });
 
   final String tooltip;
   final IconData icon;
+  final Color color;
   final VoidCallback onPressed;
-  final bool danger;
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        danger ? FSColors.danger : Theme.of(context).colorScheme.primary;
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: Icon(icon, size: 20),
+      icon: Icon(icon, size: 21),
       style: IconButton.styleFrom(
-        fixedSize: const Size.square(40),
-        backgroundColor: FSColors.alpha(color, 0.10),
+        fixedSize: const Size.square(44),
+        minimumSize: const Size.square(44),
+        padding: EdgeInsets.zero,
+        backgroundColor: color.withValues(
+          alpha: LGColors.isDark(context) ? 0.18 : 0.10,
+        ),
         foregroundColor: color,
-        side: BorderSide(color: FSColors.alpha(color, 0.18)),
+        side: BorderSide(color: color.withValues(alpha: 0.24)),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FSRadius.md),
+          borderRadius: BorderRadius.circular(LGRadius.md),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountMetaPill extends StatelessWidget {
+  const _AccountMetaPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: 26,
+        maxWidth: MediaQuery.sizeOf(context).width - 96,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: LGSpacing.sm,
+          vertical: 5,
+        ),
+        decoration: BoxDecoration(
+          color: LGColors.surfaceTinted(context),
+          borderRadius: BorderRadius.circular(LGRadius.pill),
+          border: Border.all(
+            color: LGColors.textSecondary(context).withValues(alpha: 0.14),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: LGColors.textSecondary(context)),
+            const SizedBox(width: LGSpacing.xs),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: LGColors.textSecondary(context),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

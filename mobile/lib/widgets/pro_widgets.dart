@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../ui/finsight_ui.dart';
 import '../services/purchase_service.dart';
 import '../utils/links.dart';
 
@@ -30,57 +29,46 @@ class ProBlock extends StatelessWidget {
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
-                child: FSCard(
-                  variant: FSCardVariant.elevated,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: FSSpacing.xl,
-                    vertical: 28,
+                child: Card(
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: FSColors.intentContainer(
-                            context,
-                            FSIntent.primary,
-                          ),
-                          borderRadius: BorderRadius.circular(FSRadius.lg),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 28,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          '$feature is a Pro feature',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
-                        child: const Icon(
-                          Icons.stars_rounded,
-                          color: FSColors.primary,
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Upgrade to unlock this feature and more.',
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                      const SizedBox(height: FSSpacing.lg),
-                      Text(
-                        '$feature is a Pro feature',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Upgrade to unlock this feature and more.',
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 20),
-                      const _ProSubscriptionDetails(centered: true),
-                      const SizedBox(height: 16),
-                      FSButton(
-                        label: 'Upgrade to Pro',
-                        icon: Icons.workspace_premium_outlined,
-                        onPressed: () => PurchaseService().purchasePro(context),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Includes analytics, projects, invoices, the AI financial consultant, and unlimited accounts.',
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                        const SizedBox(height: 20),
+                        const _ProSubscriptionDetails(centered: true),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed:
+                              () => PurchaseService().purchasePro(context),
+                          child: const Text('Upgrade to Pro'),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Includes analytics, projects, invoices, the AI financial consultant, and unlimited accounts.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -96,11 +84,20 @@ class ProMiniChip extends StatelessWidget {
   const ProMiniChip({super.key});
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: const FSStatusBadge(
-        label: 'PRO',
-        variant: FSStatusBadgeVariant.info,
+    return Container(
+      margin: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE6F0FF),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Text(
+        'PRO',
+        style: TextStyle(
+          color: Color(0xFF2563EB),
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -110,18 +107,17 @@ class UpgradeBanner extends StatelessWidget {
   const UpgradeBanner({super.key});
   @override
   Widget build(BuildContext context) {
-    return FSCard(
-      variant: FSCardVariant.interactive,
+    return Card(
+      elevation: 8,
       child: Padding(
-        padding: EdgeInsets.zero,
+        padding: const EdgeInsets.all(16),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 520;
             final details = const Expanded(child: _ProBannerDetails());
-            final button = FSButton(
-              label: 'Upgrade',
-              icon: Icons.workspace_premium_outlined,
+            final button = FilledButton(
               onPressed: () => PurchaseService().purchasePro(context),
+              child: const Text('Upgrade'),
             );
 
             return Column(
@@ -133,7 +129,7 @@ class UpgradeBanner extends StatelessWidget {
                     children: [
                       const Padding(
                         padding: EdgeInsets.only(top: 2),
-                        child: Icon(Icons.stars, color: FSColors.primary),
+                        child: Icon(Icons.stars, color: Color(0xFF2563EB)),
                       ),
                       const SizedBox(width: 12),
                       details,
@@ -147,7 +143,7 @@ class UpgradeBanner extends StatelessWidget {
                     children: [
                       const Padding(
                         padding: EdgeInsets.only(top: 2),
-                        child: Icon(Icons.stars, color: FSColors.primary),
+                        child: Icon(Icons.stars, color: Color(0xFF2563EB)),
                       ),
                       const SizedBox(width: 12),
                       details,

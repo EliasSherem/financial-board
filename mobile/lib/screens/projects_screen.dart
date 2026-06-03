@@ -5,10 +5,10 @@ import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
-import '../ui/finsight_ui.dart';
 import '../utils/format.dart';
 import '../widgets/pro_widgets.dart';
 import '../i18n.dart';
+import '../liquid_glass/liquid_glass.dart';
 import 'project_detail_screen.dart';
 
 class ProjectsScreen extends StatefulWidget {
@@ -67,9 +67,18 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     final store = context.watch<AuthStore>();
     if (!store.isProOrExempt) {
       return Scaffold(
-        backgroundColor: FSColors.background(context),
-        appBar: AppBar(title: Text(I18n.t(context, 'title.projects'))),
-        body: const ProBlock(feature: 'Projects'),
+        body: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
+          children: [
+            LGPageHeader(
+              title: I18n.t(context, 'title.projects'),
+              subtitle: I18n.t(context, 'projects.subtitle'),
+              leading: const _ProjectsHeaderIcon(),
+            ),
+            const ProBlock(feature: 'Projects'),
+          ],
+        ),
       );
     }
     final token = store.token;
@@ -80,25 +89,38 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     final api = ApiClient()..setToken(token);
     final data = DataService(api);
     return Scaffold(
-      backgroundColor: FSColors.background(context),
-      appBar: AppBar(title: Text(I18n.t(context, 'title.projects'))),
       body: FutureBuilder<List<Project>>(
         future: _future,
         builder: (context, snap) {
           if (!snap.hasData) {
             if (snap.hasError) {
-              return Center(
-                child: FSCard(
-                  margin: const EdgeInsets.all(FSSpacing.lg),
-                  variant: FSCardVariant.subtle,
-                  child: FSEmptyState(
-                    icon: Icons.error_outline_rounded,
-                    title: 'Error: ${snap.error}',
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
+                children: [
+                  LGPageHeader(
+                    title: I18n.t(context, 'title.projects'),
+                    subtitle: I18n.t(context, 'projects.subtitle'),
+                    leading: const _ProjectsHeaderIcon(),
+                    action: LGButton(
+                      label: I18n.t(context, 'projects.add'),
+                      icon: Icons.add,
+                      onPressed: () => _showCreateProject(context, data),
+                    ),
                   ),
-                ),
+                  LGSolidCard(
+                    tinted: true,
+                    child: Text(
+                      'Error: ${snap.error}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: LGColors.textSecondary(context),
+                      ),
+                    ),
+                  ),
+                ],
               );
             }
-            return const FSLoadingState();
+            return const Center(child: LGLoadingState());
           }
           final items = snap.data!;
           if (!_openedFromNotification && widget.openProjectId != null) {
@@ -123,55 +145,31 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             }
           }
           return RefreshIndicator(
-            color: Theme.of(context).colorScheme.primary,
             onRefresh: _refresh,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
-                FSSpacing.lg,
-                FSSpacing.lg,
-                FSSpacing.lg,
-                FSSpacing.xxl,
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
               children: [
-                FSCard(
-                  variant: FSCardVariant.subtle,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          I18n.t(context, 'projects.subtitle'),
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodyMedium?.copyWith(
-                            color: FSColors.mutedText(context),
-                            fontWeight: FontWeight.w600,
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: FSSpacing.md),
-                      FSButton(
-                        label: I18n.t(context, 'projects.add'),
-                        icon: Icons.add_rounded,
-                        size: FSButtonSize.sm,
-                        onPressed: () => _showCreateProject(context, data),
-                      ),
-                    ],
+                LGPageHeader(
+                  title: I18n.t(context, 'title.projects'),
+                  subtitle: I18n.t(context, 'projects.subtitle'),
+                  leading: const _ProjectsHeaderIcon(),
+                  action: LGButton(
+                    label: I18n.t(context, 'projects.add'),
+                    icon: Icons.add,
+                    onPressed: () => _showCreateProject(context, data),
                   ),
                 ),
-                const SizedBox(height: FSSpacing.md),
+                const SizedBox(height: LGSpacing.sm),
                 if (items.isEmpty)
-                  FSCard(
-                    variant: FSCardVariant.elevated,
-                    child: FSEmptyState(
-                      icon: Icons.folder_open_outlined,
-                      title: I18n.t(context, 'projects.none'),
-                      action: FSButton(
-                        label: I18n.t(context, 'projects.add'),
-                        icon: Icons.add_rounded,
-                        onPressed: () => _showCreateProject(context, data),
-                      ),
+                  LGEmptyState(
+                    icon: Icons.folder_open_rounded,
+                    title: I18n.t(context, 'projects.none'),
+                    message: I18n.t(context, 'projects.subtitle'),
+                    action: LGEmptyAction(
+                      label: I18n.t(context, 'projects.add'),
+                      icon: Icons.add,
+                      onPressed: () => _showCreateProject(context, data),
                     ),
                   )
                 else ...[
@@ -243,7 +241,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                         }
                       },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: LGSpacing.md),
                   ],
                 ],
               ],
@@ -536,17 +534,15 @@ class _ProjectCard extends StatelessWidget {
     final progress =
         budget == 0 ? 0.0 : (spent / budget).clamp(0.0, 1.0).toDouble();
     final percent = (progress * 100).toStringAsFixed(0);
-    final onBudget = remaining >= 0;
-    final progressIntent =
-        !onBudget
-            ? FSIntent.danger
-            : (progress >= 0.8 ? FSIntent.warning : FSIntent.success);
-    final progressColor = FSColors.intent(progressIntent);
 
-    return FSCard(
-      variant: FSCardVariant.interactive,
+    final onBudget = remaining >= 0;
+    final progressColor = _progressColor(progress, onBudget);
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return LGSolidCard(
+      variant: LGCardVariant.elevated,
+      padding: const EdgeInsets.all(LGSpacing.lg),
       onTap: onTap,
-      padding: const EdgeInsets.all(FSSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -554,24 +550,19 @@ class _ProjectCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 48,
+                height: 48,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: FSColors.intentContainer(context, progressIntent),
-                  borderRadius: BorderRadius.circular(FSRadius.md),
-                  border: Border.all(
-                    color: FSColors.intentBorder(context, progressIntent),
+                  color: primary.withValues(
+                    alpha: LGColors.isDark(context) ? 0.18 : 0.10,
                   ),
+                  borderRadius: BorderRadius.circular(LGRadius.lg),
+                  border: Border.all(color: primary.withValues(alpha: 0.22)),
                 ),
-                child: Icon(
-                  onBudget
-                      ? Icons.folder_open_outlined
-                      : Icons.warning_amber_rounded,
-                  color: progressColor,
-                ),
+                child: Icon(Icons.folder_outlined, color: primary),
               ),
-              const SizedBox(width: FSSpacing.md),
+              const SizedBox(width: LGSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,230 +571,188 @@ class _ProjectCard extends StatelessWidget {
                       project.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: LGColors.textPrimary(context),
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                     if ((project.description ?? '').isNotEmpty) ...[
-                      const SizedBox(height: FSSpacing.xs),
+                      const SizedBox(height: LGSpacing.xs),
                       Text(
                         project.description!,
-                        maxLines: 2,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: FSColors.mutedText(context),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: LGColors.textSecondary(context),
                           height: 1.35,
                         ),
                       ),
                     ],
-                    const SizedBox(height: FSSpacing.sm),
+                    const SizedBox(height: LGSpacing.sm),
                     Wrap(
-                      spacing: FSSpacing.sm,
-                      runSpacing: FSSpacing.xs,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: LGSpacing.sm,
+                      runSpacing: LGSpacing.xs,
                       children: [
                         _statusChip(context, project.status),
-                        FSStatusBadge(
-                          label: '$percent%',
-                          variant: _badgeVariantForIntent(progressIntent),
-                          icon: Icons.timeline_rounded,
-                        ),
+                        if (project.startDate != null &&
+                            project.endDate != null)
+                          _metaPill(
+                            context,
+                            Icons.calendar_today_outlined,
+                            '${formatYmd(project.startDate!)} ${I18n.t(context, 'projects.to')} ${formatYmd(project.endDate!)}',
+                          ),
                       ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: FSSpacing.sm),
-              Column(
+              const SizedBox(width: LGSpacing.sm),
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _ProjectActionButton(
                     tooltip: I18n.t(context, 'projects.edit'),
                     icon: Icons.edit_outlined,
+                    color: primary,
                     onPressed: onEdit,
                   ),
-                  const SizedBox(height: FSSpacing.xs),
+                  const SizedBox(width: LGSpacing.xs),
                   _ProjectActionButton(
                     tooltip: I18n.t(context, 'projects.delete'),
-                    icon: Icons.delete_outline_rounded,
-                    onPressed: onDelete,
-                    danger: true,
+                    icon: Icons.delete_outline,
+                    color: LGColors.danger,
+                    onPressed: () {
+                      onDelete();
+                    },
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: FSSpacing.lg),
+          const SizedBox(height: LGSpacing.lg),
           LayoutBuilder(
             builder: (context, constraints) {
-              final twoColumns = constraints.maxWidth >= 320;
-              final width =
+              final twoColumns = constraints.maxWidth >= 360;
+              final gap = twoColumns ? LGSpacing.md : LGSpacing.sm;
+              final itemWidth =
                   twoColumns
-                      ? (constraints.maxWidth - FSSpacing.sm) / 2
+                      ? (constraints.maxWidth - gap) / 2
                       : constraints.maxWidth;
               return Wrap(
-                spacing: FSSpacing.sm,
-                runSpacing: FSSpacing.sm,
+                spacing: gap,
+                runSpacing: LGSpacing.sm,
                 children: [
                   SizedBox(
-                    width: width,
-                    child: _ProjectValueTile(
-                      label: I18n.t(context, 'projects.budget'),
-                      value: money(budget),
-                      icon: Icons.account_balance_wallet_outlined,
-                      intent: FSIntent.primary,
+                    width: itemWidth,
+                    child: _kv(
+                      context,
+                      I18n.t(context, 'projects.budget'),
+                      money(budget),
+                      Icons.account_balance_wallet_outlined,
+                      primary,
                     ),
                   ),
                   SizedBox(
-                    width: width,
-                    child: _ProjectValueTile(
-                      label: I18n.t(context, 'home.spent'),
-                      value: money(spent),
-                      icon: Icons.payments_outlined,
-                      intent: FSIntent.info,
+                    width: itemWidth,
+                    child: _kv(
+                      context,
+                      I18n.t(context, 'home.spent'),
+                      money(spent),
+                      Icons.payments_outlined,
+                      LGColors.info,
                     ),
                   ),
                 ],
               );
             },
           ),
-          const SizedBox(height: FSSpacing.lg),
+          const SizedBox(height: LGSpacing.lg),
           Row(
             children: [
               Text(
                 I18n.t(context, 'projects.progress'),
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: LGColors.textPrimary(context),
+                  fontWeight: FontWeight.w900,
+                ),
               ),
               const Spacer(),
               Text(
                 '$percent%',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: progressColor,
                   fontWeight: FontWeight.w900,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: FSSpacing.sm),
+          const SizedBox(height: LGSpacing.sm),
           ClipRRect(
-            borderRadius: BorderRadius.circular(FSRadius.pill),
+            borderRadius: BorderRadius.circular(LGRadius.pill),
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 10,
-              backgroundColor: FSColors.alpha(progressColor, 0.12),
+              backgroundColor: LGColors.textSecondary(
+                context,
+              ).withValues(alpha: LGColors.isDark(context) ? 0.22 : 0.14),
               color: progressColor,
             ),
           ),
-          const SizedBox(height: FSSpacing.md),
-          if (project.startDate != null && project.endDate != null) ...[
-            _ProjectMetadataRow(
-              icon: Icons.date_range_outlined,
-              text:
-                  '${I18n.t(context, 'projects.period')}: '
-                  '${formatYmd(project.startDate!)} '
-                  '${I18n.t(context, 'projects.to')} '
-                  '${formatYmd(project.endDate!)}',
-            ),
-            const SizedBox(height: FSSpacing.sm),
-          ],
-          _ProjectMetadataRow(
-            icon:
-                remaining >= 0
-                    ? Icons.check_circle_outline_rounded
-                    : Icons.error_outline_rounded,
-            text:
-                '${I18n.t(context, 'projects.remaining')}: ${money(remaining)}',
-            color: remaining >= 0 ? FSColors.success : FSColors.danger,
-          ),
+          const SizedBox(height: LGSpacing.md),
+          _remainingRow(context, remaining),
         ],
       ),
     );
   }
 
-  Widget _statusChip(BuildContext context, String status) {
-    final lower = status.toLowerCase();
-    if (lower.contains('active')) {
-      return FSStatusBadge(label: lower, variant: FSStatusBadgeVariant.active);
-    } else if (lower.contains('hold')) {
-      return FSStatusBadge(label: lower, variant: FSStatusBadgeVariant.paused);
-    }
-    return FSStatusBadge(label: lower, variant: FSStatusBadgeVariant.completed);
+  Color _progressColor(double progress, bool onBudget) {
+    if (!onBudget) return LGColors.danger;
+    if (progress >= 0.8) return LGColors.warning;
+    return LGColors.success;
   }
 
-  FSStatusBadgeVariant _badgeVariantForIntent(FSIntent intent) {
-    switch (intent) {
-      case FSIntent.success:
-        return FSStatusBadgeVariant.success;
-      case FSIntent.warning:
-        return FSStatusBadgeVariant.warning;
-      case FSIntent.danger:
-        return FSStatusBadgeVariant.danger;
-      case FSIntent.info:
-        return FSStatusBadgeVariant.info;
-      case FSIntent.primary:
-      case FSIntent.neutral:
-        return FSStatusBadgeVariant.neutral;
-    }
-  }
-}
-
-class _ProjectActionButton extends StatelessWidget {
-  const _ProjectActionButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-    this.danger = false,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onPressed;
-  final bool danger;
-
-  @override
-  Widget build(BuildContext context) {
-    final color =
-        danger ? FSColors.danger : Theme.of(context).colorScheme.primary;
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      icon: Icon(icon, size: 20),
-      style: IconButton.styleFrom(
-        fixedSize: const Size.square(40),
-        backgroundColor: FSColors.alpha(color, 0.10),
-        foregroundColor: color,
-        side: BorderSide(color: FSColors.alpha(color, 0.18)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FSRadius.md),
+  Widget _remainingRow(BuildContext context, double remaining) {
+    final color = remaining >= 0 ? LGColors.success : LGColors.danger;
+    return Row(
+      children: [
+        Icon(
+          remaining >= 0
+              ? Icons.check_circle_outline_rounded
+              : Icons.warning_amber_rounded,
+          size: 18,
+          color: color,
         ),
-      ),
+        const SizedBox(width: LGSpacing.sm),
+        Expanded(
+          child: Text(
+            '${I18n.t(context, 'projects.remaining')}: ${money(remaining)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
     );
   }
-}
 
-class _ProjectValueTile extends StatelessWidget {
-  const _ProjectValueTile({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.intent,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-  final FSIntent intent;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _kv(
+    BuildContext context,
+    String k,
+    String v,
+    IconData icon,
+    Color accentColor,
+  ) {
     return Container(
-      padding: const EdgeInsets.all(FSSpacing.md),
+      padding: const EdgeInsets.all(LGSpacing.md),
       decoration: BoxDecoration(
-        color: FSColors.surface(context),
-        borderRadius: BorderRadius.circular(FSRadius.lg),
-        border: Border.all(color: FSColors.border(context)),
+        color: LGColors.surfaceTinted(context),
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        border: Border.all(
+          color: LGColors.textSecondary(context).withValues(alpha: 0.14),
+        ),
       ),
       child: Row(
         children: [
@@ -812,23 +761,26 @@ class _ProjectValueTile extends StatelessWidget {
             height: 34,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: FSColors.intentContainer(context, intent),
-              borderRadius: BorderRadius.circular(FSRadius.md),
+              color: accentColor.withValues(
+                alpha: LGColors.isDark(context) ? 0.18 : 0.10,
+              ),
+              borderRadius: BorderRadius.circular(LGRadius.md),
             ),
-            child: Icon(icon, size: 18, color: FSColors.intent(intent)),
+            child: Icon(icon, color: accentColor, size: 18),
           ),
-          const SizedBox(width: FSSpacing.sm),
+          const SizedBox(width: LGSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  label,
+                  k,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: FSColors.mutedText(context),
-                    fontWeight: FontWeight.w600,
+                    color: LGColors.textSecondary(context),
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -836,9 +788,10 @@ class _ProjectValueTile extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    value,
+                    v,
                     maxLines: 1,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: LGColors.textPrimary(context),
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -850,38 +803,122 @@ class _ProjectValueTile extends StatelessWidget {
       ),
     );
   }
+
+  Widget _metaPill(BuildContext context, IconData icon, String label) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 26),
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width - 96,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: LGSpacing.sm,
+          vertical: 5,
+        ),
+        decoration: BoxDecoration(
+          color: LGColors.surfaceTinted(context),
+          borderRadius: BorderRadius.circular(LGRadius.pill),
+          border: Border.all(
+            color: LGColors.textSecondary(context).withValues(alpha: 0.14),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: LGColors.textSecondary(context)),
+            const SizedBox(width: LGSpacing.xs),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: LGColors.textSecondary(context),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statusChip(BuildContext context, String status) {
+    final lower = status.toLowerCase();
+    LGStatusBadgeVariant variant;
+    IconData icon;
+    if (lower.contains('active')) {
+      variant = LGStatusBadgeVariant.active;
+      icon = Icons.bolt_rounded;
+    } else if (lower.contains('hold')) {
+      variant = LGStatusBadgeVariant.paused;
+      icon = Icons.pause_rounded;
+    } else {
+      variant = LGStatusBadgeVariant.completed;
+      icon = Icons.check_rounded;
+    }
+    return LGStatusBadge(label: lower, variant: variant, icon: icon);
+  }
 }
 
-class _ProjectMetadataRow extends StatelessWidget {
-  const _ProjectMetadataRow({
-    required this.icon,
-    required this.text,
-    this.color,
-  });
-
-  final IconData icon;
-  final String text;
-  final Color? color;
+class _ProjectsHeaderIcon extends StatelessWidget {
+  const _ProjectsHeaderIcon();
 
   @override
   Widget build(BuildContext context) {
-    final foreground = color ?? FSColors.mutedText(context);
-    return Row(
-      children: [
-        Icon(icon, size: 17, color: foreground),
-        const SizedBox(width: FSSpacing.sm),
-        Expanded(
-          child: Text(
-            text,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: foreground,
-              fontWeight: FontWeight.w600,
+    final color = Theme.of(context).colorScheme.primary;
+    return Container(
+      width: 52,
+      height: 52,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: LGColors.isDark(context) ? 0.18 : 0.10),
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Icon(Icons.folder_outlined, color: color, size: 25),
+    );
+  }
+}
+
+class _ProjectActionButton extends StatelessWidget {
+  const _ProjectActionButton({
+    required this.tooltip,
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(LGRadius.md),
+        onTap: onPressed,
+        child: Tooltip(
+          message: tooltip,
+          child: Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(
+                alpha: LGColors.isDark(context) ? 0.18 : 0.10,
+              ),
+              borderRadius: BorderRadius.circular(LGRadius.md),
+              border: Border.all(color: color.withValues(alpha: 0.24)),
             ),
+            child: Icon(icon, color: color),
           ),
         ),
-      ],
+      ),
     );
   }
 }

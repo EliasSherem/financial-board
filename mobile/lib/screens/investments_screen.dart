@@ -7,7 +7,7 @@ import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
-import '../ui/finsight_ui.dart';
+import '../liquid_glass/liquid_glass.dart';
 import 'investment_detail_screen.dart';
 import '../widgets/pro_widgets.dart';
 
@@ -321,6 +321,139 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
     }
   }
 
+  Future<void> _editDialog(Investment inv) async {
+    final id = int.tryParse(inv.id) ?? 0;
+    if (id == 0) return;
+
+    final nameCtrl = TextEditingController(text: inv.name);
+    final amountCtrl = TextEditingController(
+      text: inv.principal.toStringAsFixed(2),
+    );
+    final rateCtrl = TextEditingController(
+      text: inv.annualRate.toStringAsFixed(2),
+    );
+    final dateCtrl = TextEditingController(text: formatDate(inv.startDate));
+    final ok = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogCtx) => AlertDialog(
+            title: Text(
+              '${I18n.t(context, 'label.edit')} ${I18n.t(context, 'title.investments')}',
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: InputDecoration(
+                      labelText: I18n.t(context, 'invest.name'),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: amountCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: I18n.t(context, 'invest.amount'),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: rateCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: I18n.t(context, 'invest.rate'),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: dateCtrl,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: I18n.t(context, 'invest.startDate'),
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.calendar_today_outlined),
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: inv.startDate,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            dateCtrl.text = formatDate(picked);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(false),
+                child: Text(I18n.t(context, 'label.cancel')),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final dialogNavigator = Navigator.of(dialogCtx);
+                  final messenger = ScaffoldMessenger.maybeOf(context);
+                  try {
+                    final amt =
+                        double.tryParse(amountCtrl.text.replaceAll(',', '')) ??
+                        0;
+                    final rate =
+                        double.tryParse(rateCtrl.text.replaceAll(',', '')) ?? 0;
+                    final start =
+                        parseDdMmYyyy(dateCtrl.text.trim()) ?? inv.startDate;
+                    final name =
+                        nameCtrl.text.trim().isEmpty
+                            ? I18n.tr(context, 'invest.defaultName')
+                            : nameCtrl.text.trim();
+                    if (amt <= 0) {
+                      messenger?.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            I18n.tr(context, 'invest.validationAmount'),
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    final ds = _data ?? _svc();
+                    await ds.updateInvestment(
+                      id: id,
+                      name: name,
+                      principal: amt,
+                      annualRate: rate,
+                      startDate: start.toIso8601String().substring(0, 10),
+                    );
+                    dialogNavigator.pop(true);
+                  } catch (e) {
+                    messenger?.showSnackBar(
+                      SnackBar(content: Text('Failed to save: $e')),
+                    );
+                  }
+                },
+                child: Text(I18n.t(context, 'label.save')),
+              ),
+            ],
+          ),
+    );
+    if (ok == true && mounted) {
+      context.read<RefreshBus>().notifyInvestments();
+      await _load();
+    }
+  }
+
   Future<void> _delete(Investment inv) async {
     try {
       // server ids are ints, we stored as string; try parse
@@ -347,88 +480,66 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
     final store = context.watch<AuthStore>();
     if (!store.isProOrExempt) {
       return Scaffold(
-        backgroundColor: FSColors.background(context),
-        appBar: AppBar(title: Text(I18n.t(context, 'title.investments'))),
-        body: const ProBlock(feature: 'Investments'),
+        body: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
+          children: [
+            LGPageHeader(
+              title: I18n.t(context, 'title.investments'),
+              leading: const _InvestmentsHeaderIcon(),
+            ),
+            const ProBlock(feature: 'Investments'),
+          ],
+        ),
       );
     }
-    if (_loading) return const FSLoadingState();
+    if (_loading) {
+      return const Scaffold(body: Center(child: LGLoadingState()));
+    }
+
+    final totals = _computeTotals();
     return Scaffold(
-      backgroundColor: FSColors.background(context),
-      appBar: AppBar(title: Text(I18n.t(context, 'title.investments'))),
       body: RefreshIndicator(
-        color: Theme.of(context).colorScheme.primary,
         onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(
-            FSSpacing.lg,
-            FSSpacing.lg,
-            FSSpacing.lg,
-            FSSpacing.xxl,
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: FSButton(
+            LGPageHeader(
+              title: I18n.t(context, 'title.investments'),
+              leading: const _InvestmentsHeaderIcon(),
+              action: LGButton(
                 label: I18n.t(context, 'invest.add'),
-                icon: Icons.add_rounded,
-                size: FSButtonSize.sm,
+                icon: Icons.add,
                 onPressed: _addDialog,
               ),
             ),
-            const SizedBox(height: FSSpacing.md),
-            if (_items.isEmpty)
-              FSCard(
-                variant: FSCardVariant.elevated,
-                child: FSEmptyState(
-                  icon: Icons.trending_up_rounded,
-                  title: I18n.t(context, 'invest.none'),
-                  action: FSButton(
-                    label: I18n.t(context, 'invest.add'),
-                    icon: Icons.add_rounded,
-                    onPressed: _addDialog,
-                  ),
-                ),
-              )
-            else ...[
-              _kpiGrid(context, _computeTotals()),
-              const SizedBox(height: FSSpacing.md),
-              for (final it in _items) ...[
-                _InvestmentCard(
-                  investment: it,
-                  value:
-                      (it.estimatedValue ?? _valueToday(it)) +
-                      (it.estimatedValue == null ? it.totalContrib : 0),
-                  onTap: () async {
-                    final intId = int.tryParse(it.id) ?? 0;
-                    if (intId != 0) {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder:
-                              (_) => InvestmentDetailScreen(
-                                investmentId: intId,
-                                name: it.name,
-                              ),
-                        ),
-                      );
-                      if (mounted) await _load();
-                    }
-                  },
-                  onDelete: () => _delete(it),
-                ),
-                const SizedBox(height: FSSpacing.md),
+            const SizedBox(height: LGSpacing.sm),
+            if (_items.isNotEmpty) ...[
+              _kpiGrid(context, totals),
+              const SizedBox(height: LGSpacing.md),
+              for (var i = 0; i < _items.length; i++) ...[
+                _investmentCard(context, _items[i]),
+                if (i != _items.length - 1)
+                  const SizedBox(height: LGSpacing.md),
               ],
-            ],
+            ] else
+              LGEmptyState(
+                icon: Icons.trending_up_rounded,
+                title: I18n.t(context, 'invest.none'),
+                message: I18n.t(context, 'title.investments'),
+                action: LGEmptyAction(
+                  label: I18n.t(context, 'invest.add'),
+                  icon: Icons.add,
+                  onPressed: _addDialog,
+                ),
+              ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addDialog,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FSRadius.lg),
-        ),
-        child: const Icon(Icons.add_rounded),
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -450,77 +561,103 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
   }
 
   Widget _kpiGrid(BuildContext context, Map<String, double> t) {
-    final revenue = t['revenue'] ?? 0;
     final tiles = <Widget>[
-      FSMetricCard(
-        title: 'Total Invested',
-        value: money((t['principal'] ?? 0) + (t['contrib'] ?? 0)),
-        icon: Icons.account_balance_rounded,
-        accent: FSIntent.primary,
+      _kpiCard(
+        context,
+        Icons.account_balance,
+        'Total Invested',
+        money((t['principal'] ?? 0) + (t['contrib'] ?? 0)),
+        Theme.of(context).colorScheme.primary,
       ),
-      FSMetricCard(
-        title: 'Total Contributions',
-        value: money(t['contrib'] ?? 0),
-        icon: Icons.add_card_outlined,
-        accent: FSIntent.info,
+      _kpiCard(
+        context,
+        Icons.add_card_outlined,
+        'Total Contributions',
+        money(t['contrib'] ?? 0),
+        LGColors.info,
       ),
-      FSMetricCard(
-        title: 'Total Value',
-        value: money(t['value'] ?? 0),
-        icon: Icons.stacked_line_chart_rounded,
-        accent: FSIntent.success,
+      _kpiCard(
+        context,
+        Icons.stacked_line_chart,
+        'Total Value',
+        money(t['value'] ?? 0),
+        LGColors.success,
       ),
-      FSMetricCard(
-        title: 'Total Revenue',
-        value: money(revenue),
-        icon:
-            revenue >= 0
-                ? Icons.trending_up_rounded
-                : Icons.trending_down_rounded,
-        accent: revenue >= 0 ? FSIntent.success : FSIntent.danger,
+      _kpiCard(
+        context,
+        (t['revenue'] ?? 0) >= 0 ? Icons.trending_up : Icons.trending_down,
+        'Total Revenue',
+        money(t['revenue'] ?? 0),
+        (t['revenue'] ?? 0) >= 0 ? LGColors.success : LGColors.danger,
       ),
     ];
     return LayoutBuilder(
       builder: (ctx, c) {
-        const spacing = FSSpacing.md;
+        const spacing = 12.0;
         final w = c.maxWidth;
-        final columns = w < 360 ? 1 : 2;
-        final itemW = (w - (columns - 1) * spacing) / columns;
+        final cols = w < 360 ? 1 : 2;
+        final itemW = (w - ((cols - 1) * spacing)) / cols;
         return Wrap(
           spacing: spacing,
           runSpacing: spacing,
           children: [
             for (final tile in tiles)
-              SizedBox(width: itemW, height: 138, child: tile),
+              SizedBox(
+                width: itemW,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 132),
+                  child: tile,
+                ),
+              ),
           ],
         );
       },
     );
   }
-}
 
-class _InvestmentCard extends StatelessWidget {
-  const _InvestmentCard({
-    required this.investment,
-    required this.value,
-    required this.onTap,
-    required this.onDelete,
-  });
+  Widget _kpiCard(
+    BuildContext context,
+    IconData ic,
+    String title,
+    String value,
+    Color accentColor,
+  ) {
+    return LGMetricCard(
+      title: title,
+      value: value,
+      icon: ic,
+      accentColor: accentColor,
+    );
+  }
 
-  final Investment investment;
-  final double value;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
+  Widget _investmentCard(BuildContext context, Investment it) {
+    // Estimated value should include compounded contributions when available from server.
+    // Fallback: add raw contributions (non-compounded) if server didn't send estimated_value.
+    final value =
+        (it.estimatedValue ?? _valueToday(it)) +
+        (it.estimatedValue == null ? it.totalContrib : 0);
+    final gain = value - (it.principal + it.totalContrib);
+    final gainColor = gain >= 0 ? LGColors.success : LGColors.danger;
+    final primary = Theme.of(context).colorScheme.primary;
 
-  @override
-  Widget build(BuildContext context) {
-    final gain = value - (investment.principal + investment.totalContrib);
-    final gainIntent = gain >= 0 ? FSIntent.success : FSIntent.danger;
-    final gainColor = FSColors.intent(gainIntent);
-    return FSCard(
-      variant: FSCardVariant.interactive,
-      onTap: onTap,
-      padding: const EdgeInsets.all(FSSpacing.lg),
+    return LGSolidCard(
+      variant: LGCardVariant.elevated,
+      padding: const EdgeInsets.all(LGSpacing.lg),
+      onTap: () async {
+        final intId = int.tryParse(it.id) ?? 0;
+        if (intId != 0) {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder:
+                  (_) => InvestmentDetailScreen(
+                    investmentId: intId,
+                    name: it.name,
+                  ),
+            ),
+          );
+          if (mounted) await _load();
+        }
+      },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -528,123 +665,127 @@ class _InvestmentCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 48,
+                height: 48,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: FSColors.intentContainer(context, FSIntent.primary),
-                  borderRadius: BorderRadius.circular(FSRadius.md),
-                  border: Border.all(
-                    color: FSColors.intentBorder(context, FSIntent.primary),
+                  color: primary.withValues(
+                    alpha: LGColors.isDark(context) ? 0.18 : 0.10,
                   ),
+                  borderRadius: BorderRadius.circular(LGRadius.lg),
+                  border: Border.all(color: primary.withValues(alpha: 0.22)),
                 ),
-                child: const Icon(
-                  Icons.show_chart_rounded,
-                  color: FSColors.primary,
-                ),
+                child: Icon(Icons.trending_up_rounded, color: primary),
               ),
-              const SizedBox(width: FSSpacing.md),
+              const SizedBox(width: LGSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      investment.name,
+                      it.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: LGColors.textPrimary(context),
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: FSSpacing.xs),
+                    const SizedBox(height: LGSpacing.sm),
                     Wrap(
-                      spacing: FSSpacing.sm,
-                      runSpacing: FSSpacing.xs,
+                      spacing: LGSpacing.sm,
+                      runSpacing: LGSpacing.xs,
                       children: [
-                        FSStatusBadge(
-                          label: '${investment.annualRate.toStringAsFixed(2)}%',
-                          variant: FSStatusBadgeVariant.info,
-                          icon: Icons.percent_rounded,
+                        _metaPill(
+                          context,
+                          Icons.calendar_today_outlined,
+                          formatDate(it.startDate),
                         ),
-                        FSStatusBadge(
-                          label: formatDate(investment.startDate),
-                          variant: FSStatusBadgeVariant.neutral,
-                          icon: Icons.calendar_today_outlined,
+                        _metaPill(
+                          context,
+                          Icons.percent_rounded,
+                          '${it.annualRate.toStringAsFixed(2)}%',
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: FSSpacing.sm),
-              IconButton(
-                tooltip: I18n.t(context, 'label.delete'),
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline_rounded),
-                style: IconButton.styleFrom(
-                  fixedSize: const Size.square(40),
-                  backgroundColor: FSColors.alpha(FSColors.danger, 0.10),
-                  foregroundColor: FSColors.danger,
-                  side: BorderSide(
-                    color: FSColors.alpha(FSColors.danger, 0.18),
+              const SizedBox(width: LGSpacing.sm),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _IconActionButton(
+                    tooltip: I18n.t(context, 'label.edit'),
+                    icon: Icons.edit_outlined,
+                    color: primary,
+                    onPressed: () => _editDialog(it),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(FSRadius.md),
+                  const SizedBox(width: LGSpacing.xs),
+                  _IconActionButton(
+                    tooltip: I18n.t(context, 'label.delete'),
+                    icon: Icons.delete_outline,
+                    color: LGColors.danger,
+                    onPressed: () => _delete(it),
                   ),
-                ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: FSSpacing.lg),
+          const SizedBox(height: LGSpacing.lg),
           LayoutBuilder(
             builder: (context, constraints) {
-              final twoColumns = constraints.maxWidth >= 320;
-              final width =
+              final twoColumns = constraints.maxWidth >= 360;
+              final gap = twoColumns ? LGSpacing.md : LGSpacing.sm;
+              final itemWidth =
                   twoColumns
-                      ? (constraints.maxWidth - FSSpacing.sm) / 2
+                      ? (constraints.maxWidth - gap) / 2
                       : constraints.maxWidth;
               return Wrap(
-                spacing: FSSpacing.sm,
-                runSpacing: FSSpacing.sm,
+                spacing: gap,
+                runSpacing: LGSpacing.sm,
                 children: [
                   SizedBox(
-                    width: width,
-                    child: _InvestmentValueTile(
-                      label: I18n.t(context, 'invest.amount'),
-                      value: money(investment.principal),
-                      icon: Icons.savings_outlined,
-                      intent: FSIntent.primary,
+                    width: itemWidth,
+                    child: _kv(
+                      context,
+                      I18n.t(context, 'invest.amount'),
+                      money(it.principal),
+                      Icons.account_balance_wallet_outlined,
+                      primary,
                     ),
                   ),
                   SizedBox(
-                    width: width,
-                    child: _InvestmentValueTile(
-                      label: I18n.t(context, 'invest.estimatedValue'),
-                      value: money(value),
-                      icon: Icons.stacked_line_chart_rounded,
-                      intent: FSIntent.success,
+                    width: itemWidth,
+                    child: _kv(
+                      context,
+                      I18n.t(context, 'invest.estimatedValue'),
+                      money(value),
+                      Icons.stacked_line_chart_rounded,
+                      LGColors.success,
                     ),
                   ),
-                  if (investment.totalContrib > 0)
+                  if (it.totalContrib > 0)
                     SizedBox(
-                      width: width,
-                      child: _InvestmentValueTile(
-                        label: 'Contributions',
-                        value: money(investment.totalContrib),
-                        icon: Icons.add_card_outlined,
-                        intent: FSIntent.info,
+                      width: itemWidth,
+                      child: _kv(
+                        context,
+                        'Total Contributions',
+                        money(it.totalContrib),
+                        Icons.add_card_outlined,
+                        LGColors.info,
                       ),
                     ),
                   SizedBox(
-                    width: width,
-                    child: _InvestmentValueTile(
-                      label: 'Gain',
-                      value: money(gain),
-                      icon:
-                          gain >= 0
-                              ? Icons.trending_up_rounded
-                              : Icons.trending_down_rounded,
-                      intent: gainIntent,
+                    width: itemWidth,
+                    child: _kv(
+                      context,
+                      'Total Revenue',
+                      money(gain),
+                      gain >= 0
+                          ? Icons.trending_up_rounded
+                          : Icons.trending_down_rounded,
+                      gainColor,
                       valueColor: gainColor,
                     ),
                   ),
@@ -656,31 +797,53 @@ class _InvestmentCard extends StatelessWidget {
       ),
     );
   }
-}
 
-class _InvestmentValueTile extends StatelessWidget {
-  const _InvestmentValueTile({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.intent,
-    this.valueColor,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-  final FSIntent intent;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _metaPill(BuildContext context, IconData icon, String label) {
     return Container(
-      padding: const EdgeInsets.all(FSSpacing.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: LGSpacing.sm,
+        vertical: 5,
+      ),
       decoration: BoxDecoration(
-        color: FSColors.surface(context),
-        borderRadius: BorderRadius.circular(FSRadius.lg),
-        border: Border.all(color: FSColors.border(context)),
+        color: LGColors.surfaceTinted(context),
+        borderRadius: BorderRadius.circular(LGRadius.pill),
+        border: Border.all(
+          color: LGColors.textSecondary(context).withValues(alpha: 0.14),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: LGColors.textSecondary(context)),
+          const SizedBox(width: LGSpacing.xs),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: LGColors.textSecondary(context),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _kv(
+    BuildContext context,
+    String k,
+    String v,
+    IconData icon,
+    Color accentColor, {
+    Color? valueColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(LGSpacing.md),
+      decoration: BoxDecoration(
+        color: LGColors.surfaceTinted(context),
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        border: Border.all(
+          color: LGColors.textSecondary(context).withValues(alpha: 0.14),
+        ),
       ),
       child: Row(
         children: [
@@ -689,23 +852,26 @@ class _InvestmentValueTile extends StatelessWidget {
             height: 34,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: FSColors.intentContainer(context, intent),
-              borderRadius: BorderRadius.circular(FSRadius.md),
+              color: accentColor.withValues(
+                alpha: LGColors.isDark(context) ? 0.18 : 0.10,
+              ),
+              borderRadius: BorderRadius.circular(LGRadius.md),
             ),
-            child: Icon(icon, size: 18, color: FSColors.intent(intent)),
+            child: Icon(icon, color: accentColor, size: 18),
           ),
-          const SizedBox(width: FSSpacing.sm),
+          const SizedBox(width: LGSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  label,
+                  k,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: FSColors.mutedText(context),
-                    fontWeight: FontWeight.w600,
+                    color: LGColors.textSecondary(context),
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -713,10 +879,10 @@ class _InvestmentValueTile extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    value,
+                    v,
                     maxLines: 1,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: valueColor,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: valueColor ?? LGColors.textPrimary(context),
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -725,6 +891,67 @@ class _InvestmentValueTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _InvestmentsHeaderIcon extends StatelessWidget {
+  const _InvestmentsHeaderIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return Container(
+      width: 52,
+      height: 52,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: LGColors.isDark(context) ? 0.18 : 0.10),
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Icon(Icons.trending_up_rounded, color: color, size: 25),
+    );
+  }
+}
+
+class _IconActionButton extends StatelessWidget {
+  const _IconActionButton({
+    required this.tooltip,
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(LGRadius.md),
+        onTap: onPressed,
+        child: Tooltip(
+          message: tooltip,
+          child: Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(
+                alpha: LGColors.isDark(context) ? 0.18 : 0.10,
+              ),
+              borderRadius: BorderRadius.circular(LGRadius.md),
+              border: Border.all(color: color.withValues(alpha: 0.24)),
+            ),
+            child: Icon(icon, color: color),
+          ),
+        ),
       ),
     );
   }

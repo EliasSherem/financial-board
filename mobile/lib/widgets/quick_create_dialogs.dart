@@ -9,6 +9,7 @@ import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
 import '../utils/format.dart';
 import '../i18n.dart';
+import '../liquid_glass/liquid_glass.dart';
 import '../models.dart';
 import '../widgets/category_picker.dart';
 import '../screens/manage_categories_screen.dart';
@@ -16,6 +17,20 @@ import '../screens/manage_categories_screen.dart';
 Future<DataService> _svc(BuildContext context) async {
   final api = ApiClient()..setToken(context.read<AuthStore>().token);
   return DataService(api);
+}
+
+InputDecoration _quickFieldDecoration(
+  BuildContext context, {
+  required String labelText,
+  Widget? suffixIcon,
+  String? suffixText,
+}) {
+  return LGForm.solidInputDecoration(
+    context,
+    labelText: labelText,
+    suffixIcon: suffixIcon,
+    suffixText: suffixText,
+  );
 }
 
 Future<bool?> showQuickNewPaymentDialog(BuildContext context) async {
@@ -165,12 +180,12 @@ Future<bool?> showQuickNewPaymentDialog(BuildContext context) async {
                                     decimal: true,
                                   ),
                               onChanged: (_) => setLocal(() {}),
-                              decoration: InputDecoration(
+                              decoration: _quickFieldDecoration(
+                                context,
                                 labelText: I18n.t(
                                   context,
                                   'payments.totalAmount',
                                 ),
-                                border: const OutlineInputBorder(),
                               ),
                             ),
                           ),
@@ -180,9 +195,9 @@ Future<bool?> showQuickNewPaymentDialog(BuildContext context) async {
                               controller: monthsCtrl,
                               keyboardType: TextInputType.number,
                               onChanged: (_) => setLocal(() {}),
-                              decoration: InputDecoration(
+                              decoration: _quickFieldDecoration(
+                                context,
                                 labelText: I18n.t(context, 'payments.months'),
-                                border: const OutlineInputBorder(),
                               ),
                             ),
                           ),
@@ -226,17 +241,17 @@ Future<bool?> showQuickNewPaymentDialog(BuildContext context) async {
                             );
                           }).toList(),
                       onChanged: (v) => setLocal(() => accountId = v),
-                      decoration: InputDecoration(
+                      decoration: _quickFieldDecoration(
+                        context,
                         labelText: I18n.t(context, 'payments.account'),
-                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: nameCtrl,
-                      decoration: InputDecoration(
+                      decoration: _quickFieldDecoration(
+                        context,
                         labelText: I18n.t(context, 'label.name'),
-                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -246,9 +261,9 @@ Future<bool?> showQuickNewPaymentDialog(BuildContext context) async {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
-                        decoration: InputDecoration(
+                        decoration: _quickFieldDecoration(
+                          context,
                           labelText: I18n.t(context, 'tx.amount'),
-                          border: const OutlineInputBorder(),
                         ),
                       ),
                     const SizedBox(height: 8),
@@ -270,18 +285,18 @@ Future<bool?> showQuickNewPaymentDialog(BuildContext context) async {
                               .toList(),
                       onChanged:
                           (v) => setLocal(() => frequency = v ?? 'Monthly'),
-                      decoration: InputDecoration(
+                      decoration: _quickFieldDecoration(
+                        context,
                         labelText: I18n.t(context, 'payments.frequency'),
-                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: dateCtrl,
                       readOnly: true,
-                      decoration: InputDecoration(
+                      decoration: _quickFieldDecoration(
+                        context,
                         labelText: I18n.t(context, 'payments.nextDate'),
-                        border: const OutlineInputBorder(),
                         suffixIcon: IconButton(
                           icon: const Icon(Icons.calendar_today_outlined),
                           onPressed: () async {
@@ -317,23 +332,24 @@ Future<bool?> showQuickNewPaymentDialog(BuildContext context) async {
                         ),
                       ],
                       onChanged: (v) => setLocal(() => projectId = v),
-                      decoration: InputDecoration(
+                      decoration: _quickFieldDecoration(
+                        context,
                         labelText: I18n.t(context, 'tx.projectOptional'),
-                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 8),
                     if (categories.isEmpty) ...[
                       TextField(
                         controller: catCtrl,
-                        decoration: InputDecoration(
+                        decoration: _quickFieldDecoration(
+                          context,
                           labelText: I18n.tr(context, 'tx.category'),
-                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ] else ...[
                       CategorySelectorField(
                         width: fieldWidth,
+                        labelText: I18n.tr(context, 'tx.category'),
                         selectedCategory: selectedCategory,
                         selectedSubcategory: selectedSubcategory,
                         onTap: pickCategory,
@@ -366,9 +382,9 @@ Future<bool?> showQuickNewPaymentDialog(BuildContext context) async {
                     const SizedBox(height: 8),
                     TextField(
                       controller: descCtrl,
-                      decoration: InputDecoration(
+                      decoration: _quickFieldDecoration(
+                        context,
                         labelText: I18n.t(context, 'forms.descriptionOptional'),
-                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -496,105 +512,112 @@ Future<bool?> showQuickNewAccountDialog(BuildContext context) async {
   final created = await showDialog<bool>(
     context: context,
     builder:
-        (_) => AlertDialog(
-          title: Text(I18n.t(context, 'add.newAccount')),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: InputDecoration(
-                    labelText: I18n.t(context, 'accounts.name'),
-                    border: const OutlineInputBorder(),
+        (_) => StatefulBuilder(
+          builder:
+              (ctx, setLocal) => AlertDialog(
+                title: Text(I18n.t(context, 'add.newAccount')),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: nameCtrl,
+                        decoration: _quickFieldDecoration(
+                          context,
+                          labelText: I18n.t(context, 'accounts.name'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: type,
+                        items:
+                            types
+                                .map(
+                                  (t) => DropdownMenuItem(
+                                    value: t,
+                                    child: Text(
+                                      I18n.t(
+                                        context,
+                                        'accounts.type.${t.toLowerCase()}',
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged:
+                            (v) => setLocal(() => type = v ?? 'Checking'),
+                        decoration: _quickFieldDecoration(
+                          context,
+                          labelText: I18n.t(context, 'accounts.type'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: balanceCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: _quickFieldDecoration(
+                          context,
+                          labelText: I18n.t(context, 'accounts.initialBalance'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: bankCtrl,
+                        decoration: _quickFieldDecoration(
+                          context,
+                          labelText: I18n.t(
+                            context,
+                            'accounts.bankNameOptional',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: numberCtrl,
+                        decoration: _quickFieldDecoration(
+                          context,
+                          labelText: I18n.t(
+                            context,
+                            'accounts.accountNumberOptional',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        value: isActive,
+                        onChanged: (v) => setLocal(() => isActive = v),
+                        title: Text(I18n.t(context, 'accounts.active')),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: type,
-                  items:
-                      types
-                          .map(
-                            (t) => DropdownMenuItem(
-                              value: t,
-                              child: Text(
-                                I18n.t(
-                                  context,
-                                  'accounts.type.${t.toLowerCase()}',
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                  onChanged: (v) => type = v ?? 'Checking',
-                  decoration: InputDecoration(
-                    labelText: I18n.t(context, 'accounts.type'),
-                    border: const OutlineInputBorder(),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text(I18n.t(context, 'label.cancel')),
                   ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: balanceCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: I18n.t(context, 'accounts.initialBalance'),
-                    border: const OutlineInputBorder(),
+                  FilledButton(
+                    onPressed: () async {
+                      await data.createAccount(
+                        name: nameCtrl.text.trim(),
+                        type: type,
+                        balance: double.tryParse(balanceCtrl.text) ?? 0,
+                        bankName:
+                            bankCtrl.text.trim().isEmpty
+                                ? null
+                                : bankCtrl.text.trim(),
+                        accountNumber:
+                            numberCtrl.text.trim().isEmpty
+                                ? null
+                                : numberCtrl.text.trim(),
+                        isActive: isActive,
+                      );
+                      if (context.mounted) Navigator.pop(context, true);
+                    },
+                    child: Text(I18n.t(context, 'label.save')),
                   ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: bankCtrl,
-                  decoration: InputDecoration(
-                    labelText: I18n.t(context, 'accounts.bankNameOptional'),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: numberCtrl,
-                  decoration: InputDecoration(
-                    labelText: I18n.t(
-                      context,
-                      'accounts.accountNumberOptional',
-                    ),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  value: isActive,
-                  onChanged: (v) => isActive = v,
-                  title: Text(I18n.t(context, 'accounts.active')),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(I18n.t(context, 'label.cancel')),
-            ),
-            FilledButton(
-              onPressed: () async {
-                await data.createAccount(
-                  name: nameCtrl.text.trim(),
-                  type: type,
-                  balance: double.tryParse(balanceCtrl.text) ?? 0,
-                  bankName:
-                      bankCtrl.text.trim().isEmpty
-                          ? null
-                          : bankCtrl.text.trim(),
-                  accountNumber:
-                      numberCtrl.text.trim().isEmpty
-                          ? null
-                          : numberCtrl.text.trim(),
-                  isActive: isActive,
-                );
-                if (context.mounted) Navigator.pop(context, true);
-              },
-              child: Text(I18n.t(context, 'label.save')),
-            ),
-          ],
+                ],
+              ),
         ),
   );
   if (created == true && context.mounted) {
@@ -839,353 +862,326 @@ Future<bool?> showQuickNewInvoiceDialog(BuildContext context) async {
     builder:
         (_) => StatefulBuilder(
           builder: (ctx, setLocal) {
-            final isNarrow = MediaQuery.of(ctx).size.width < 520;
             return AlertDialog(
-                title: Text(I18n.t(context, 'add.newInvoice')),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DropdownButtonFormField<int>(
-                        value: customerId,
-                        items:
-                            customers
-                                .map(
-                                  (c) => DropdownMenuItem<int>(
-                                    value: c.id,
-                                    child: Text(c.name),
-                                  ),
-                                )
-                                .toList(),
-                        onChanged: (v) => setLocal(() => customerId = v),
-                        decoration: InputDecoration(
-                          labelText: I18n.t(context, 'invoices.customer'),
-                          border: const OutlineInputBorder(),
-                        ),
+              title: Text(I18n.t(context, 'add.newInvoice')),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<int>(
+                      value: customerId,
+                      items:
+                          customers
+                              .map(
+                                (c) => DropdownMenuItem<int>(
+                                  value: c.id,
+                                  child: Text(c.name),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (v) => setLocal(() => customerId = v),
+                      decoration: _quickFieldDecoration(
+                        context,
+                        labelText: I18n.t(context, 'invoices.customer'),
                       ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<int?>(
-                        value: projectId,
-                        items: [
-                          DropdownMenuItem<int?>(
-                            value: null,
-                            child: Text(I18n.t(context, 'tx.noProject')),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<int?>(
+                      value: projectId,
+                      items: [
+                        DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text(I18n.t(context, 'tx.noProject')),
+                        ),
+                        ...projects.map(
+                          (p) => DropdownMenuItem<int?>(
+                            value: p.id,
+                            child: Text(p.name),
                           ),
-                          ...projects.map(
-                            (p) => DropdownMenuItem<int?>(
-                              value: p.id,
-                              child: Text(p.name),
+                        ),
+                      ],
+                      onChanged: (v) => setLocal(() => projectId = v),
+                      decoration: _quickFieldDecoration(
+                        context,
+                        labelText: I18n.t(context, 'tx.projectOptional'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            readOnly: true,
+                            controller: issueCtrl,
+                            decoration: _quickFieldDecoration(
+                              context,
+                              labelText: I18n.t(context, 'invoices.issueDate'),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.calendar_today_outlined),
+                                onPressed: () async {
+                                  final p = await showDatePicker(
+                                    context: ctx,
+                                    initialDate: DateTime.now(),
+                                    firstDate: DateTime(2000),
+                                    lastDate: DateTime(2100),
+                                  );
+                                  if (p != null)
+                                    setLocal(
+                                      () => issueCtrl.text = formatDate(p),
+                                    );
+                                },
+                              ),
                             ),
                           ),
-                        ],
-                        onChanged: (v) => setLocal(() => projectId = v),
-                        decoration: InputDecoration(
-                          labelText: I18n.t(context, 'tx.projectOptional'),
-                          border: const OutlineInputBorder(),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              readOnly: true,
-                              controller: issueCtrl,
-                              decoration: InputDecoration(
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            readOnly: true,
+                            controller: dueCtrl,
+                            decoration: _quickFieldDecoration(
+                              context,
+                              labelText: I18n.t(context, 'invoices.dueDate'),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.calendar_today_outlined),
+                                onPressed: () async {
+                                  final p = await showDatePicker(
+                                    context: ctx,
+                                    initialDate: DateTime.now().add(
+                                      const Duration(days: 7),
+                                    ),
+                                    firstDate: DateTime(2000),
+                                    lastDate: DateTime(2100),
+                                  );
+                                  if (p != null)
+                                    setLocal(
+                                      () => dueCtrl.text = formatDate(p),
+                                    );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          I18n.t(context, 'invoices.items'),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        TextButton(
+                          onPressed:
+                              () => setLocal(
+                                () => items.add({
+                                  'description': '',
+                                  'quantity': null,
+                                  'unit_price': null,
+                                }),
+                              ),
+                          child: Text(I18n.t(context, 'invoices.addItem')),
+                        ),
+                      ],
+                    ),
+                    ...List.generate(
+                      items.length,
+                      (i) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Builder(
+                          builder: (ctx) {
+                            Widget descField() => TextFormField(
+                              initialValue:
+                                  (items[i]['description'] as String?) ?? '',
+                              onChanged: (v) => items[i]['description'] = v,
+                              decoration: _quickFieldDecoration(
+                                context,
                                 labelText: I18n.t(
                                   context,
-                                  'invoices.issueDate',
-                                ),
-                                border: const OutlineInputBorder(),
-                                suffixIcon: IconButton(
-                                  icon: const Icon(
-                                    Icons.calendar_today_outlined,
-                                  ),
-                                  onPressed: () async {
-                                    final p = await showDatePicker(
-                                      context: ctx,
-                                      initialDate: DateTime.now(),
-                                      firstDate: DateTime(2000),
-                                      lastDate: DateTime(2100),
-                                    );
-                                    if (p != null)
-                                      setLocal(
-                                        () => issueCtrl.text = formatDate(p),
-                                      );
-                                  },
+                                  'invoices.description',
                                 ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              readOnly: true,
-                              controller: dueCtrl,
-                              decoration: InputDecoration(
-                                labelText: I18n.t(context, 'invoices.dueDate'),
-                                border: const OutlineInputBorder(),
-                                suffixIcon: IconButton(
-                                  icon: const Icon(
-                                    Icons.calendar_today_outlined,
+                            );
+                            Widget qtyField() => TextFormField(
+                              initialValue:
+                                  (items[i]['quantity'] as num?)?.toString() ??
+                                  '',
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
                                   ),
-                                  onPressed: () async {
-                                    final p = await showDatePicker(
-                                      context: ctx,
-                                      initialDate: DateTime.now().add(
-                                        const Duration(days: 7),
-                                      ),
-                                      firstDate: DateTime(2000),
-                                      lastDate: DateTime(2100),
-                                    );
-                                    if (p != null)
-                                      setLocal(
-                                        () => dueCtrl.text = formatDate(p),
-                                      );
-                                  },
+                              onChanged:
+                                  (v) => setLocal(
+                                    () =>
+                                        items[i]['quantity'] =
+                                            double.tryParse(v) ?? 0.0,
+                                  ),
+                              decoration: _quickFieldDecoration(
+                                context,
+                                labelText: I18n.t(context, 'invoices.qty'),
+                              ),
+                            );
+                            Widget priceField() => TextFormField(
+                              initialValue:
+                                  (items[i]['unit_price'] as num?)
+                                      ?.toString() ??
+                                  '',
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              onChanged:
+                                  (v) => setLocal(
+                                    () =>
+                                        items[i]['unit_price'] =
+                                            double.tryParse(v) ?? 0.0,
+                                  ),
+                              decoration: _quickFieldDecoration(
+                                context,
+                                labelText: I18n.t(
+                                  context,
+                                  'invoices.unitPrice',
                                 ),
                               ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            I18n.t(context, 'invoices.items'),
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          TextButton(
-                            onPressed:
-                                () => setLocal(
-                                  () => items.add({
-                                    'description': '',
-                                    'quantity': null,
-                                    'unit_price': null,
-                                  }),
-                                ),
-                            child: Text(I18n.t(context, 'invoices.addItem')),
-                          ),
-                        ],
-                      ),
-                      ...List.generate(
-                        items.length,
-                        (i) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Builder(
-                            builder: (ctx) {
-                              Widget descField() => TextFormField(
-                                initialValue:
-                                    (items[i]['description'] as String?) ?? '',
-                                onChanged: (v) => items[i]['description'] = v,
-                                decoration: InputDecoration(
-                                  labelText: I18n.t(
-                                    context,
-                                    'invoices.description',
-                                  ),
-                                  border: const OutlineInputBorder(),
-                                ),
-                              );
-                              Widget qtyField() => TextFormField(
-                                initialValue:
-                                    (items[i]['quantity'] as num?)
-                                        ?.toString() ??
-                                    '',
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                onChanged:
-                                    (v) => setLocal(
-                                      () =>
-                                          items[i]['quantity'] =
-                                              double.tryParse(v) ?? 0.0,
-                                    ),
-                                decoration: InputDecoration(
-                                  labelText: I18n.t(context, 'invoices.qty'),
-                                  border: const OutlineInputBorder(),
-                                ),
-                              );
-                              Widget priceField() => TextFormField(
-                                initialValue:
-                                    (items[i]['unit_price'] as num?)
-                                        ?.toString() ??
-                                    '',
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                onChanged:
-                                    (v) => setLocal(
-                                      () =>
-                                          items[i]['unit_price'] =
-                                              double.tryParse(v) ?? 0.0,
-                                    ),
-                                decoration: InputDecoration(
-                                  labelText: I18n.t(
-                                    context,
-                                    'invoices.unitPrice',
-                                  ),
-                                  border: const OutlineInputBorder(),
-                                ),
-                              );
-                              final removeBtn = IconButton(
-                                icon: const Icon(Icons.close),
-                                onPressed:
-                                    () => setLocal(() => items.removeAt(i)),
-                              );
-                              final qtyPriceRow = Row(
-                                children: [
-                                  Expanded(child: qtyField()),
+                            );
+                            final removeBtn = IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed:
+                                  () => setLocal(() => items.removeAt(i)),
+                            );
+                            final qtyPriceRow = Row(
+                              children: [
+                                Expanded(child: qtyField()),
+                                const SizedBox(width: 8),
+                                Expanded(child: priceField()),
+                                if (items.length > 1) ...[
                                   const SizedBox(width: 8),
-                                  Expanded(child: priceField()),
-                                  if (items.length > 1) ...[
-                                    const SizedBox(width: 8),
-                                    removeBtn,
-                                  ],
+                                  removeBtn,
                                 ],
-                              );
-                              if (isNarrow) {
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    descField(),
-                                    const SizedBox(height: 8),
-                                    qtyPriceRow,
-                                  ],
-                                );
-                              }
-                              return Row(
-                                children: [
-                                  Expanded(flex: 3, child: descField()),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: qtyField()),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: priceField()),
-                                  if (items.length > 1) ...[
-                                    const SizedBox(width: 6),
-                                    removeBtn,
-                                  ],
-                                ],
-                              );
-                            },
-                          ),
+                              ],
+                            );
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                descField(),
+                                const SizedBox(height: 8),
+                                qtyPriceRow,
+                              ],
+                            );
+                          },
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: discountCtrl,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              decoration: InputDecoration(
-                                labelText:
-                                    '${I18n.t(context, 'invoices.discount')} (%)',
-                                border: const OutlineInputBorder(),
-                                suffixText: '%',
-                              ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: discountCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: _quickFieldDecoration(
+                              context,
+                              labelText:
+                                  '${I18n.t(context, 'invoices.discount')} (%)',
+                              suffixText: '%',
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextFormField(
-                              controller: taxCtrl,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              decoration: InputDecoration(
-                                labelText:
-                                    '${I18n.t(context, 'invoices.tax')} (%)',
-                                border: const OutlineInputBorder(),
-                                suffixText: '%',
-                              ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            controller: taxCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: _quickFieldDecoration(
+                              context,
+                              labelText:
+                                  '${I18n.t(context, 'invoices.tax')} (%)',
+                              suffixText: '%',
                             ),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: Text(I18n.t(context, 'label.cancel')),
-                  ),
-                  FilledButton(
-                    onPressed: () async {
-                      if (customerId == null) return;
-                      final mappedItems =
-                          items
-                              .map(
-                                (it) => {
-                                  'description':
-                                      (it['description'] as String?)?.trim() ??
-                                      I18n.tr(context, 'invoices.itemFallback'),
-                                  'quantity':
-                                      ((it['quantity'] as num?) ?? 0)
-                                          .toDouble(),
-                                  'unit_price':
-                                      ((it['unit_price'] as num?) ?? 0)
-                                          .toDouble(),
-                                },
-                              )
-                              .toList();
-                      double subtotal = mappedItems.fold<double>(0.0, (s, it) {
-                        final q = (it['quantity'] as num?)?.toDouble() ?? 0.0;
-                        final p = (it['unit_price'] as num?)?.toDouble() ?? 0.0;
-                        return s + (q * p);
-                      });
-                      subtotal = double.parse(subtotal.toStringAsFixed(2));
-                      final rawDiscount =
-                          double.tryParse(
-                            discountCtrl.text.replaceAll(',', ''),
-                          ) ??
-                          0.0;
-                      final discountPercent =
-                          rawDiscount.isFinite
-                              ? math.max(math.min(rawDiscount, 100), 0)
-                              : 0.0;
-                      final discountAmount = double.parse(
-                        (subtotal * (discountPercent / 100)).toStringAsFixed(2),
-                      );
-                      final taxableBaseRaw = math.max(
-                        subtotal - discountAmount,
-                        0.0,
-                      );
-                      final taxableBase = double.parse(
-                        taxableBaseRaw.toStringAsFixed(2),
-                      );
-                      final rawTax =
-                          double.tryParse(taxCtrl.text.replaceAll(',', '')) ??
-                          0.0;
-                      final taxPercent =
-                          rawTax.isFinite ? math.max(rawTax, 0) : 0.0;
-                      final taxAmount = double.parse(
-                        (taxableBase * (taxPercent / 100)).toStringAsFixed(2),
-                      );
-                      await data.createInvoice(
-                        customerId: customerId!,
-                        projectId: projectId,
-                        accountId: null,
-                        number: null,
-                        issueDate: ddMmYyyyToYmd(issueCtrl.text.trim()),
-                        dueDate: ddMmYyyyToYmd(dueCtrl.text.trim()),
-                        discount: discountAmount,
-                        tax: taxAmount,
-                        items: mappedItems,
-                      );
-                      if (ctx.mounted) Navigator.pop(ctx, true);
-                    },
-                    child: Text(I18n.t(context, 'label.save')),
-                  ),
-                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(I18n.t(context, 'label.cancel')),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    if (customerId == null) return;
+                    final mappedItems =
+                        items
+                            .map(
+                              (it) => {
+                                'description':
+                                    (it['description'] as String?)?.trim() ??
+                                    I18n.tr(context, 'invoices.itemFallback'),
+                                'quantity':
+                                    ((it['quantity'] as num?) ?? 0).toDouble(),
+                                'unit_price':
+                                    ((it['unit_price'] as num?) ?? 0)
+                                        .toDouble(),
+                              },
+                            )
+                            .toList();
+                    double subtotal = mappedItems.fold<double>(0.0, (s, it) {
+                      final q = (it['quantity'] as num?)?.toDouble() ?? 0.0;
+                      final p = (it['unit_price'] as num?)?.toDouble() ?? 0.0;
+                      return s + (q * p);
+                    });
+                    subtotal = double.parse(subtotal.toStringAsFixed(2));
+                    final rawDiscount =
+                        double.tryParse(
+                          discountCtrl.text.replaceAll(',', ''),
+                        ) ??
+                        0.0;
+                    final discountPercent =
+                        rawDiscount.isFinite
+                            ? math.max(math.min(rawDiscount, 100), 0)
+                            : 0.0;
+                    final discountAmount = double.parse(
+                      (subtotal * (discountPercent / 100)).toStringAsFixed(2),
+                    );
+                    final taxableBaseRaw = math.max(
+                      subtotal - discountAmount,
+                      0.0,
+                    );
+                    final taxableBase = double.parse(
+                      taxableBaseRaw.toStringAsFixed(2),
+                    );
+                    final rawTax =
+                        double.tryParse(taxCtrl.text.replaceAll(',', '')) ??
+                        0.0;
+                    final taxPercent =
+                        rawTax.isFinite ? math.max(rawTax, 0) : 0.0;
+                    final taxAmount = double.parse(
+                      (taxableBase * (taxPercent / 100)).toStringAsFixed(2),
+                    );
+                    await data.createInvoice(
+                      customerId: customerId!,
+                      projectId: projectId,
+                      accountId: null,
+                      number: null,
+                      issueDate: ddMmYyyyToYmd(issueCtrl.text.trim()),
+                      dueDate: ddMmYyyyToYmd(dueCtrl.text.trim()),
+                      discount: discountAmount,
+                      tax: taxAmount,
+                      items: mappedItems,
+                    );
+                    if (ctx.mounted) Navigator.pop(ctx, true);
+                  },
+                  child: Text(I18n.t(context, 'label.save')),
+                ),
+              ],
             );
           },
         ),

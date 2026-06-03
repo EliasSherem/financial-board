@@ -4,6 +4,7 @@ import '../models.dart';
 import '../services/data_service.dart';
 import '../utils/category_icons.dart';
 import '../i18n.dart';
+import '../liquid_glass/liquid_glass.dart';
 
 class CategorySelection {
   const CategorySelection(this.category, this.subcategory);
@@ -25,6 +26,7 @@ class CategorySelectorField extends StatelessWidget {
     required this.selectedSubcategory,
     required this.onTap,
     required this.onClear,
+    this.labelText,
   });
 
   final double width;
@@ -32,13 +34,18 @@ class CategorySelectorField extends StatelessWidget {
   final ExpenseSubcategory? selectedSubcategory;
   final VoidCallback onTap;
   final VoidCallback onClear;
+  final String? labelText;
 
   @override
   Widget build(BuildContext context) {
-    final hasSelection = selectedCategory != null || selectedSubcategory != null;
+    final hasSelection =
+        selectedCategory != null || selectedSubcategory != null;
     final displayIconKey =
-        selectedSubcategory?.icon ?? selectedCategory?.icon ?? kCategoryIconOptions.first.key;
-    final displayLabel = selectedSubcategory?.name ??
+        selectedSubcategory?.icon ??
+        selectedCategory?.icon ??
+        kCategoryIconOptions.first.key;
+    final displayLabel =
+        selectedSubcategory?.name ??
         selectedCategory?.name ??
         I18n.tr(context, 'tx.selectCategory');
 
@@ -46,11 +53,13 @@ class CategorySelectorField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         InkWell(
+          borderRadius: BorderRadius.circular(LGRadius.lg),
           onTap: onTap,
           child: InputDecorator(
             isEmpty: !hasSelection,
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
+            decoration: LGForm.dropdownDecoration(
+              context,
+              labelText: labelText,
               suffixIcon: const Icon(Icons.arrow_drop_down),
             ),
             child: SizedBox(
@@ -84,6 +93,39 @@ class CategorySelectorField extends StatelessWidget {
   }
 }
 
+class _CategoryPickerAction extends StatelessWidget {
+  const _CategoryPickerAction({
+    required this.tooltip,
+    required this.onPressed,
+    required this.icon,
+  });
+
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final Widget icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: icon,
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(42),
+        minimumSize: const Size.square(42),
+        foregroundColor: LGColors.primaryBlue,
+        backgroundColor: LGColors.intentContainer(context, LGIntent.primary),
+        side: BorderSide(
+          color: LGColors.intentStroke(context, LGIntent.primary),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(LGRadius.lg),
+        ),
+      ),
+    );
+  }
+}
+
 Future<CategorySelection?> showCategoryPicker({
   required BuildContext context,
   required DataService data,
@@ -95,13 +137,20 @@ Future<CategorySelection?> showCategoryPicker({
   return showModalBottomSheet<CategorySelection>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _CategoryPickerSheet(
-      data: data,
-      categories: List<ExpenseCategory>.from(categories),
-      onCategoriesUpdated: onCategoriesUpdated,
-      initialCategory: initialCategory,
-      initialSubcategory: initialSubcategory,
-    ),
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder:
+        (_) => LGBottomSheetShell(
+          title: I18n.tr(context, 'categories.selectCategoryTitle'),
+          scrollable: false,
+          child: _CategoryPickerSheet(
+            data: data,
+            categories: List<ExpenseCategory>.from(categories),
+            onCategoriesUpdated: onCategoriesUpdated,
+            initialCategory: initialCategory,
+            initialSubcategory: initialSubcategory,
+          ),
+        ),
   );
 }
 
@@ -160,7 +209,9 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<CategoryDialogResult?> _showCategoryDialog({
@@ -173,56 +224,68 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (ctx, setLocal) => AlertDialog(
-            title: Text(title),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    autofocus: true,
-                    decoration: InputDecoration(labelText: hint),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(I18n.tr(context, 'categories.iconLabel')),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: kCategoryIconOptions
-                        .map(
-                          (option) => ChoiceChip(
-                            avatar: Icon(option.icon, size: 18),
-                            label: Text(option.label),
-                            selected: iconKey == option.key,
-                            onSelected: (_) => setLocal(() => iconKey = option.key),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ],
+          builder:
+              (ctx, setLocal) => LGDialogShell(
+                title: title,
+                footer: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    LGButton(
+                      label: I18n.tr(context, 'label.cancel'),
+                      variant: LGButtonVariant.glass,
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                    const SizedBox(width: LGSpacing.sm),
+                    LGButton(
+                      label: I18n.tr(context, 'label.save'),
+                      onPressed: () {
+                        final name = nameCtrl.text.trim();
+                        if (name.isEmpty) {
+                          _showError(
+                            I18n.tr(context, 'categories.validationName'),
+                          );
+                          return;
+                        }
+                        Navigator.pop(ctx, CategoryDialogResult(name, iconKey));
+                      },
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      autofocus: true,
+                      decoration: LGForm.solidInputDecoration(
+                        context,
+                        labelText: hint,
+                      ),
+                    ),
+                    const SizedBox(height: LGSpacing.lg),
+                    Text(I18n.tr(context, 'categories.iconLabel')),
+                    const SizedBox(height: LGSpacing.sm),
+                    Wrap(
+                      spacing: LGSpacing.sm,
+                      runSpacing: LGSpacing.sm,
+                      children:
+                          kCategoryIconOptions
+                              .map(
+                                (option) => ChoiceChip(
+                                  avatar: Icon(option.icon, size: 18),
+                                  label: Text(option.label),
+                                  selected: iconKey == option.key,
+                                  onSelected:
+                                      (_) =>
+                                          setLocal(() => iconKey = option.key),
+                                ),
+                              )
+                              .toList(),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(I18n.tr(context, 'label.cancel')),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final name = nameCtrl.text.trim();
-                  if (name.isEmpty) {
-                    _showError(I18n.tr(context, 'categories.validationName'));
-                    return;
-                  }
-                  Navigator.pop(ctx, CategoryDialogResult(name, iconKey));
-                },
-                child: Text(I18n.tr(context, 'label.save')),
-              ),
-            ],
-          ),
         );
       },
     );
@@ -242,8 +305,10 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
         icon: result.iconKey,
       );
       setState(() {
-        categories = [...categories, newCategory]
-          ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        categories = [
+          ...categories,
+          newCategory,
+        ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
         selectedCategoryId = newCategory.id;
         selectedSubcategoryId = null;
         _saving = false;
@@ -277,13 +342,18 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
         icon: result.iconKey,
       );
       setState(() {
-        categories = categories
-            .map((c) => c.id == updatedCategory.id ? updatedCategory : c)
-            .toList()
-          ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        categories =
+            categories
+                .map((c) => c.id == updatedCategory.id ? updatedCategory : c)
+                .toList()
+              ..sort(
+                (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+              );
         selectedCategoryId = updatedCategory.id;
         final newSub = updatedCategory.subcategories.firstWhere(
-          (s) => s.name.toLowerCase() == result.name.toLowerCase() && s.icon == result.iconKey,
+          (s) =>
+              s.name.toLowerCase() == result.name.toLowerCase() &&
+              s.icon == result.iconKey,
           orElse: () => updatedCategory.subcategories.last,
         );
         selectedSubcategoryId = newSub.id;
@@ -300,7 +370,8 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
   Widget build(BuildContext context) {
     final height = MediaQuery.of(context).size.height * 0.6;
     final selectedCategory = _categoryById(selectedCategoryId);
-    final subcategories = selectedCategory?.subcategories ?? const <ExpenseSubcategory>[];
+    final subcategories =
+        selectedCategory?.subcategories ?? const <ExpenseSubcategory>[];
 
     return SafeArea(
       child: SizedBox(
@@ -312,20 +383,19 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Text(
-                      I18n.tr(context, 'categories.selectCategoryTitle'),
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  IconButton(
+                  const Spacer(),
+                  _CategoryPickerAction(
                     tooltip: I18n.tr(context, 'categories.newCategory'),
                     onPressed: _saving ? null : _createCategory,
                     icon: const Icon(Icons.create_new_folder_outlined),
                   ),
-                  IconButton(
+                  const SizedBox(width: LGSpacing.sm),
+                  _CategoryPickerAction(
                     tooltip: I18n.tr(context, 'categories.newSubcategory'),
-                    onPressed: (_saving || selectedCategoryId == null) ? null : _createSubcategory,
+                    onPressed:
+                        (_saving || selectedCategoryId == null)
+                            ? null
+                            : _createSubcategory,
                     icon: const Icon(Icons.post_add_outlined),
                   ),
                 ],
@@ -371,41 +441,53 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                   ),
                   const VerticalDivider(width: 1),
                   Expanded(
-                    child: selectedCategoryId == null
-                        ? Center(
-                            child: Text(
-                              I18n.tr(context, 'categories.noneSelected'),
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          )
-                        : subcategories.isEmpty
+                    child:
+                        selectedCategoryId == null
                             ? Center(
-                                child: Text(
-                                  I18n.tr(context, 'categories.noSubcategories'),
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              )
+                              child: Text(
+                                I18n.tr(context, 'categories.noneSelected'),
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            )
+                            : subcategories.isEmpty
+                            ? Center(
+                              child: Text(
+                                I18n.tr(context, 'categories.noSubcategories'),
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            )
                             : ListView(
-                                children: [
-                                  ListTile(
-                                    title: Text(I18n.tr(context, 'categories.useCategoryOnly')),
-                                    selected: selectedSubcategoryId == null,
-                                    onTap: () => setState(() => selectedSubcategoryId = null),
-                                  ),
-                                  ...subcategories.map(
-                                    (sub) => ListTile(
-                                      leading: Icon(iconDataFromKey(sub.icon)),
-                                      title: Text(
-                                        sub.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      selected: selectedSubcategoryId == sub.id,
-                                      onTap: () => setState(() => selectedSubcategoryId = sub.id),
+                              children: [
+                                ListTile(
+                                  title: Text(
+                                    I18n.tr(
+                                      context,
+                                      'categories.useCategoryOnly',
                                     ),
                                   ),
-                                ],
-                              ),
+                                  selected: selectedSubcategoryId == null,
+                                  onTap:
+                                      () => setState(
+                                        () => selectedSubcategoryId = null,
+                                      ),
+                                ),
+                                ...subcategories.map(
+                                  (sub) => ListTile(
+                                    leading: Icon(iconDataFromKey(sub.icon)),
+                                    title: Text(
+                                      sub.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    selected: selectedSubcategoryId == sub.id,
+                                    onTap:
+                                        () => setState(
+                                          () => selectedSubcategoryId = sub.id,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
                   ),
                 ],
               ),
@@ -415,29 +497,39 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Row(
                 children: [
-                  TextButton(
+                  LGButton(
+                    label: I18n.tr(context, 'label.cancel'),
+                    variant: LGButtonVariant.glass,
                     onPressed: () => Navigator.pop(context),
-                    child: Text(I18n.tr(context, 'label.cancel')),
                   ),
                   const Spacer(),
-                  TextButton(
+                  LGButton(
+                    label: I18n.tr(context, 'label.clear'),
+                    variant: LGButtonVariant.ghost,
                     onPressed: () {
                       setState(() {
                         selectedCategoryId = null;
                         selectedSubcategoryId = null;
                       });
                     },
-                    child: Text(I18n.tr(context, 'label.clear')),
                   ),
                   const SizedBox(width: 12),
-                  FilledButton(
+                  LGButton(
+                    label: I18n.tr(context, 'label.save'),
                     onPressed: () {
                       final category = _categoryById(selectedCategoryId);
                       final subcategory =
-                          category == null ? null : _subcategoryById(category, selectedSubcategoryId);
-                      Navigator.pop(context, CategorySelection(category, subcategory));
+                          category == null
+                              ? null
+                              : _subcategoryById(
+                                category,
+                                selectedSubcategoryId,
+                              );
+                      Navigator.pop(
+                        context,
+                        CategorySelection(category, subcategory),
+                      );
                     },
-                    child: Text(I18n.tr(context, 'label.save')),
                   ),
                 ],
               ),

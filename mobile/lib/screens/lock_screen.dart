@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/biometric_service.dart';
 import '../state/auth_store.dart';
 import '../i18n.dart';
-import '../ui/finsight_ui.dart';
+import '../liquid_glass/liquid_glass.dart';
 
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key});
@@ -95,16 +95,22 @@ class _LockScreenState extends State<LockScreen> {
             : I18n.t(context, 'auth.biometricReason');
 
     return Scaffold(
-      backgroundColor: FSColors.background(context),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(FSSpacing.xl),
+            padding: const EdgeInsets.symmetric(
+              horizontal: LGSpacing.lg,
+              vertical: LGSpacing.xl,
+            ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
-              child: FSCard(
-                variant: FSCardVariant.elevated,
-                padding: const EdgeInsets.all(FSSpacing.xl),
+              child: LGGlassCard(
+                variant: LGCardVariant.hero,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: LGSpacing.xl,
+                  vertical: LGSpacing.xxl,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -112,59 +118,79 @@ class _LockScreenState extends State<LockScreen> {
                     Align(
                       alignment: Alignment.center,
                       child: Container(
-                        width: 64,
-                        height: 64,
+                        width: 68,
+                        height: 68,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: FSColors.intentContainer(
+                          color: LGColors.intentContainer(
                             context,
-                            FSIntent.primary,
+                            LGIntent.primary,
                           ),
-                          borderRadius: BorderRadius.circular(FSRadius.xl),
+                          borderRadius: BorderRadius.circular(LGRadius.xl),
                           border: Border.all(
-                            color: FSColors.intentBorder(
+                            color: LGColors.intentStroke(
                               context,
-                              FSIntent.primary,
+                              LGIntent.primary,
                             ),
                           ),
                         ),
                         child: const Icon(
                           Icons.fingerprint,
-                          color: FSColors.primary,
-                          size: 32,
+                          color: LGColors.primaryBlue,
+                          size: 34,
                         ),
                       ),
                     ),
-                    const SizedBox(height: FSSpacing.lg),
+                    const SizedBox(height: LGSpacing.lg),
                     Text(
                       'FinSight',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
+                        color: LGColors.textPrimary(context),
+                        letterSpacing: 0,
                       ),
                     ),
-                    const SizedBox(height: FSSpacing.sm),
+                    const SizedBox(height: LGSpacing.sm),
                     Text(
                       subtitle,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: FSColors.mutedText(context),
+                        color: LGColors.textSecondary(context),
                         height: 1.35,
                       ),
                     ),
-                    const SizedBox(height: FSSpacing.xl),
-                    FSButton(
+                    const SizedBox(height: LGSpacing.md),
+                    Align(
+                      alignment: Alignment.center,
+                      child: LGStatusBadge(
+                        label:
+                            canUnlock
+                                ? I18n.t(context, 'auth.signInBiometric')
+                                : I18n.t(context, 'auth.biometricUnavailable'),
+                        variant:
+                            canUnlock
+                                ? LGStatusBadgeVariant.info
+                                : LGStatusBadgeVariant.neutral,
+                        icon:
+                            canUnlock
+                                ? Icons.verified_user_outlined
+                                : Icons.info_outline,
+                      ),
+                    ),
+                    const SizedBox(height: LGSpacing.xl),
+                    LGButton(
                       label: I18n.t(context, 'auth.signInBiometric'),
                       icon: Icons.fingerprint,
                       loading: _submitting,
                       fullWidth: true,
                       onPressed: _submitting || !canUnlock ? null : _unlock,
                     ),
-                    const SizedBox(height: FSSpacing.md),
-                    FSButton(
+                    const SizedBox(height: LGSpacing.md),
+                    LGButton(
                       label: I18n.t(context, 'menu.logout'),
-                      variant: FSButtonVariant.outline,
+                      icon: Icons.logout,
+                      variant: LGButtonVariant.outline,
                       fullWidth: true,
                       onPressed: _submitting ? null : _logout,
                     ),

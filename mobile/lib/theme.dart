@@ -1,316 +1,447 @@
 import 'package:flutter/material.dart';
 
-import 'ui/finsight_ui.dart';
+import 'liquid_glass/liquid_glass.dart';
 
-// Design tokens adapted from the current FinSight web aesthetic.
+// Design tokens adapted from src/styles/globals.css
 class AppTheme {
-  static const _brandBlue = FSColors.primary;
-  static const _lightForeground = Color(0xFF0F172A);
-  static const _darkForeground = Color(0xFFE2E8F0);
+  // Brand blue (matches Home button in navbar)
+  static const _brandBlue = Color(0xFF2563EB);
+  static const _lightPrimary = _brandBlue;
+  static const _lightBackground = Color(0xFFFFFFFF);
+  static const _lightForeground = Color(0xFF232326); // approx oklch(0.145 0 0)
+  static const _lightCard = Color(0xFFFFFFFF);
+  static const _lightAccent = Color(0xFFE9EBEF);
+  static const _lightBorder = Color(0x1A000000); // rgba(0,0,0,0.1)
+
+  // Dark palette tuned for contrast and separation
+  static const _darkBackground = Color(0xFF14161B);
+  static const _darkForeground = Color(
+    0xFFEAECEF,
+  ); // near-white for strong contrast
+  static const _darkCard = Color(
+    0xFF1D2128,
+  ); // slightly lighter than bg so cards stand out
+  static const _darkMuted = Color(0xFF2A2F37); // separators / containers
 
   static ThemeData light() {
     final base = ThemeData(useMaterial3: true, brightness: Brightness.light);
     final scheme = ColorScheme.fromSeed(
-      seedColor: _brandBlue,
+      seedColor: _lightPrimary,
       brightness: Brightness.light,
-      primary: _brandBlue,
+      primary: _lightPrimary,
       onPrimary: Colors.white,
-      surface: FSColors.surfaceLight,
+      surface: _lightCard,
       onSurface: _lightForeground,
-      secondary: FSColors.accent,
+      secondary: _lightAccent,
       onSecondary: _lightForeground,
-      outline: FSColors.borderLight,
-      error: FSColors.danger,
+      outline: _lightBorder,
     );
-    return _buildTheme(
-      base: base,
-      scheme: scheme,
-      foreground: _lightForeground,
-      background: FSColors.backgroundLight,
-      surface: FSColors.surfaceLight,
-      surfaceElevated: FSColors.surfaceElevatedLight,
-      border: FSColors.borderLight,
-      muted: FSColors.mutedTextLight,
-      shadow: const Color(0x220F172A),
-      isDark: false,
+    final filledButtonStyle = _filledButtonStyle(_brandBlue, Colors.white);
+    final elevatedButtonStyle = _elevatedButtonStyle(_brandBlue, Colors.white);
+    return base.copyWith(
+      colorScheme: scheme,
+      scaffoldBackgroundColor: _lightBackground,
+      cardColor: _lightCard,
+      textTheme: base.textTheme.apply(
+        bodyColor: _lightForeground,
+        displayColor: _lightForeground,
+      ),
+      inputDecorationTheme: _inputDecorationTheme(
+        fill: LGColors.surfaceSolidLight,
+        text: _lightForeground,
+        muted: LGColors.textSecondaryLight,
+        border: _lightBorder,
+      ),
+      dialogTheme: _dialogTheme(scheme, isDark: false),
+      bottomSheetTheme: _bottomSheetTheme(scheme, isDark: false),
+      chipTheme: _chipTheme(base, scheme, isDark: false),
+      listTileTheme: _listTileTheme(scheme, isDark: false),
+      dividerTheme: DividerThemeData(color: _lightBorder, thickness: 1),
+      snackBarTheme: _snackBarTheme(scheme, isDark: false),
+      textButtonTheme: TextButtonThemeData(style: _textButtonStyle(scheme)),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: _outlinedButtonStyle(scheme, isDark: false),
+      ),
+      filledButtonTheme: FilledButtonThemeData(style: filledButtonStyle),
+      elevatedButtonTheme: ElevatedButtonThemeData(style: elevatedButtonStyle),
+      popupMenuTheme: PopupMenuThemeData(
+        color: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        textStyle: base.textTheme.bodyMedium?.copyWith(
+          color: scheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(LGRadius.lg),
+        ),
+        elevation: 8,
+      ),
+      shadowColor: const Color(0x66000000),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: _brandBlue,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(LGRadius.xl)),
+        ),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: _lightBackground,
+        foregroundColor: _lightForeground,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: LGColors.glassStrongLight,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: LGColors.alpha(_brandBlue, 0.12),
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(LGRadius.pill),
+        ),
+        labelTextStyle: WidgetStateProperty.all(
+          const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected ? _brandBlue : LGColors.textSecondaryLight,
+          );
+        }),
+      ),
+      cardTheme: const CardThemeData(
+        elevation: 8,
+        shadowColor: Color(0x66000000),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+      dividerColor: _lightBorder,
     );
   }
 
   static ThemeData dark() {
     final base = ThemeData(useMaterial3: true, brightness: Brightness.dark);
     final scheme = ColorScheme.fromSeed(
-      seedColor: _brandBlue,
+      seedColor: _lightPrimary,
       brightness: Brightness.dark,
       primary: _brandBlue,
       onPrimary: Colors.white,
-      surface: FSColors.surfaceDark,
+      surface: _darkCard,
       onSurface: _darkForeground,
-      secondary: FSColors.accent,
+      secondary: _darkMuted,
       onSecondary: _darkForeground,
-      outline: FSColors.borderDark,
-      error: FSColors.danger,
+      outline: const Color(0xFF3C414A),
     );
-    return _buildTheme(
-      base: base,
-      scheme: scheme,
-      foreground: _darkForeground,
-      background: FSColors.backgroundDark,
-      surface: FSColors.surfaceDark,
-      surfaceElevated: FSColors.surfaceElevatedDark,
-      border: FSColors.borderDark,
-      muted: FSColors.mutedTextDark,
-      shadow: const Color(0xCC000000),
-      isDark: true,
-    );
-  }
-
-  static ThemeData _buildTheme({
-    required ThemeData base,
-    required ColorScheme scheme,
-    required Color foreground,
-    required Color background,
-    required Color surface,
-    required Color surfaceElevated,
-    required Color border,
-    required Color muted,
-    required Color shadow,
-    required bool isDark,
-  }) {
-    final radius = BorderRadius.circular(FSRadius.md);
-    final fieldBorder = OutlineInputBorder(
-      borderRadius: radius,
-      borderSide: BorderSide(color: border),
-    );
-    final focusedFieldBorder = OutlineInputBorder(
-      borderRadius: radius,
-      borderSide: const BorderSide(color: _brandBlue, width: 1.4),
-    );
-    final errorFieldBorder = OutlineInputBorder(
-      borderRadius: radius,
-      borderSide: const BorderSide(color: FSColors.danger),
-    );
-    final filledButtonStyle = FilledButton.styleFrom(
-      backgroundColor: _brandBlue,
-      foregroundColor: Colors.white,
-      disabledBackgroundColor: FSColors.alpha(_brandBlue, 0.42),
-      disabledForegroundColor: FSColors.alpha(Colors.white, 0.70),
-      minimumSize: const Size(0, 44),
-      padding: const EdgeInsets.symmetric(
-        horizontal: FSSpacing.lg,
-        vertical: FSSpacing.md,
-      ),
-      shape: RoundedRectangleBorder(borderRadius: radius),
-      textStyle: const TextStyle(fontWeight: FontWeight.w700),
-    );
-    final elevatedButtonStyle = ElevatedButton.styleFrom(
-      backgroundColor: _brandBlue,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      minimumSize: const Size(0, 44),
-      padding: const EdgeInsets.symmetric(
-        horizontal: FSSpacing.lg,
-        vertical: FSSpacing.md,
-      ),
-      shape: RoundedRectangleBorder(borderRadius: radius),
-      textStyle: const TextStyle(fontWeight: FontWeight.w700),
-    );
-
+    final filledButtonStyle = _filledButtonStyle(_brandBlue, Colors.white);
+    final elevatedButtonStyle = _elevatedButtonStyle(_brandBlue, Colors.white);
     return base.copyWith(
       colorScheme: scheme,
-      scaffoldBackgroundColor: background,
-      cardColor: surfaceElevated,
-      shadowColor: shadow,
-      dividerColor: border,
-      iconTheme: IconThemeData(color: FSColors.alpha(foreground, 0.82)),
+      scaffoldBackgroundColor: _darkBackground,
+      cardColor: _darkCard,
+      inputDecorationTheme: _inputDecorationTheme(
+        fill: _darkCard,
+        text: _darkForeground,
+        muted: LGColors.textSecondaryDark,
+        border: const Color(0xFF3C414A),
+      ),
+      dialogTheme: _dialogTheme(scheme, isDark: true),
+      bottomSheetTheme: _bottomSheetTheme(scheme, isDark: true),
+      chipTheme: _chipTheme(base, scheme, isDark: true),
+      listTileTheme: _listTileTheme(scheme, isDark: true),
+      dividerTheme: const DividerThemeData(
+        color: Color(0xFF333843),
+        thickness: 1,
+      ),
+      snackBarTheme: _snackBarTheme(scheme, isDark: true),
+      textButtonTheme: TextButtonThemeData(style: _textButtonStyle(scheme)),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: _outlinedButtonStyle(scheme, isDark: true),
+      ),
       textTheme: base.textTheme
-          .apply(bodyColor: foreground, displayColor: foreground)
+          .apply(bodyColor: _darkForeground, displayColor: _darkForeground)
           .copyWith(
             bodySmall: base.textTheme.bodySmall?.copyWith(
-              color: muted,
-              height: 1.35,
+              color: _darkForeground.withValues(alpha: 0.85),
             ),
-            bodyMedium: base.textTheme.bodyMedium?.copyWith(height: 1.35),
             labelLarge: base.textTheme.labelLarge?.copyWith(
-              color: FSColors.alpha(foreground, isDark ? 0.92 : 0.78),
-              fontWeight: FontWeight.w600,
+              color: _darkForeground.withValues(alpha: 0.92),
             ),
             titleMedium: base.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
             ),
           ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: isDark ? FSColors.alpha(surface, 0.86) : Colors.white,
-        hintStyle: TextStyle(color: muted),
-        labelStyle: TextStyle(color: muted, fontWeight: FontWeight.w600),
-        floatingLabelStyle: const TextStyle(
-          color: _brandBlue,
-          fontWeight: FontWeight.w700,
+      popupMenuTheme: PopupMenuThemeData(
+        color: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        textStyle: base.textTheme.bodyMedium?.copyWith(
+          color: scheme.onSurface,
+          fontWeight: FontWeight.w600,
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: FSSpacing.lg,
-          vertical: FSSpacing.md,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(LGRadius.lg),
         ),
-        border: fieldBorder,
-        enabledBorder: fieldBorder,
-        focusedBorder: focusedFieldBorder,
-        errorBorder: errorFieldBorder,
-        focusedErrorBorder: errorFieldBorder,
+        elevation: 8,
       ),
       filledButtonTheme: FilledButtonThemeData(style: filledButtonStyle),
       elevatedButtonTheme: ElevatedButtonThemeData(style: elevatedButtonStyle),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: _brandBlue,
-          minimumSize: const Size(0, 44),
-          padding: const EdgeInsets.symmetric(
-            horizontal: FSSpacing.lg,
-            vertical: FSSpacing.md,
-          ),
-          side: BorderSide(color: isDark ? FSColors.borderDark : border),
-          shape: RoundedRectangleBorder(borderRadius: radius),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: _brandBlue,
-          minimumSize: const Size(0, 40),
-          padding: const EdgeInsets.symmetric(horizontal: FSSpacing.md),
-          shape: RoundedRectangleBorder(borderRadius: radius),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
-      popupMenuTheme: PopupMenuThemeData(
-        color: surfaceElevated,
-        surfaceTintColor: Colors.transparent,
-        textStyle: base.textTheme.bodyMedium?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w600,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FSRadius.lg),
-        ),
-        elevation: isDark ? 12 : 8,
-        shadowColor: shadow,
-      ),
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
+      shadowColor: const Color(0xF0000000),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: _brandBlue,
         foregroundColor: Colors.white,
-        elevation: isDark ? 8 : 6,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FSRadius.lg),
+          borderRadius: BorderRadius.all(Radius.circular(LGRadius.xl)),
         ),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: background,
-        foregroundColor: foreground,
-        surfaceTintColor: Colors.transparent,
+        backgroundColor: _darkBackground,
+        foregroundColor: _darkForeground,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: base.textTheme.titleLarge?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w800,
-        ),
-        iconTheme: IconThemeData(color: FSColors.alpha(foreground, 0.84)),
-        actionsIconTheme: IconThemeData(
-          color: FSColors.alpha(foreground, 0.84),
-        ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: surface,
-        indicatorColor: FSColors.alpha(_brandBlue, isDark ? 0.18 : 0.10),
-        indicatorShape: const CircleBorder(),
+        backgroundColor: LGColors.glassStrongDark,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: _brandBlue.withValues(alpha: 0.18),
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(LGRadius.pill),
+        ),
         labelTextStyle: WidgetStateProperty.all(
-          const TextStyle(fontWeight: FontWeight.w600),
+          const TextStyle(fontWeight: FontWeight.w700),
         ),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected ? _brandBlue : LGColors.textSecondaryDark,
+          );
+        }),
       ),
-      cardTheme: CardThemeData(
-        color: surfaceElevated,
-        surfaceTintColor: Colors.transparent,
-        elevation: isDark ? 8 : 6,
-        shadowColor: shadow,
+      cardTheme: const CardThemeData(
+        elevation: 10,
+        shadowColor: Color(0xF0000000),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FSRadius.lg),
-          side: BorderSide(color: FSColors.alpha(border, isDark ? 0.78 : 1)),
-        ),
-        margin: EdgeInsets.zero,
-      ),
-      dialogTheme: DialogThemeData(
-        backgroundColor: surfaceElevated,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FSRadius.xl),
-          side: BorderSide(color: border),
-        ),
-        titleTextStyle: base.textTheme.titleLarge?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w800,
-        ),
-        contentTextStyle: base.textTheme.bodyMedium?.copyWith(
-          color: foreground,
-          height: 1.35,
+          borderRadius: BorderRadius.all(Radius.circular(12)),
         ),
       ),
-      bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: surfaceElevated,
-        modalBackgroundColor: surfaceElevated,
-        surfaceTintColor: Colors.transparent,
-        showDragHandle: true,
-        dragHandleColor: FSColors.alpha(muted, 0.55),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(FSRadius.xl),
-          ),
+      dividerColor: const Color(0xFF333843),
+    );
+  }
+
+  static InputDecorationThemeData _inputDecorationTheme({
+    required Color fill,
+    required Color text,
+    required Color muted,
+    required Color border,
+  }) {
+    final normalBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(LGRadius.lg),
+      borderSide: BorderSide(color: border),
+    );
+    return InputDecorationThemeData(
+      filled: true,
+      fillColor: fill,
+      labelStyle: TextStyle(color: muted),
+      hintStyle: TextStyle(color: muted.withValues(alpha: 0.74)),
+      prefixIconColor: muted,
+      suffixIconColor: muted,
+      isDense: false,
+      constraints: const BoxConstraints(minHeight: LGForm.fieldMinHeight),
+      contentPadding: LGForm.fieldContentPadding,
+      prefixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+      suffixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+      floatingLabelBehavior: FloatingLabelBehavior.auto,
+      floatingLabelStyle: TextStyle(
+        color: _brandBlue,
+        fontWeight: FontWeight.w800,
+        backgroundColor: fill,
+      ),
+      border: normalBorder,
+      enabledBorder: normalBorder,
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        borderSide: const BorderSide(color: _brandBlue, width: 1.4),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        borderSide: const BorderSide(color: LGColors.danger),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        borderSide: const BorderSide(color: LGColors.danger, width: 1.4),
+      ),
+    );
+  }
+
+  static DialogThemeData _dialogTheme(
+    ColorScheme scheme, {
+    required bool isDark,
+  }) {
+    return DialogThemeData(
+      backgroundColor:
+          isDark ? LGColors.glassStrongDark : LGColors.glassStrongLight,
+      surfaceTintColor: Colors.transparent,
+      elevation: isDark ? 18 : 12,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(LGRadius.xxl),
+        side: BorderSide(
+          color: isDark ? LGColors.glassStrokeDark : LGColors.glassStrokeLight,
         ),
       ),
-      chipTheme: base.chipTheme.copyWith(
-        backgroundColor:
-            isDark ? const Color(0xFF17223A) : const Color(0xFFF1F5F9),
-        selectedColor: FSColors.alpha(_brandBlue, isDark ? 0.24 : 0.12),
-        disabledColor:
-            isDark ? const Color(0xFF111827) : const Color(0xFFE2E8F0),
-        labelStyle: TextStyle(color: foreground, fontWeight: FontWeight.w600),
-        secondaryLabelStyle: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
+      titleTextStyle: TextStyle(
+        color: scheme.onSurface,
+        fontSize: 20,
+        fontWeight: FontWeight.w800,
+      ),
+      contentTextStyle: TextStyle(
+        color:
+            isDark ? LGColors.textSecondaryDark : LGColors.textSecondaryLight,
+        fontSize: 14,
+      ),
+    );
+  }
+
+  static BottomSheetThemeData _bottomSheetTheme(
+    ColorScheme scheme, {
+    required bool isDark,
+  }) {
+    return BottomSheetThemeData(
+      backgroundColor:
+          isDark ? LGColors.glassStrongDark : LGColors.glassStrongLight,
+      surfaceTintColor: Colors.transparent,
+      modalBackgroundColor:
+          isDark ? LGColors.glassStrongDark : LGColors.glassStrongLight,
+      modalBarrierColor: Colors.black.withValues(alpha: isDark ? 0.58 : 0.36),
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(LGRadius.xl),
         ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: FSSpacing.sm,
-          vertical: FSSpacing.xs,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FSRadius.pill),
-          side: BorderSide(color: border),
+        side: BorderSide(
+          color: isDark ? LGColors.glassStrokeDark : LGColors.glassStrokeLight,
         ),
       ),
-      listTileTheme: ListTileThemeData(
-        iconColor: _brandBlue,
-        textColor: foreground,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: FSSpacing.lg,
-          vertical: FSSpacing.xs,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: radius),
-        titleTextStyle: base.textTheme.bodyLarge?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w700,
-        ),
-        subtitleTextStyle: base.textTheme.bodySmall?.copyWith(color: muted),
+      showDragHandle: true,
+      dragHandleColor:
+          isDark ? LGColors.textSecondaryDark : LGColors.textSecondaryLight,
+    );
+  }
+
+  static ChipThemeData _chipTheme(
+    ThemeData base,
+    ColorScheme scheme, {
+    required bool isDark,
+  }) {
+    final background =
+        isDark ? LGColors.surfaceTintedDark : LGColors.surfaceTintedLight;
+    return base.chipTheme.copyWith(
+      backgroundColor: background,
+      selectedColor: LGColors.primaryBlue.withValues(
+        alpha: isDark ? 0.24 : 0.14,
       ),
-      dividerTheme: DividerThemeData(color: border, thickness: 1, space: 1),
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor:
-            isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A),
-        contentTextStyle: TextStyle(
-          color: isDark ? const Color(0xFF0F172A) : Colors.white,
-          fontWeight: FontWeight.w600,
-        ),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FSRadius.md),
-        ),
+      disabledColor: background.withValues(alpha: 0.48),
+      labelStyle: TextStyle(
+        color: scheme.onSurface,
+        fontWeight: FontWeight.w700,
       ),
+      secondaryLabelStyle: const TextStyle(
+        color: LGColors.primaryBlue,
+        fontWeight: FontWeight.w800,
+      ),
+      side: BorderSide(
+        color:
+            isDark
+                ? LGColors.glassStrokeDark
+                : LGColors.primaryBlue.withValues(alpha: 0.12),
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(LGRadius.pill),
+      ),
+    );
+  }
+
+  static ListTileThemeData _listTileTheme(
+    ColorScheme scheme, {
+    required bool isDark,
+  }) {
+    return ListTileThemeData(
+      iconColor:
+          isDark ? LGColors.textSecondaryDark : LGColors.textSecondaryLight,
+      textColor: scheme.onSurface,
+      selectedColor: LGColors.primaryBlue,
+      selectedTileColor: LGColors.primaryBlue.withValues(
+        alpha: isDark ? 0.18 : 0.08,
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: LGSpacing.lg,
+        vertical: LGSpacing.xs,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+      ),
+    );
+  }
+
+  static SnackBarThemeData _snackBarTheme(
+    ColorScheme scheme, {
+    required bool isDark,
+  }) {
+    return SnackBarThemeData(
+      backgroundColor: isDark ? LGColors.surfaceSolidDark : LGColors.deepNavy,
+      contentTextStyle: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w700,
+      ),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+      ),
+      actionTextColor: LGColors.electricBlue,
+    );
+  }
+
+  static ButtonStyle _textButtonStyle(ColorScheme scheme) {
+    return TextButton.styleFrom(
+      foregroundColor: scheme.primary,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(LGRadius.pill),
+      ),
+      textStyle: const TextStyle(fontWeight: FontWeight.w800),
+    );
+  }
+
+  static ButtonStyle _outlinedButtonStyle(
+    ColorScheme scheme, {
+    required bool isDark,
+  }) {
+    return OutlinedButton.styleFrom(
+      foregroundColor: scheme.primary,
+      side: BorderSide(
+        color: scheme.primary.withValues(alpha: isDark ? 0.48 : 0.32),
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(LGRadius.pill),
+      ),
+      textStyle: const TextStyle(fontWeight: FontWeight.w800),
+    );
+  }
+
+  static ButtonStyle _filledButtonStyle(Color background, Color foreground) {
+    return FilledButton.styleFrom(
+      backgroundColor: background,
+      foregroundColor: foreground,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(LGRadius.pill),
+      ),
+      textStyle: const TextStyle(fontWeight: FontWeight.w800),
+    );
+  }
+
+  static ButtonStyle _elevatedButtonStyle(Color background, Color foreground) {
+    return ElevatedButton.styleFrom(
+      backgroundColor: background,
+      foregroundColor: foreground,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(LGRadius.pill),
+      ),
+      textStyle: const TextStyle(fontWeight: FontWeight.w800),
     );
   }
 }

@@ -9,11 +9,11 @@ import '../lang_store.dart';
 import '../state/auth_store.dart';
 import '../models.dart';
 import '../services/biometric_service.dart';
-import '../ui/finsight_ui.dart';
 import '../utils/links.dart';
 import '../utils/format.dart';
 import '../utils/savings_goal.dart';
 import '../state/refresh_bus.dart';
+import '../liquid_glass/liquid_glass.dart';
 
 const String _supportGptUrl =
     'https://chatgpt.com/g/g-68f9371179548191a018ea1e1ff99727-finsight-assistant';
@@ -211,6 +211,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final canEnableBiometric = biometricReady;
     final canToggleBiometric = biometricEnabled || canEnableBiometric;
     final isIos = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    final canPop = Navigator.of(context).canPop();
     final biometricSubtitle =
         !_biometricChecked
             ? L(
@@ -239,301 +240,407 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final showLock =
         auth.isAuthenticated && auth.biometricEnabled && biometricReady;
     return Scaffold(
-      backgroundColor: FSColors.background(context),
-      appBar: AppBar(
-        title: Text(L('Settings', 'Ajustes')),
-        backgroundColor: FSColors.background(context),
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-        elevation: 0,
-        scrolledUnderElevation: 0.5,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          FSSpacing.lg,
-          FSSpacing.lg,
-          FSSpacing.lg,
-          FSSpacing.xxl,
-        ),
-        children: [
-          _SettingsSection(
-            title: L('Account', 'Cuenta'),
-            children: [
-              _SettingsRow(
-                icon: Icons.person_outline,
-                title: L('Update Profile', 'Actualizar perfil'),
-                subtitle: L(
-                  'Name, email, password',
-                  'Nombre, correo, contraseña',
-                ),
-                onTap:
-                    () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const UpdateProfileScreen(),
-                      ),
-                    ),
-              ),
-              if (isIos)
-                _SettingsRow(
-                  icon: Icons.restore_outlined,
-                  title: L('Restore purchases', 'Restaurar compras'),
-                  subtitle: L(
-                    'Sync your App Store subscription',
-                    'Sincronizar tu suscripción de App Store',
-                  ),
-                  onTap: () => PurchaseService().restorePurchases(context),
-                ),
-            ],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            LGSpacing.lg,
+            LGSpacing.lg,
+            LGSpacing.lg,
+            120,
           ),
-          _SettingsSection(
-            title: L('Preferences', 'Preferencias'),
-            children: [
-              _SettingsRow(
-                icon: Icons.language_outlined,
-                title: L('Language', 'Idioma'),
-                subtitle: langStore.lang == 'es' ? 'Español' : 'English',
-                onTap: () async {
-                  await showModalBottomSheet(
-                    context: context,
-                    backgroundColor: Colors.transparent,
-                    builder: (sheetContext) {
-                      return FSBottomSheetShell(
-                        child: RadioGroup<String>(
-                          groupValue: langStore.lang,
-                          onChanged: (value) {
-                            Navigator.pop(sheetContext);
-                            if (value != null) {
-                              context.read<LangStore>().setLang(value);
-                            }
-                          },
-                          child: const Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              RadioListTile<String>(
-                                value: 'en',
-                                title: Text('English'),
-                              ),
-                              RadioListTile<String>(
-                                value: 'es',
-                                title: Text('Español'),
-                              ),
-                            ],
+          children: [
+            LGPageHeader(
+              title: L('Settings', 'Ajustes'),
+              subtitle: L(
+                'Manage your account, preferences, and security.',
+                'Administra tu cuenta, preferencias y seguridad.',
+              ),
+              leading:
+                  canPop
+                      ? const _SettingsBackButton()
+                      : const _SettingsHeaderIcon(),
+            ),
+            const SizedBox(height: LGSpacing.md),
+            LGGlassCard(
+              variant: LGCardVariant.hero,
+              child: Row(
+                children: [
+                  const _SettingsIconBox(
+                    icon: Icons.person_outline,
+                    intent: LGIntent.primary,
+                  ),
+                  const SizedBox(width: LGSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          L('FinSight account', 'Cuenta de FinSight'),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleMedium?.copyWith(
+                            color: LGColors.textPrimary(context),
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
-                      );
-                    },
-                  );
-                },
-              ),
-              _SettingsRow(
-                icon: Icons.savings_outlined,
-                title: L('Savings goal', 'Meta de ahorro'),
-                subtitle:
-                    _savingsGoal == null || _savingsGoal! <= 0
-                        ? L('Not set', 'Sin meta')
-                        : '${L('Monthly goal', 'Meta mensual')}: ${money(_savingsGoal!)}',
-                onTap: () => _editSavingsGoal(L),
-              ),
-            ],
-          ),
-          _SettingsSection(
-            title: L('Security', 'Seguridad'),
-            children: [
-              _SettingsRow(
-                icon: Icons.fingerprint,
-                title: L('Biometric login', 'Inicio con biometr\u00EDa'),
-                subtitle: biometricSubtitle,
-                trailing: FSButton(
-                  label:
-                      biometricEnabled
-                          ? L('Disable', 'Desactivar')
-                          : L('Enable', 'Activar'),
-                  size: FSButtonSize.sm,
-                  variant:
-                      biometricEnabled
-                          ? FSButtonVariant.outline
-                          : FSButtonVariant.primary,
-                  onPressed:
-                      canToggleBiometric
-                          ? () async {
-                            if (biometricEnabled) {
-                              await auth.setBiometricEnabled(false);
-                              return;
-                            }
-                            if (!canEnableBiometric) return;
-                            final ok = await _biometric.authenticate(
-                              reason: L(
-                                'Confirm biometrics to enable login',
-                                'Confirma biometria para habilitar el inicio',
+                        const SizedBox(height: LGSpacing.xs),
+                        Text(
+                          isIos
+                              ? L(
+                                'Profile, subscription, and secure device access.',
+                                'Perfil, suscripción y acceso seguro del dispositivo.',
+                              )
+                              : L(
+                                'Profile, preferences, and secure device access.',
+                                'Perfil, preferencias y acceso seguro del dispositivo.',
                               ),
-                            );
-                            if (!ok) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      L(
-                                        'Biometric authentication failed',
-                                        'Fallo la autenticacion biometrica',
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }
-                              return;
-                            }
-                            await auth.setBiometricEnabled(true);
-                          }
-                          : null,
-                ),
-              ),
-              if (showLock)
-                _SettingsRow(
-                  icon: Icons.lock_outline,
-                  title: L('Lock', 'Bloquear'),
-                  subtitle: L(
-                    'Require biometrics to unlock',
-                    'Requiere biometr\u00EDa para desbloquear',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.copyWith(
+                            color: LGColors.textSecondary(context),
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  onTap: () async => auth.lock(),
-                ),
-            ],
-          ),
-          _SettingsSection(
-            title: L('Automation', 'Automatización'),
-            children: [
-              _SettingsRow(
-                icon: Icons.attach_money_outlined,
-                title: L('Automate salary income', 'Automatizar salario'),
-                subtitle: L(
-                  'Schedule recurring salary deposits',
-                  'Programa depósitos de salario recurrentes',
-                ),
-                onTap: () => _openSalaryAutomation(context),
+                ],
               ),
-              _SettingsRow(
-                icon: Icons.sync_problem_outlined,
-                title: L(
-                  'Process overdue recurring payments',
-                  'Procesar pagos recurrentes vencidos',
+            ),
+            const SizedBox(height: LGSpacing.xl),
+            _SettingsSection(
+              title: L('Account', 'Cuenta'),
+              children: [
+                _SettingsRow(
+                  icon: Icons.person_outline,
+                  title: L('Update Profile', 'Actualizar perfil'),
+                  subtitle: L(
+                    'Name, email, password',
+                    'Nombre, correo, contraseña',
+                  ),
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const UpdateProfileScreen(),
+                        ),
+                      ),
                 ),
-                onTap: () async {
-                  try {
-                    await data.processOverduePayments();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            L(
-                              'Processed overdue payments',
-                              'Pagos vencidos procesados',
+                if (isIos)
+                  _SettingsRow(
+                    icon: Icons.restore_outlined,
+                    title: L('Restore purchases', 'Restaurar compras'),
+                    subtitle: L(
+                      'Sync your App Store subscription',
+                      'Sincronizar tu suscripción de App Store',
+                    ),
+                    onTap: () => PurchaseService().restorePurchases(context),
+                  ),
+              ],
+            ),
+            _SettingsSection(
+              title: L('Preferences', 'Preferencias'),
+              children: [
+                _SettingsRow(
+                  icon: Icons.language_outlined,
+                  title: L('Language', 'Idioma'),
+                  subtitle: langStore.lang == 'es' ? 'Español' : 'English',
+                  onTap: () async {
+                    await showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      showDragHandle: false,
+                      builder: (_) {
+                        return LGBottomSheetShell(
+                          title: L('Language', 'Idioma'),
+                          solidContent: true,
+                          child: RadioGroup<String>(
+                            groupValue: langStore.lang,
+                            onChanged: (value) {
+                              Navigator.pop(context);
+                              if (value != null) {
+                                context.read<LangStore>().setLang(value);
+                              }
+                            },
+                            child: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                RadioListTile<String>(
+                                  value: 'en',
+                                  title: Text('English'),
+                                ),
+                                RadioListTile<String>(
+                                  value: 'es',
+                                  title: Text('Español'),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${L('Failed', 'Error')}: $e')),
-                      );
-                    }
-                  }
-                },
-              ),
-              _SettingsRow(
-                icon: Icons.swap_horiz_outlined,
-                title: L(
-                  'Repair past transfers',
-                  'Corregir transferencias pasadas',
+                        );
+                      },
+                    );
+                  },
                 ),
-                subtitle: L(
-                  'Fix old transfers that were counted as income or expense',
-                  'Corrige transferencias antiguas que se contaron como ingreso o gasto',
-                ),
-                trailing:
-                    _repairingTransfers
-                        ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                        : null,
-                onTap:
-                    _repairingTransfers
-                        ? null
-                        : () => _repairPastTransfers(data, L),
-              ),
-              _SettingsRow(
-                icon: Icons.auto_graph_outlined,
-                title: L(
-                  'Rebuild balance history',
-                  'Reconstruir historial de saldo',
-                ),
-                subtitle: L(
-                  'Recompute monthly balances for analytics',
-                  'Recalcular saldos mensuales para analítica',
-                ),
-                onTap: () async {
-                  try {
-                    await data.rebuildBalanceHistory();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            L('Rebuild started', 'Reconstrucción iniciada'),
-                          ),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${L('Failed', 'Error')}: $e')),
-                      );
-                    }
-                  }
-                },
-              ),
-            ],
-          ),
-          _SettingsSection(
-            title: L('Support', 'Soporte'),
-            children: [
-              _SettingsRow(
-                icon: Icons.help_outline,
-                title: L('Finsight Assistant', 'Asistente Finsight'),
-                subtitle: L('Open the support chat', 'Abrir chat de ayuda'),
-                onTap: () => openLink(context, _supportGptUrl),
-              ),
-            ],
-          ),
-          _SettingsSection(
-            title: L('Session', 'Sesión'),
-            children: [
-              if (isIos)
                 _SettingsRow(
-                  icon: Icons.person_remove_outlined,
-                  title: L('Delete account', 'Eliminar cuenta'),
-                  subtitle: L(
-                    'Open the secure account deletion page',
-                    'Abrir la página segura para eliminar la cuenta',
-                  ),
-                  trailing: const Icon(Icons.open_in_new),
-                  danger: true,
-                  onTap: () => openLink(context, kDeleteAccountUrl),
+                  icon: Icons.savings_outlined,
+                  title: L('Savings goal', 'Meta de ahorro'),
+                  subtitle:
+                      _savingsGoal == null || _savingsGoal! <= 0
+                          ? L('Not set', 'Sin meta')
+                          : '${L('Monthly goal', 'Meta mensual')}: ${money(_savingsGoal!)}',
+                  onTap: () => _editSavingsGoal(L),
                 ),
-              _SettingsRow(
-                icon: Icons.logout,
-                title: L('Logout', 'Cerrar sesión'),
-                danger: true,
-                onTap: () async {
-                  await context.read<AuthStore>().logout();
-                  if (context.mounted) Navigator.of(context).pop();
-                },
-              ),
-            ],
+              ],
+            ),
+            _SettingsSection(
+              title: L('Security', 'Seguridad'),
+              children: [
+                _SettingsRow(
+                  icon: Icons.fingerprint,
+                  title: L('Biometric login', 'Inicio con biometr\u00EDa'),
+                  subtitle: biometricSubtitle,
+                  trailing: LGButton(
+                    label:
+                        biometricEnabled
+                            ? L('Disable', 'Desactivar')
+                            : L('Enable', 'Activar'),
+                    size: LGButtonSize.sm,
+                    variant:
+                        biometricEnabled
+                            ? LGButtonVariant.outline
+                            : LGButtonVariant.primary,
+                    onPressed:
+                        canToggleBiometric
+                            ? () async {
+                              if (biometricEnabled) {
+                                await auth.setBiometricEnabled(false);
+                                return;
+                              }
+                              if (!canEnableBiometric) return;
+                              final ok = await _biometric.authenticate(
+                                reason: L(
+                                  'Confirm biometrics to enable login',
+                                  'Confirma biometria para habilitar el inicio',
+                                ),
+                              );
+                              if (!ok) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        L(
+                                          'Biometric authentication failed',
+                                          'Fallo la autenticacion biometrica',
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return;
+                              }
+                              await auth.setBiometricEnabled(true);
+                            }
+                            : null,
+                  ),
+                ),
+                if (showLock)
+                  _SettingsRow(
+                    icon: Icons.lock_outline,
+                    title: L('Lock', 'Bloquear'),
+                    subtitle: L(
+                      'Require biometrics to unlock',
+                      'Requiere biometr\u00EDa para desbloquear',
+                    ),
+                    onTap: () async => auth.lock(),
+                  ),
+              ],
+            ),
+            _SettingsSection(
+              title: L('Automation', 'Automatización'),
+              children: [
+                _SettingsRow(
+                  icon: Icons.attach_money_outlined,
+                  title: L('Automate salary income', 'Automatizar salario'),
+                  subtitle: L(
+                    'Schedule recurring salary deposits',
+                    'Programa depósitos de salario recurrentes',
+                  ),
+                  onTap: () => _openSalaryAutomation(context),
+                ),
+                _SettingsRow(
+                  icon: Icons.sync_problem_outlined,
+                  title: L(
+                    'Process overdue recurring payments',
+                    'Procesar pagos recurrentes vencidos',
+                  ),
+                  onTap: () async {
+                    try {
+                      await data.processOverduePayments();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              L(
+                                'Processed overdue payments',
+                                'Pagos vencidos procesados',
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${L('Failed', 'Error')}: $e'),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+                _SettingsRow(
+                  icon: Icons.swap_horiz_outlined,
+                  title: L(
+                    'Repair past transfers',
+                    'Corregir transferencias pasadas',
+                  ),
+                  subtitle: L(
+                    'Fix old transfers that were counted as income or expense',
+                    'Corrige transferencias antiguas que se contaron como ingreso o gasto',
+                  ),
+                  trailing:
+                      _repairingTransfers
+                          ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : null,
+                  onTap:
+                      _repairingTransfers
+                          ? null
+                          : () => _repairPastTransfers(data, L),
+                ),
+                _SettingsRow(
+                  icon: Icons.auto_graph_outlined,
+                  title: L(
+                    'Rebuild balance history',
+                    'Reconstruir historial de saldo',
+                  ),
+                  subtitle: L(
+                    'Recompute monthly balances for analytics',
+                    'Recalcular saldos mensuales para analítica',
+                  ),
+                  onTap: () async {
+                    try {
+                      await data.rebuildBalanceHistory();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              L('Rebuild started', 'Reconstrucción iniciada'),
+                            ),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${L('Failed', 'Error')}: $e'),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+            _SettingsSection(
+              title: L('Support', 'Soporte'),
+              children: [
+                _SettingsRow(
+                  icon: Icons.help_outline,
+                  title: L('Finsight Assistant', 'Asistente Finsight'),
+                  subtitle: L('Open the support chat', 'Abrir chat de ayuda'),
+                  onTap: () => openLink(context, _supportGptUrl),
+                ),
+              ],
+            ),
+            _SettingsSection(
+              title: L('Session', 'Sesión'),
+              children: [
+                if (isIos)
+                  _SettingsRow(
+                    icon: Icons.person_remove_outlined,
+                    title: L('Delete account', 'Eliminar cuenta'),
+                    subtitle: L(
+                      'Open the secure account deletion page',
+                      'Abrir la página segura para eliminar la cuenta',
+                    ),
+                    trailing: const Icon(Icons.open_in_new),
+                    danger: true,
+                    onTap: () => openLink(context, kDeleteAccountUrl),
+                  ),
+                _SettingsRow(
+                  icon: Icons.logout,
+                  title: L('Logout', 'Cerrar sesión'),
+                  danger: true,
+                  onTap: () async {
+                    await context.read<AuthStore>().logout();
+                    if (context.mounted) Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsHeaderIcon extends StatelessWidget {
+  const _SettingsHeaderIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _SettingsIconBox(
+      icon: Icons.settings_outlined,
+      intent: LGIntent.primary,
+      size: 56,
+      iconSize: 26,
+    );
+  }
+}
+
+class _SettingsBackButton extends StatelessWidget {
+  const _SettingsBackButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(LGRadius.pill),
+        onTap: () => Navigator.maybePop(context),
+        child: Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: LGColors.surfaceTinted(context),
+            borderRadius: BorderRadius.circular(LGRadius.pill),
+            border: Border.all(
+              color: LGColors.alpha(LGColors.textSecondary(context), 0.18),
+            ),
           ),
-        ],
+          child: Icon(
+            Icons.arrow_back_rounded,
+            color: LGColors.textPrimary(context),
+          ),
+        ),
       ),
     );
   }
@@ -549,31 +656,39 @@ class _SettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (children.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(bottom: FSSpacing.lg),
+      padding: const EdgeInsets.only(bottom: LGSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.only(
-              left: FSSpacing.xs,
-              bottom: FSSpacing.sm,
+              left: LGSpacing.xs,
+              bottom: LGSpacing.sm,
             ),
             child: Text(
               title,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: FSColors.mutedText(context),
-                fontWeight: FontWeight.w800,
+                color: LGColors.textSecondary(context),
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
               ),
             ),
           ),
-          FSCard(
+          LGSolidCard(
             padding: EdgeInsets.zero,
+            variant: LGCardVariant.elevated,
             child: Column(
               children: [
                 for (var i = 0; i < children.length; i++) ...[
                   children[i],
                   if (i != children.length - 1)
-                    Divider(height: 1, color: FSColors.border(context)),
+                    Divider(
+                      height: 1,
+                      color: LGColors.alpha(
+                        LGColors.textSecondary(context),
+                        LGColors.isDark(context) ? 0.18 : 0.10,
+                      ),
+                    ),
                 ],
               ],
             ),
@@ -603,25 +718,15 @@ class _SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final intent = danger ? FSIntent.danger : FSIntent.primary;
-    final color = FSColors.intent(intent);
+    final intent = danger ? LGIntent.danger : LGIntent.primary;
+    final titleColor = danger ? LGColors.danger : LGColors.textPrimary(context);
     final content = Padding(
-      padding: const EdgeInsets.all(FSSpacing.md),
+      padding: const EdgeInsets.all(LGSpacing.md),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: FSColors.intentContainer(context, intent),
-              borderRadius: BorderRadius.circular(FSRadius.md),
-              border: Border.all(color: FSColors.intentBorder(context, intent)),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: FSSpacing.md),
+          _SettingsIconBox(icon: icon, intent: intent),
+          const SizedBox(width: LGSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,21 +736,18 @@ class _SettingsRow extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color:
-                        danger
-                            ? FSColors.danger
-                            : Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
+                    color: titleColor,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
                 if (subtitle != null) ...[
-                  const SizedBox(height: FSSpacing.xs),
+                  const SizedBox(height: LGSpacing.xs),
                   Text(
                     subtitle!,
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: FSColors.mutedText(context),
+                      color: LGColors.textSecondary(context),
                       height: 1.3,
                     ),
                   ),
@@ -654,13 +756,13 @@ class _SettingsRow extends StatelessWidget {
             ),
           ),
           if (trailing != null) ...[
-            const SizedBox(width: FSSpacing.md),
+            const SizedBox(width: LGSpacing.md),
             trailing!,
           ] else if (onTap != null) ...[
-            const SizedBox(width: FSSpacing.sm),
+            const SizedBox(width: LGSpacing.sm),
             Icon(
               Icons.chevron_right_rounded,
-              color: FSColors.mutedText(context),
+              color: LGColors.alpha(LGColors.textSecondary(context), 0.82),
             ),
           ],
         ],
@@ -670,7 +772,43 @@ class _SettingsRow extends StatelessWidget {
     if (onTap == null) return content;
     return Material(
       color: Colors.transparent,
-      child: InkWell(onTap: onTap, child: content),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        onTap: onTap,
+        child: content,
+      ),
+    );
+  }
+}
+
+class _SettingsIconBox extends StatelessWidget {
+  const _SettingsIconBox({
+    required this.icon,
+    required this.intent,
+    this.size = 42,
+    this.iconSize = 20,
+  });
+
+  final IconData icon;
+  final LGIntent intent;
+  final double size;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = LGColors.intentColor(intent);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: LGColors.intentContainer(context, intent),
+        borderRadius: BorderRadius.circular(
+          size >= 52 ? LGRadius.xl : LGRadius.md,
+        ),
+        border: Border.all(color: LGColors.intentStroke(context, intent)),
+      ),
+      child: Icon(icon, color: color, size: iconSize),
     );
   }
 }
@@ -681,8 +819,14 @@ Future<void> _openSalaryAutomation(BuildContext context) async {
   await showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    showDragHandle: true,
-    builder: (ctx) => _SalaryAutomationSheet(L: L),
+    backgroundColor: Colors.transparent,
+    showDragHandle: false,
+    builder:
+        (ctx) => LGBottomSheetShell(
+          scrollable: false,
+          maxHeightFactor: 0.92,
+          child: _SalaryAutomationSheet(L: L),
+        ),
   );
 }
 

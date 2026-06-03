@@ -2,4 +2,13 @@
 <resources>
     <color name="ic_launcher_background">#FFFFFF</color>
     <color name="notification_blue">#2563EB</color>
+    <color name="widget_background">#F7FAFC</color>
+    <color name="widget_background_stroke">#D6E0EE</color>
+    <color name="widget_surface">#FDFEFF</color>
+    <color name="widget_surface_stroke">#D7E1ED</color>
+    <color name="widget_action_surface">#EAF2FF</color>
+    <color name="widget_action_stroke">#B9D1FF</color>
+    <color name="widget_primary">#2563EB</color>
+    <color name="widget_text_primary">#111827</color>
+    <color name="widget_text_secondary">#64748B</color>
 </resources>

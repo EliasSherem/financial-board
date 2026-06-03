@@ -7,8 +7,8 @@ import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
-import '../ui/finsight_ui.dart';
 import '../utils/format.dart';
+import '../liquid_glass/liquid_glass.dart';
 import '../widgets/new_transaction_dialog.dart';
 import '../widgets/quick_create_dialogs.dart';
 
@@ -396,14 +396,29 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
       required String label,
       required String value,
       Color? valueColor,
-      FSIntent accent = FSIntent.primary,
     }) {
-      return FSMetricCard(
-        title: label,
-        value: value,
-        icon: icon,
-        accent: accent,
-        accentColor: valueColor,
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 132),
+        child: LGMetricCard(
+          title: label,
+          value: value,
+          icon: icon,
+          accentColor: valueColor ?? colorScheme.primary,
+          style: LGMetricCardStyle.solid,
+        ),
+      );
+    }
+
+    Widget sectionTitle(String text) {
+      return Padding(
+        padding: const EdgeInsets.only(left: LGSpacing.xs),
+        child: Text(
+          text,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: LGColors.textPrimary(context),
+            fontWeight: FontWeight.w900,
+          ),
+        ),
       );
     }
 
@@ -414,23 +429,24 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
       Color? valueColor,
     }) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: FSSpacing.sm),
+        padding: const EdgeInsets.symmetric(vertical: LGSpacing.sm),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 38,
               height: 38,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: FSColors.intentContainer(context, FSIntent.primary),
-                borderRadius: BorderRadius.circular(FSRadius.md),
+                color: LGColors.intentContainer(context, LGIntent.primary),
+                borderRadius: BorderRadius.circular(LGRadius.md),
                 border: Border.all(
-                  color: FSColors.intentBorder(context, FSIntent.primary),
+                  color: LGColors.intentStroke(context, LGIntent.primary),
                 ),
               ),
-              child: Icon(icon, size: 19, color: FSColors.primary),
+              child: Icon(icon, size: 19, color: colorScheme.primary),
             ),
-            const SizedBox(width: FSSpacing.md),
+            const SizedBox(width: LGSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,16 +454,16 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                   Text(
                     label,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: FSColors.mutedText(context),
-                      fontWeight: FontWeight.w600,
+                      color: LGColors.textSecondary(context),
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: FSSpacing.xs),
+                  const SizedBox(height: 2),
                   Text(
                     value,
                     style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: valueColor ?? theme.textTheme.bodyLarge?.color,
+                      fontWeight: FontWeight.w800,
+                      color: valueColor ?? LGColors.textPrimary(context),
                     ),
                   ),
                 ],
@@ -462,203 +478,146 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
         account.isActive
             ? I18n.t(context, 'label.active')
             : I18n.t(context, 'label.inactive');
-    final statusColor = account.isActive ? FSColors.success : colorScheme.error;
-    final statusVariant =
-        account.isActive
-            ? FSStatusBadgeVariant.active
-            : FSStatusBadgeVariant.danger;
+    final statusColor =
+        account.isActive ? const Color(0xFF16A34A) : colorScheme.error;
 
     final Map<String, List<TransactionItem>> groupedTx = _groupTransactions();
+    final accountType = account.type ?? '';
+    final subtitleParts = <String>[
+      if (accountType.isNotEmpty) accountType,
+      if ((account.bankName ?? '').isNotEmpty) account.bankName!,
+    ];
+    final headerSubtitle =
+        subtitleParts.isEmpty ? null : subtitleParts.join(' - ');
 
     return Scaffold(
-      backgroundColor: FSColors.background(context),
-      appBar: AppBar(
-        title: Text(account.name),
-        backgroundColor: FSColors.background(context),
-        foregroundColor: colorScheme.onSurface,
-        elevation: 0,
-        scrolledUnderElevation: 0.5,
-      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            FSSpacing.lg,
-            FSSpacing.lg,
-            FSSpacing.lg,
-            FSSpacing.xxl,
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            FSCard(
-              variant: FSCardVariant.elevated,
-              padding: const EdgeInsets.all(FSSpacing.xl),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: FSColors.intentContainer(
-                            context,
-                            isInvestmentAccount
-                                ? FSIntent.info
-                                : FSIntent.primary,
-                          ),
-                          borderRadius: BorderRadius.circular(FSRadius.lg),
-                          border: Border.all(
-                            color: FSColors.intentBorder(
-                              context,
-                              isInvestmentAccount
-                                  ? FSIntent.info
-                                  : FSIntent.primary,
-                            ),
-                          ),
-                        ),
-                        child: Icon(
-                          isInvestmentAccount
-                              ? Icons.trending_up
-                              : Icons.account_balance_wallet_outlined,
-                          color:
-                              isInvestmentAccount
-                                  ? FSColors.info
-                                  : FSColors.primary,
-                        ),
-                      ),
-                      const Spacer(),
-                      FSStatusBadge(
-                        label: statusLabel,
-                        variant: statusVariant,
-                        icon:
-                            account.isActive
-                                ? Icons.check_circle_outline
-                                : Icons.error_outline,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: FSSpacing.lg),
-                  Text(
-                    I18n.t(
-                      context,
-                      isInvestmentAccount
-                          ? 'accounts.details.estimatedValue'
-                          : 'label.currentBalance',
-                    ),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: FSColors.mutedText(context),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: FSSpacing.sm),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      money(displayBalance),
-                      maxLines: 1,
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color:
-                            displayBalance >= 0
-                                ? FSColors.success
-                                : colorScheme.error,
-                        height: 1.05,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: FSSpacing.md),
-                  Wrap(
-                    spacing: FSSpacing.sm,
-                    runSpacing: FSSpacing.sm,
-                    children: [
-                      if ((account.type ?? '').isNotEmpty)
-                        FSStatusBadge(
-                          label: account.type!,
-                          variant: FSStatusBadgeVariant.info,
-                        ),
-                      if ((account.bankName ?? '').isNotEmpty)
-                        FSStatusBadge(
-                          label: account.bankName!,
-                          variant: FSStatusBadgeVariant.neutral,
-                          icon: Icons.account_balance_outlined,
-                        ),
-                    ],
-                  ),
-                ],
+            LGPageHeader(
+              title: account.name,
+              subtitle: headerSubtitle,
+              leading: const _AccountDetailBackButton(),
+              action: _AccountDetailHeaderIcon(
+                isInvestment: isInvestmentAccount,
+                balance: displayBalance,
               ),
             ),
-            const SizedBox(height: FSSpacing.lg),
-            Wrap(
-              spacing: FSSpacing.md,
-              runSpacing: FSSpacing.sm,
-              children: [
-                FSButton(
-                  label: I18n.t(context, 'accounts.details.edit'),
-                  onPressed: _accountBusy ? null : _editAccount,
-                  icon: Icons.edit_outlined,
-                  variant: FSButtonVariant.outline,
+            LGSolidCard(
+              variant: LGCardVariant.hero,
+              tinted: true,
+              child: Padding(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      I18n.t(
+                        context,
+                        isInvestmentAccount
+                            ? 'accounts.details.estimatedValue'
+                            : 'label.currentBalance',
+                      ),
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: LGSpacing.sm),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        money(displayBalance),
+                        maxLines: 1,
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0,
+                          color:
+                              displayBalance >= 0
+                                  ? const Color(0xFF16A34A)
+                                  : colorScheme.error,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: LGSpacing.md),
+                    Wrap(
+                      spacing: LGSpacing.sm,
+                      runSpacing: LGSpacing.sm,
+                      children: [
+                        if (accountType.isNotEmpty)
+                          LGStatusBadge(
+                            label: accountType,
+                            variant:
+                                isInvestmentAccount
+                                    ? LGStatusBadgeVariant.info
+                                    : LGStatusBadgeVariant.neutral,
+                            icon:
+                                isInvestmentAccount
+                                    ? Icons.trending_up_rounded
+                                    : Icons.account_balance_wallet_outlined,
+                          ),
+                        LGStatusBadge(
+                          label: statusLabel,
+                          variant:
+                              account.isActive
+                                  ? LGStatusBadgeVariant.active
+                                  : LGStatusBadgeVariant.danger,
+                          icon:
+                              account.isActive
+                                  ? Icons.check_rounded
+                                  : Icons.pause_rounded,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                FSButton(
+              ),
+            ),
+            const SizedBox(height: LGSpacing.lg),
+            Wrap(
+              spacing: LGSpacing.sm,
+              runSpacing: LGSpacing.sm,
+              children: [
+                _AccountDetailCapsuleButton(
+                  label: I18n.t(context, 'accounts.details.edit'),
+                  icon: Icons.edit_outlined,
+                  tone: _AccountDetailButtonTone.edit,
+                  onPressed: _accountBusy ? null : _editAccount,
+                ),
+                _AccountDetailCapsuleButton(
                   label: I18n.t(context, 'accounts.details.delete'),
-                  onPressed: _accountBusy ? null : _deleteAccount,
                   icon: Icons.delete_outline,
-                  variant: FSButtonVariant.danger,
+                  tone: _AccountDetailButtonTone.danger,
+                  onPressed: _accountBusy ? null : _deleteAccount,
                 ),
               ],
             ),
-            const SizedBox(height: FSSpacing.lg),
-            FSCard(
-              variant: FSCardVariant.subtle,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    I18n.t(context, 'accounts.details.quickActions'),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: FSSpacing.md),
-                  Wrap(
-                    spacing: FSSpacing.md,
-                    runSpacing: FSSpacing.sm,
-                    children: [
-                      FSButton(
-                        label: I18n.t(
-                          context,
-                          'accounts.details.newTransaction',
-                        ),
-                        onPressed:
-                            _processingQuickAction ? null : _createTransaction,
-                        icon: Icons.add_circle_outline,
-                        variant: FSButtonVariant.primary,
-                      ),
-                      FSButton(
-                        label: I18n.t(context, 'accounts.details.recurring'),
-                        onPressed:
-                            _processingQuickAction
-                                ? null
-                                : _createRecurringPayment,
-                        icon: Icons.autorenew,
-                        variant: FSButtonVariant.outline,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            const SizedBox(height: LGSpacing.xl),
+            sectionTitle(I18n.t(context, 'accounts.details.quickActions')),
+            const SizedBox(height: LGSpacing.md),
+            Wrap(
+              spacing: LGSpacing.sm,
+              runSpacing: LGSpacing.sm,
+              children: [
+                _AccountDetailCapsuleButton(
+                  label: I18n.t(context, 'accounts.details.newTransaction'),
+                  icon: Icons.add_circle_outline,
+                  tone: _AccountDetailButtonTone.quick,
+                  onPressed: _processingQuickAction ? null : _createTransaction,
+                ),
+                _AccountDetailCapsuleButton(
+                  label: I18n.t(context, 'accounts.details.recurring'),
+                  icon: Icons.autorenew,
+                  tone: _AccountDetailButtonTone.quick,
+                  onPressed:
+                      _processingQuickAction ? null : _createRecurringPayment,
+                ),
+              ],
             ),
-            const SizedBox(height: FSSpacing.xl),
-            Text(
-              I18n.t(context, 'accounts.details.metrics'),
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: FSSpacing.md),
+            const SizedBox(height: LGSpacing.xl),
+            sectionTitle(I18n.t(context, 'accounts.details.metrics')),
+            const SizedBox(height: LGSpacing.md),
             LayoutBuilder(
               builder: (context, constraints) {
                 final width = constraints.maxWidth;
@@ -676,35 +635,32 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                     icon: Icons.swap_vert,
                     label: I18n.t(context, 'accounts.details.count30'),
                     value: count30.toString(),
-                    accent: FSIntent.info,
                   ),
                   metricTile(
                     icon: Icons.call_received,
                     label: I18n.t(context, 'accounts.details.inflow30'),
                     value: money(inflow30),
-                    valueColor: FSColors.success,
-                    accent: FSIntent.success,
+                    valueColor: const Color(0xFF16A34A),
                   ),
                   metricTile(
                     icon: Icons.call_made,
                     label: I18n.t(context, 'accounts.details.outflow30'),
                     value: money(outflow30),
                     valueColor: colorScheme.error,
-                    accent: FSIntent.danger,
                   ),
                   metricTile(
                     icon: Icons.trending_up,
                     label: I18n.t(context, 'accounts.details.net30'),
                     value: money(net30),
                     valueColor:
-                        net30 >= 0 ? FSColors.success : colorScheme.error,
-                    accent: net30 >= 0 ? FSIntent.success : FSIntent.danger,
+                        net30 >= 0
+                            ? const Color(0xFF16A34A)
+                            : colorScheme.error,
                   ),
                   metricTile(
                     icon: Icons.payments_outlined,
                     label: I18n.t(context, 'accounts.details.avgTicket'),
                     value: money(avgTicket),
-                    accent: FSIntent.neutral,
                   ),
                 ];
                 return Wrap(
@@ -717,139 +673,104 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                 );
               },
             ),
-            const SizedBox(height: FSSpacing.xl),
-            Text(
-              I18n.t(context, 'accounts.details.accountInfo'),
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: FSSpacing.md),
-            FSCard(
-              child: Column(
-                children: [
-                  infoRow(
-                    icon: Icons.account_balance,
-                    label: I18n.t(context, 'accounts.details.bank'),
-                    value:
-                        (account.bankName ?? '').isEmpty
-                            ? I18n.t(context, 'accounts.details.notSet')
-                            : account.bankName!,
-                  ),
-                  Divider(color: FSColors.border(context)),
-                  infoRow(
-                    icon: Icons.confirmation_number_outlined,
-                    label: I18n.t(context, 'accounts.details.accountNumber'),
-                    value: maskAccountNumber(account.accountNumber),
-                  ),
-                  Divider(color: FSColors.border(context)),
-                  infoRow(
-                    icon: Icons.style_outlined,
-                    label: I18n.t(context, 'accounts.details.type'),
-                    value:
-                        (account.type ?? '').isEmpty
-                            ? I18n.t(context, 'accounts.details.notSet')
-                            : account.type!,
-                  ),
-                  Divider(color: FSColors.border(context)),
-                  infoRow(
-                    icon: Icons.verified_user_outlined,
-                    label: I18n.t(context, 'accounts.details.status'),
-                    value: statusLabel,
-                    valueColor: statusColor,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: FSSpacing.xl),
-            Text(
-              I18n.t(context, 'accounts.details.transactions'),
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: FSSpacing.md),
-            if (_loading)
-              const FSCard(
-                variant: FSCardVariant.subtle,
-                child: FSLoadingState(),
-              )
-            else if (_error != null)
-              FSCard(
-                variant: FSCardVariant.subtle,
+            const SizedBox(height: LGSpacing.xl),
+            sectionTitle(I18n.t(context, 'accounts.details.accountInfo')),
+            const SizedBox(height: LGSpacing.md),
+            LGSolidCard(
+              variant: LGCardVariant.elevated,
+              child: Padding(
+                padding: EdgeInsets.zero,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: FSColors.intentContainer(
-                              context,
-                              FSIntent.danger,
-                            ),
-                            borderRadius: BorderRadius.circular(FSRadius.md),
-                            border: Border.all(
-                              color: FSColors.intentBorder(
-                                context,
-                                FSIntent.danger,
-                              ),
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.error_outline,
-                            color: colorScheme.error,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: FSSpacing.md),
-                        Expanded(
-                          child: Text(
-                            I18n.t(context, 'accounts.details.error'),
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: colorScheme.onSurface,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
+                    infoRow(
+                      icon: Icons.account_balance,
+                      label: I18n.t(context, 'accounts.details.bank'),
+                      value:
+                          (account.bankName ?? '').isEmpty
+                              ? I18n.t(context, 'accounts.details.notSet')
+                              : account.bankName!,
                     ),
-                    const SizedBox(height: FSSpacing.md),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FSButton(
-                        label: I18n.t(context, 'accounts.details.retry'),
-                        onPressed: _load,
-                        icon: Icons.refresh,
-                        variant: FSButtonVariant.outline,
-                        size: FSButtonSize.sm,
-                      ),
+                    const Divider(height: LGSpacing.lg),
+                    infoRow(
+                      icon: Icons.confirmation_number_outlined,
+                      label: I18n.t(context, 'accounts.details.accountNumber'),
+                      value: maskAccountNumber(account.accountNumber),
+                    ),
+                    const Divider(height: LGSpacing.lg),
+                    infoRow(
+                      icon: Icons.style_outlined,
+                      label: I18n.t(context, 'accounts.details.type'),
+                      value:
+                          (account.type ?? '').isEmpty
+                              ? I18n.t(context, 'accounts.details.notSet')
+                              : account.type!,
+                    ),
+                    const Divider(height: LGSpacing.lg),
+                    infoRow(
+                      icon: Icons.verified_user_outlined,
+                      label: I18n.t(context, 'accounts.details.status'),
+                      value: statusLabel,
+                      valueColor: statusColor,
                     ),
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: LGSpacing.xl),
+            sectionTitle(I18n.t(context, 'accounts.details.transactions')),
+            const SizedBox(height: LGSpacing.md),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: LGSpacing.lg),
+                child: LGLoadingState(),
+              )
+            else if (_error != null)
+              LGSolidCard(
+                tinted: true,
+                child: Padding(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        I18n.t(context, 'accounts.details.error'),
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.error,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: LGSpacing.sm),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: LGButton(
+                          label: I18n.t(context, 'accounts.details.retry'),
+                          icon: Icons.refresh,
+                          variant: LGButtonVariant.outline,
+                          onPressed: _load,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               )
             else if (_txs.isEmpty)
-              FSCard(
-                variant: FSCardVariant.subtle,
-                child: FSEmptyState(
-                  icon: Icons.receipt_long_outlined,
-                  title: I18n.t(context, 'accounts.details.noTransactions'),
-                ),
+              LGEmptyState(
+                icon: Icons.receipt_long_outlined,
+                title: I18n.t(context, 'accounts.details.transactions'),
+                message: I18n.t(context, 'accounts.details.noTransactions'),
               )
             else
               ...groupedTx.entries.expand((entry) sync* {
                 yield Padding(
                   padding: const EdgeInsets.only(
-                    bottom: FSSpacing.sm,
-                    top: FSSpacing.lg,
+                    bottom: LGSpacing.xs,
+                    top: LGSpacing.md,
+                    left: LGSpacing.xs,
                   ),
                   child: Text(
                     entry.key,
                     style: theme.textTheme.labelLarge?.copyWith(
-                      color: FSColors.mutedText(context),
+                      color: LGColors.textSecondary(context),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -858,9 +779,180 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
                   yield _TxRow(item: tx);
                 }
               }),
-            const SizedBox(height: FSSpacing.xl),
+            const SizedBox(height: LGSpacing.xl),
           ],
         ),
+      ),
+    );
+  }
+}
+
+enum _AccountDetailButtonTone { edit, danger, quick }
+
+class _AccountDetailCapsuleButton extends StatelessWidget {
+  const _AccountDetailCapsuleButton({
+    required this.label,
+    required this.icon,
+    required this.tone,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final _AccountDetailButtonTone tone;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = LGColors.isDark(context);
+    final enabled = onPressed != null;
+    final radius = BorderRadius.circular(LGRadius.pill);
+    final colors = _buttonColors(context, isDark);
+
+    final button = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: radius,
+        onTap: enabled ? onPressed : null,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 46),
+          padding: const EdgeInsets.symmetric(
+            horizontal: LGSpacing.lg,
+            vertical: LGSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: colors.background,
+            borderRadius: radius,
+            border: Border.all(color: colors.border),
+            boxShadow: [
+              BoxShadow(
+                color: LGColors.alpha(
+                  isDark ? Colors.black : const Color(0xFF0F172A),
+                  isDark ? 0.20 : 0.06,
+                ),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: colors.foreground),
+              const SizedBox(width: LGSpacing.sm),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width - 112,
+                ),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colors.foreground,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return Opacity(opacity: enabled ? 1 : 0.55, child: button);
+  }
+
+  ({Color background, Color border, Color foreground}) _buttonColors(
+    BuildContext context,
+    bool isDark,
+  ) {
+    switch (tone) {
+      case _AccountDetailButtonTone.edit:
+        return (
+          background:
+              isDark
+                  ? LGColors.alpha(LGColors.primaryBlue, 0.12)
+                  : LGColors.surfaceSolid(context),
+          border: LGColors.alpha(LGColors.primaryBlue, isDark ? 0.32 : 0.24),
+          foreground: LGColors.primaryBlue,
+        );
+      case _AccountDetailButtonTone.danger:
+        return (
+          background: LGColors.alpha(LGColors.danger, isDark ? 0.16 : 0.08),
+          border: LGColors.alpha(LGColors.danger, isDark ? 0.34 : 0.22),
+          foreground: LGColors.danger,
+        );
+      case _AccountDetailButtonTone.quick:
+        return (
+          background:
+              isDark
+                  ? LGColors.alpha(LGColors.primaryBlue, 0.13)
+                  : LGColors.alpha(LGColors.primaryBlue, 0.06),
+          border: LGColors.alpha(LGColors.primaryBlue, isDark ? 0.30 : 0.18),
+          foreground: isDark ? LGColors.electricBlue : LGColors.primaryBlue,
+        );
+    }
+  }
+}
+
+class _AccountDetailBackButton extends StatelessWidget {
+  const _AccountDetailBackButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = LGColors.textPrimary(context);
+    return IconButton(
+      tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+      onPressed: () => Navigator.of(context).maybePop(),
+      icon: const Icon(Icons.arrow_back_rounded),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(46),
+        minimumSize: const Size.square(46),
+        foregroundColor: color,
+        backgroundColor: LGColors.surfaceTinted(context),
+        side: BorderSide(
+          color: LGColors.textSecondary(context).withValues(alpha: 0.14),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(LGRadius.lg),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountDetailHeaderIcon extends StatelessWidget {
+  const _AccountDetailHeaderIcon({
+    required this.isInvestment,
+    required this.balance,
+  });
+
+  final bool isInvestment;
+  final double balance;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        balance < 0
+            ? LGColors.danger
+            : (balance == 0 ? LGColors.warning : LGColors.success);
+    return Container(
+      width: 52,
+      height: 52,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: LGColors.isDark(context) ? 0.18 : 0.10),
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Icon(
+        isInvestment
+            ? Icons.trending_up_rounded
+            : Icons.account_balance_wallet_outlined,
+        color: color,
       ),
     );
   }
@@ -876,81 +968,85 @@ class _TxRow extends StatelessWidget {
     final isIncome = !isTransfer && item.amount >= 0;
     final amountStr = signedMoney(item.amount);
     final theme = Theme.of(context);
-    final intent =
+    final accent =
         isTransfer
-            ? FSIntent.info
-            : (isIncome ? FSIntent.success : FSIntent.danger);
-    final amountColor = FSColors.intent(intent);
+            ? LGColors.info
+            : (isIncome ? LGColors.success : theme.colorScheme.error);
+    final icon =
+        isTransfer
+            ? Icons.swap_horiz_rounded
+            : (isIncome
+                ? Icons.call_received_rounded
+                : Icons.call_made_rounded);
 
-    return FSCard(
-      variant: FSCardVariant.subtle,
-      padding: const EdgeInsets.all(FSSpacing.md),
-      margin: const EdgeInsets.only(bottom: FSSpacing.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: FSColors.intentContainer(context, intent),
-              borderRadius: BorderRadius.circular(FSRadius.md),
-              border: Border.all(color: FSColors.intentBorder(context, intent)),
-            ),
-            child: Icon(
-              isTransfer
-                  ? Icons.swap_horiz
-                  : (isIncome ? Icons.arrow_downward : Icons.arrow_upward),
-              color: amountColor,
-              size: 19,
-            ),
-          ),
-          const SizedBox(width: FSSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.description.isEmpty
-                      ? '(No description)'
-                      : item.description,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: LGSpacing.sm),
+      child: LGSolidCard(
+        tinted: true,
+        padding: const EdgeInsets.all(LGSpacing.md),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: accent.withValues(
+                  alpha: LGColors.isDark(context) ? 0.18 : 0.10,
                 ),
-                const SizedBox(height: FSSpacing.xs),
-                Text(
-                  '${formatDate(item.date)}'
-                  '${(item.effectiveCategory ?? '').isNotEmpty ? ' - ${item.effectiveCategory}' : ''}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: FSColors.mutedText(context),
-                  ),
-                ),
-              ],
+                borderRadius: BorderRadius.circular(LGRadius.md),
+                border: Border.all(color: accent.withValues(alpha: 0.20)),
+              ),
+              child: Icon(icon, size: 19, color: accent),
             ),
-          ),
-          const SizedBox(width: FSSpacing.sm),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 124),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Text(
-                amountStr,
-                maxLines: 1,
-                textAlign: TextAlign.right,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: amountColor,
-                  fontWeight: FontWeight.w800,
+            const SizedBox(width: LGSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.description.isEmpty
+                        ? '(No description)'
+                        : item.description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: LGColors.textPrimary(context),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${formatDate(item.date)}'
+                    '${(item.effectiveCategory ?? '').isNotEmpty ? ' - ${item.effectiveCategory}' : ''}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: LGColors.textSecondary(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: LGSpacing.sm),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 132),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  amountStr,
+                  maxLines: 1,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: accent,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

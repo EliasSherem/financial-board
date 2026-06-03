@@ -5,11 +5,11 @@ import '../models.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
-import '../ui/finsight_ui.dart';
 import '../utils/category_icons.dart';
 import '../widgets/pro_widgets.dart';
 import '../i18n.dart';
 import '../widgets/onboarding_coach.dart';
+import '../liquid_glass/liquid_glass.dart';
 
 class ManageCategoriesScreen extends StatefulWidget {
   const ManageCategoriesScreen({
@@ -85,6 +85,16 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
         return StatefulBuilder(
           builder: (ctx, setState) {
             return AlertDialog(
+              backgroundColor: LGColors.surfaceSolid(context),
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(LGRadius.xl),
+                side: BorderSide(
+                  color: LGColors.textSecondary(
+                    context,
+                  ).withValues(alpha: 0.14),
+                ),
+              ),
               title: Text(
                 category == null
                     ? I18n.tr(context, 'categories.newCategory')
@@ -96,7 +106,8 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                 children: [
                   TextField(
                     controller: nameCtrl,
-                    decoration: InputDecoration(
+                    decoration: LGForm.solidInputDecoration(
+                      context,
                       labelText: I18n.tr(context, 'label.name'),
                     ),
                   ),
@@ -119,11 +130,15 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                 ],
               ),
               actions: [
-                TextButton(
+                LGButton(
+                  label: I18n.tr(context, 'label.cancel'),
+                  size: LGButtonSize.sm,
+                  variant: LGButtonVariant.outline,
                   onPressed: () => Navigator.of(ctx).pop(false),
-                  child: Text(I18n.tr(context, 'label.cancel')),
                 ),
-                FilledButton(
+                LGButton(
+                  label: I18n.tr(context, 'label.save'),
+                  size: LGButtonSize.sm,
                   onPressed: () {
                     if (nameCtrl.text.trim().isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -137,7 +152,6 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                     }
                     Navigator.of(ctx).pop(true);
                   },
-                  child: Text(I18n.tr(context, 'label.save')),
                 ),
               ],
             );
@@ -179,20 +193,26 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
       context: context,
       builder:
           (ctx) => AlertDialog(
+            backgroundColor: LGColors.surfaceSolid(context),
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(LGRadius.xl),
+              side: BorderSide(
+                color: LGColors.textSecondary(context).withValues(alpha: 0.14),
+              ),
+            ),
             title: Text(I18n.tr(context, 'categories.deleteCategory')),
             content: Text(I18n.tr(context, 'categories.deleteCategoryConfirm')),
             actions: [
-              TextButton(
+              LGButton(
+                label: I18n.tr(context, 'label.cancel'),
+                size: LGButtonSize.sm,
+                variant: LGButtonVariant.outline,
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: Text(I18n.tr(context, 'label.cancel')),
               ),
-              FilledButton(
+              _SoftDangerButton(
+                label: I18n.tr(context, 'label.delete'),
                 onPressed: () => Navigator.of(ctx).pop(true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: FSColors.danger,
-                  foregroundColor: Colors.white,
-                ),
-                child: Text(I18n.tr(context, 'label.delete')),
               ),
             ],
           ),
@@ -239,6 +259,16 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
           (ctx) => StatefulBuilder(
             builder:
                 (ctx, setState) => AlertDialog(
+                  backgroundColor: LGColors.surfaceSolid(context),
+                  surfaceTintColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(LGRadius.xl),
+                    side: BorderSide(
+                      color: LGColors.textSecondary(
+                        context,
+                      ).withValues(alpha: 0.14),
+                    ),
+                  ),
                   title: Text(
                     subcategory == null
                         ? I18n.tr(context, 'categories.newSubcategory')
@@ -249,7 +279,8 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                     children: [
                       TextField(
                         controller: nameCtrl,
-                        decoration: InputDecoration(
+                        decoration: LGForm.solidInputDecoration(
+                          context,
                           labelText: I18n.tr(context, 'label.name'),
                         ),
                       ),
@@ -273,7 +304,8 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
-                        decoration: InputDecoration(
+                        decoration: LGForm.solidInputDecoration(
+                          context,
                           hintText: I18n.tr(
                             context,
                             'categories.monthlyBudgetHint',
@@ -304,11 +336,15 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                     ],
                   ),
                   actions: [
-                    TextButton(
+                    LGButton(
+                      label: I18n.tr(context, 'label.cancel'),
+                      size: LGButtonSize.sm,
+                      variant: LGButtonVariant.outline,
                       onPressed: () => Navigator.of(ctx).pop(false),
-                      child: Text(I18n.tr(context, 'label.cancel')),
                     ),
-                    FilledButton(
+                    LGButton(
+                      label: I18n.tr(context, 'label.save'),
+                      size: LGButtonSize.sm,
                       onPressed: () {
                         if (nameCtrl.text.trim().isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -333,7 +369,6 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                         }
                         Navigator.of(ctx).pop(true);
                       },
-                      child: Text(I18n.tr(context, 'label.save')),
                     ),
                   ],
                 ),
@@ -380,22 +415,28 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
       context: context,
       builder:
           (ctx) => AlertDialog(
+            backgroundColor: LGColors.surfaceSolid(context),
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(LGRadius.xl),
+              side: BorderSide(
+                color: LGColors.textSecondary(context).withValues(alpha: 0.14),
+              ),
+            ),
             title: Text(I18n.tr(context, 'categories.deleteSubcategory')),
             content: Text(
               I18n.tr(context, 'categories.deleteSubcategoryConfirm'),
             ),
             actions: [
-              TextButton(
+              LGButton(
+                label: I18n.tr(context, 'label.cancel'),
+                size: LGButtonSize.sm,
+                variant: LGButtonVariant.outline,
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: Text(I18n.tr(context, 'label.cancel')),
               ),
-              FilledButton(
+              _SoftDangerButton(
+                label: I18n.tr(context, 'label.delete'),
                 onPressed: () => Navigator.of(ctx).pop(true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: FSColors.danger,
-                  foregroundColor: Colors.white,
-                ),
-                child: Text(I18n.tr(context, 'label.delete')),
               ),
             ],
           ),
@@ -431,71 +472,29 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
   Future<String?> _pickIcon({String? initial}) async {
     return showModalBottomSheet<String>(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return FSBottomSheetShell(
+        return LGBottomSheetShell(
           title: I18n.tr(context, 'categories.iconLabel'),
           scrollable: false,
           child: GridView.builder(
-            shrinkWrap: true,
             padding: EdgeInsets.zero,
+            shrinkWrap: true,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
-              crossAxisSpacing: FSSpacing.md,
-              mainAxisSpacing: FSSpacing.md,
+              crossAxisSpacing: LGSpacing.sm,
+              mainAxisSpacing: LGSpacing.sm,
             ),
             itemCount: kCategoryIconOptions.length,
             itemBuilder: (ctx, index) {
               final option = kCategoryIconOptions[index];
               final selected = option.key == initial;
-              return InkWell(
+              return _IconOptionTile(
+                icon: option.icon,
+                label: option.label,
+                selected: selected,
                 onTap: () => Navigator.of(ctx).pop(option.key),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color:
-                        selected
-                            ? FSColors.intentContainer(
-                              context,
-                              FSIntent.primary,
-                            )
-                            : FSColors.surface(context),
-                    border: Border.all(
-                      color:
-                          selected
-                              ? FSColors.primary
-                              : FSColors.border(context),
-                    ),
-                    borderRadius: BorderRadius.circular(FSRadius.lg),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        option.icon,
-                        color:
-                            selected
-                                ? FSColors.primary
-                                : FSColors.mutedText(context),
-                      ),
-                      const SizedBox(height: FSSpacing.sm),
-                      Text(
-                        option.label,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color:
-                              selected
-                                  ? Theme.of(context).colorScheme.onSurface
-                                  : FSColors.mutedText(context),
-                          fontWeight:
-                              selected ? FontWeight.w800 : FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               );
             },
           ),
@@ -513,27 +512,24 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
         hasCategory
             ? I18n.tr(context, 'onboarding.createFirstSubcategory')
             : I18n.tr(context, 'onboarding.createFirstCategory');
-    return FSCard(
-      variant: FSCardVariant.subtle,
+    return LGSolidCard(
+      tinted: true,
+      padding: const EdgeInsets.all(LGSpacing.md),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: FSColors.intentContainer(context, FSIntent.primary),
-              borderRadius: BorderRadius.circular(FSRadius.md),
-            ),
-            child: const Icon(Icons.flag_outlined, color: FSColors.primary),
+          _CategoryIconBox(
+            icon: Icons.flag_outlined,
+            color: Theme.of(context).colorScheme.primary,
+            size: 40,
           ),
-          const SizedBox(width: FSSpacing.md),
+          const SizedBox(width: LGSpacing.md),
           Expanded(
             child: Text(
               message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface,
+                color: LGColors.textPrimary(context),
+                fontWeight: FontWeight.w700,
+                height: 1.3,
               ),
             ),
           ),
@@ -561,189 +557,48 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final banner = _buildOnboardingBanner();
-    final content =
-        _loading
-            ? const FSLoadingState()
-            : RefreshIndicator(
-              color: Theme.of(context).colorScheme.primary,
-              onRefresh: _load,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(
-                  FSSpacing.lg,
-                  FSSpacing.lg,
-                  FSSpacing.lg,
-                  FSSpacing.xxl,
-                ),
-                children: [
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FSButton(
-                      label: I18n.tr(context, 'categories.newCategory'),
-                      icon: Icons.add_rounded,
-                      size: FSButtonSize.sm,
-                      onPressed: () => _openCategoryDialog(),
-                    ),
-                  ),
-                  const SizedBox(height: FSSpacing.md),
-                  if (banner != null) ...[
-                    banner,
-                    const SizedBox(height: FSSpacing.md),
-                  ],
-                  if (_categories.isEmpty)
-                    FSCard(
-                      variant: FSCardVariant.elevated,
-                      child: FSEmptyState(
-                        icon: Icons.category_outlined,
-                        title: I18n.tr(context, 'categories.empty'),
-                        action: FSButton(
-                          label: I18n.tr(context, 'categories.newCategory'),
-                          icon: Icons.add_rounded,
-                          onPressed: () => _openCategoryDialog(),
-                        ),
-                      ),
-                    )
-                  else
-                    ..._categories.map(
-                      (category) => _CategoryCard(
-                        category: category,
-                        onEditCategory:
-                            () => _openCategoryDialog(category: category),
-                        onDeleteCategory: () => _deleteCategory(category),
-                        onAddSubcategory:
-                            () => _openSubcategoryDialog(category),
-                        onEditSubcategory:
-                            (subcategory) => _openSubcategoryDialog(
-                              category,
-                              subcategory: subcategory,
-                            ),
-                        onDeleteSubcategory:
-                            (subcategory) =>
-                                _deleteSubcategory(category, subcategory),
-                      ),
-                    ),
-                ],
-              ),
-            );
-    return Scaffold(
-      backgroundColor: FSColors.background(context),
-      appBar: AppBar(
-        title: Text(I18n.tr(context, 'categories.manageTitle')),
-        backgroundColor: FSColors.background(context),
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-        elevation: 0,
-        scrolledUnderElevation: 0.5,
+  Widget _pageHeader() {
+    return LGPageHeader(
+      title: I18n.tr(context, 'categories.manageTitle'),
+      leading: _CategoryIconBox(
+        icon: Icons.category_outlined,
+        color: Theme.of(context).colorScheme.primary,
+        size: 52,
       ),
-      body: Stack(
-        children: [content, if (widget.forceCreate) _buildOnboardingCoach()],
+      action: LGButton(
+        label: I18n.tr(context, 'categories.newCategory'),
+        icon: Icons.add,
+        onPressed: () => _openCategoryDialog(),
       ),
     );
   }
-}
 
-class _IconPickerButton extends StatelessWidget {
-  const _IconPickerButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  final Widget icon;
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return FSCard(
-      onTap: onPressed,
-      variant: FSCardVariant.interactive,
-      padding: const EdgeInsets.symmetric(
-        horizontal: FSSpacing.md,
-        vertical: FSSpacing.md,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: FSColors.intentContainer(context, FSIntent.primary),
-              borderRadius: BorderRadius.circular(FSRadius.md),
-              border: Border.all(
-                color: FSColors.intentBorder(context, FSIntent.primary),
-              ),
-            ),
-            child: IconTheme(
-              data: const IconThemeData(color: FSColors.primary, size: 20),
-              child: icon,
-            ),
-          ),
-          const SizedBox(width: FSSpacing.md),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-          Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: FSColors.mutedText(context),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategoryCard extends StatelessWidget {
-  const _CategoryCard({
-    required this.category,
-    required this.onEditCategory,
-    required this.onDeleteCategory,
-    required this.onAddSubcategory,
-    required this.onEditSubcategory,
-    required this.onDeleteSubcategory,
-  });
-
-  final ExpenseCategory category;
-  final VoidCallback onEditCategory;
-  final VoidCallback onDeleteCategory;
-  final VoidCallback onAddSubcategory;
-  final ValueChanged<ExpenseSubcategory> onEditSubcategory;
-  final ValueChanged<ExpenseSubcategory> onDeleteSubcategory;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget _categoryCard(ExpenseCategory category) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Padding(
-      padding: const EdgeInsets.only(bottom: FSSpacing.md),
-      child: FSCard(
+      padding: const EdgeInsets.only(bottom: LGSpacing.md),
+      child: LGSolidCard(
+        variant: LGCardVariant.elevated,
         padding: EdgeInsets.zero,
-        variant: FSCardVariant.interactive,
         child: Theme(
-          data: theme.copyWith(dividerColor: Colors.transparent),
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
             tilePadding: const EdgeInsets.fromLTRB(
-              FSSpacing.lg,
-              FSSpacing.sm,
-              FSSpacing.sm,
-              FSSpacing.sm,
+              LGSpacing.lg,
+              LGSpacing.md,
+              LGSpacing.sm,
+              LGSpacing.md,
             ),
             childrenPadding: const EdgeInsets.fromLTRB(
-              FSSpacing.lg,
+              LGSpacing.lg,
               0,
-              FSSpacing.lg,
-              FSSpacing.lg,
+              LGSpacing.lg,
+              LGSpacing.lg,
             ),
-            leading: _CategoryIconBadge(icon: iconDataFromKey(category.icon)),
+            leading: _CategoryIconBox(
+              icon: iconDataFromKey(category.icon),
+              color: primary,
+            ),
             title: Row(
               children: [
                 Expanded(
@@ -751,80 +606,43 @@ class _CategoryCard extends StatelessWidget {
                     category.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: LGColors.textPrimary(context),
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),
-                const SizedBox(width: FSSpacing.sm),
-                FSStatusBadge(
-                  label: category.subcategories.length.toString(),
-                  variant:
-                      category.subcategories.isEmpty
-                          ? FSStatusBadgeVariant.neutral
-                          : FSStatusBadgeVariant.info,
-                  icon: Icons.sell_outlined,
+                const SizedBox(width: LGSpacing.sm),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 92),
+                  child: LGStatusBadge(
+                    label: category.subcategories.length.toString(),
+                    icon: Icons.local_offer_outlined,
+                    variant:
+                        category.subcategories.isEmpty
+                            ? LGStatusBadgeVariant.neutral
+                            : LGStatusBadgeVariant.info,
+                  ),
                 ),
-                const SizedBox(width: FSSpacing.xs),
-                PopupMenuButton<String>(
-                  tooltip: MaterialLocalizations.of(context).showMenuTooltip,
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'edit':
-                        onEditCategory();
-                        break;
-                      case 'delete':
-                        onDeleteCategory();
-                        break;
-                    }
-                  },
-                  itemBuilder:
-                      (ctx) => [
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              const Icon(Icons.edit_outlined, size: 18),
-                              const SizedBox(width: FSSpacing.sm),
-                              Text(I18n.tr(context, 'label.edit')),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              const Icon(Icons.delete_outline, size: 18),
-                              const SizedBox(width: FSSpacing.sm),
-                              Text(I18n.tr(context, 'label.delete')),
-                            ],
-                          ),
-                        ),
-                      ],
-                ),
+                _categoryMenu(category),
               ],
             ),
             children: [
               if (category.subcategories.isEmpty)
-                _EmptySubcategoriesCard(
-                  message: I18n.tr(context, 'categories.noSubcategories'),
-                )
+                _emptySubcategoryRow()
               else
                 ...category.subcategories.map(
-                  (sub) => _SubcategoryRow(
-                    subcategory: sub,
-                    onEdit: () => onEditSubcategory(sub),
-                    onDelete: () => onDeleteSubcategory(sub),
-                  ),
+                  (sub) => _subcategoryRow(category, sub),
                 ),
+              const SizedBox(height: LGSpacing.sm),
               Align(
                 alignment: Alignment.centerLeft,
-                child: FSButton(
+                child: LGButton(
                   label: I18n.tr(context, 'categories.addSubcategory'),
-                  icon: Icons.add_rounded,
-                  variant: FSButtonVariant.outline,
-                  size: FSButtonSize.sm,
-                  onPressed: onAddSubcategory,
+                  icon: Icons.add,
+                  size: LGButtonSize.sm,
+                  variant: LGButtonVariant.outline,
+                  onPressed: () => _openSubcategoryDialog(category),
                 ),
               ),
             ],
@@ -833,65 +651,365 @@ class _CategoryCard extends StatelessWidget {
       ),
     );
   }
-}
 
-class _SubcategoryRow extends StatelessWidget {
-  const _SubcategoryRow({
-    required this.subcategory,
-    required this.onEdit,
-    required this.onDelete,
-  });
+  Widget _categoryMenu(ExpenseCategory category) {
+    return PopupMenuButton<String>(
+      tooltip: '',
+      icon: Icon(
+        Icons.more_vert_rounded,
+        color: LGColors.textSecondary(context),
+      ),
+      color: LGColors.surfaceSolid(context),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        side: BorderSide(
+          color: LGColors.textSecondary(context).withValues(alpha: 0.14),
+        ),
+      ),
+      onSelected: (value) {
+        switch (value) {
+          case 'edit':
+            _openCategoryDialog(category: category);
+            break;
+          case 'delete':
+            _deleteCategory(category);
+            break;
+        }
+      },
+      itemBuilder:
+          (ctx) => [
+            _menuItem(
+              value: 'edit',
+              icon: Icons.edit_outlined,
+              label: I18n.tr(context, 'label.edit'),
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            _menuItem(
+              value: 'delete',
+              icon: Icons.delete_outline,
+              label: I18n.tr(context, 'label.delete'),
+              color: LGColors.danger,
+            ),
+          ],
+    );
+  }
 
-  final ExpenseSubcategory subcategory;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  PopupMenuItem<String> _menuItem({
+    required String value,
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: LGSpacing.sm),
+          Text(label),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptySubcategoryRow() {
+    return LGSolidCard(
+      tinted: true,
+      padding: const EdgeInsets.all(LGSpacing.md),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            color: LGColors.textSecondary(context),
+            size: 18,
+          ),
+          const SizedBox(width: LGSpacing.sm),
+          Expanded(
+            child: Text(
+              I18n.tr(context, 'categories.noSubcategories'),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: LGColors.textSecondary(context),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _subcategoryRow(
+    ExpenseCategory category,
+    ExpenseSubcategory subcategory,
+  ) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: LGSpacing.sm),
+      child: LGSolidCard(
+        tinted: true,
+        padding: const EdgeInsets.all(LGSpacing.md),
+        child: Row(
+          children: [
+            _CategoryIconBox(
+              icon: iconDataFromKey(subcategory.icon),
+              color: primary,
+              size: 40,
+            ),
+            const SizedBox(width: LGSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    subcategory.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: LGColors.textPrimary(context),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (subcategory.budget > 0) ...[
+                    const SizedBox(height: LGSpacing.xs),
+                    LGStatusBadge(
+                      label: subcategory.budget.toStringAsFixed(2),
+                      icon: Icons.account_balance_wallet_outlined,
+                      variant: LGStatusBadgeVariant.info,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: LGSpacing.sm),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _SoftIconButton(
+                  tooltip: I18n.tr(context, 'label.edit'),
+                  icon: Icons.edit_outlined,
+                  color: primary,
+                  onPressed:
+                      () => _openSubcategoryDialog(
+                        category,
+                        subcategory: subcategory,
+                      ),
+                ),
+                const SizedBox(width: LGSpacing.xs),
+                _SoftIconButton(
+                  tooltip: I18n.tr(context, 'label.delete'),
+                  icon: Icons.delete_outline,
+                  color: LGColors.danger,
+                  onPressed: () => _deleteSubcategory(category, subcategory),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: FSSpacing.sm),
-      child: Container(
-        padding: const EdgeInsets.all(FSSpacing.md),
-        decoration: BoxDecoration(
-          color:
-              FSColors.isDark(context)
-                  ? FSColors.alpha(FSColors.surfaceDark, 0.68)
-                  : FSColors.backgroundLight,
-          borderRadius: BorderRadius.circular(FSRadius.lg),
-          border: Border.all(color: FSColors.border(context)),
+    final banner = _buildOnboardingBanner();
+    final content =
+        _loading
+            ? ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
+              children: [
+                _pageHeader(),
+                const SizedBox(height: LGSpacing.md),
+                const LGLoadingState(),
+              ],
+            )
+            : RefreshIndicator(
+              onRefresh: _load,
+              child:
+                  _categories.isEmpty
+                      ? ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
+                        children: [
+                          _pageHeader(),
+                          const SizedBox(height: LGSpacing.md),
+                          if (banner != null) ...[
+                            banner,
+                            const SizedBox(height: LGSpacing.md),
+                          ],
+                          LGEmptyState(
+                            icon: Icons.category_outlined,
+                            title: I18n.tr(context, 'categories.manageTitle'),
+                            message: I18n.tr(context, 'categories.empty'),
+                            action: LGEmptyAction(
+                              label: I18n.tr(context, 'categories.newCategory'),
+                              icon: Icons.add,
+                              onPressed: () => _openCategoryDialog(),
+                            ),
+                          ),
+                        ],
+                      )
+                      : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
+                        itemCount:
+                            _categories.length + (banner != null ? 1 : 0) + 1,
+                        itemBuilder: (ctx, index) {
+                          if (index == 0) {
+                            return Column(
+                              children: [
+                                _pageHeader(),
+                                const SizedBox(height: LGSpacing.md),
+                              ],
+                            );
+                          }
+                          if (banner != null && index == 1) {
+                            return Column(
+                              children: [
+                                banner,
+                                const SizedBox(height: LGSpacing.md),
+                              ],
+                            );
+                          }
+                          final categoryIndex =
+                              index - (banner != null ? 2 : 1);
+                          final category = _categories[categoryIndex];
+                          return _categoryCard(category);
+                        },
+                      ),
+            );
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _openCategoryDialog(),
+        child: const Icon(Icons.add),
+      ),
+      body: Stack(
+        children: [content, if (widget.forceCreate) _buildOnboardingCoach()],
+      ),
+    );
+  }
+}
+
+class _CategoryIconBox extends StatelessWidget {
+  const _CategoryIconBox({
+    required this.icon,
+    required this.color,
+    this.size = 46,
+  });
+
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: LGColors.isDark(context) ? 0.18 : 0.10),
+        borderRadius: BorderRadius.circular(
+          size >= 48 ? LGRadius.lg : LGRadius.md,
+        ),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Icon(icon, color: color, size: size >= 48 ? 25 : 20),
+    );
+  }
+}
+
+class _SoftIconButton extends StatelessWidget {
+  const _SoftIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(LGRadius.md),
+        onTap: onPressed,
+        child: Tooltip(
+          message: tooltip,
+          child: Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(
+                alpha: LGColors.isDark(context) ? 0.18 : 0.09,
+              ),
+              borderRadius: BorderRadius.circular(LGRadius.md),
+              border: Border.all(color: color.withValues(alpha: 0.22)),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _IconPickerButton extends StatelessWidget {
+  const _IconPickerButton({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+  });
+
+  final VoidCallback onPressed;
+  final Widget icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 46),
+          padding: const EdgeInsets.symmetric(horizontal: LGSpacing.md),
+          foregroundColor: Theme.of(context).colorScheme.primary,
+          side: BorderSide(
+            color: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.28),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(LGRadius.pill),
+          ),
+          backgroundColor: Theme.of(context).colorScheme.primary.withValues(
+            alpha: LGColors.isDark(context) ? 0.14 : 0.07,
+          ),
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _CategoryIconBadge(
-              icon: iconDataFromKey(subcategory.icon),
-              size: 36,
-              iconSize: 18,
-              intent: FSIntent.info,
-            ),
-            const SizedBox(width: FSSpacing.md),
-            Expanded(
+            icon,
+            const SizedBox(width: LGSpacing.sm),
+            Flexible(
               child: Text(
-                subcategory.name,
-                maxLines: 2,
+                label,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
-            ),
-            const SizedBox(width: FSSpacing.sm),
-            _CategoryActionButton(
-              tooltip: I18n.tr(context, 'label.edit'),
-              icon: Icons.edit_outlined,
-              onPressed: onEdit,
-            ),
-            const SizedBox(width: FSSpacing.xs),
-            _CategoryActionButton(
-              tooltip: I18n.tr(context, 'label.delete'),
-              icon: Icons.delete_outline,
-              danger: true,
-              onPressed: onDelete,
             ),
           ],
         ),
@@ -900,99 +1018,95 @@ class _SubcategoryRow extends StatelessWidget {
   }
 }
 
-class _EmptySubcategoriesCard extends StatelessWidget {
-  const _EmptySubcategoriesCard({required this.message});
+class _SoftDangerButton extends StatelessWidget {
+  const _SoftDangerButton({required this.label, required this.onPressed});
 
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: FSSpacing.md),
-      padding: const EdgeInsets.all(FSSpacing.md),
-      decoration: BoxDecoration(
-        color: FSColors.surface(context),
-        borderRadius: BorderRadius.circular(FSRadius.lg),
-        border: Border.all(color: FSColors.border(context)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.sell_outlined, color: FSColors.mutedText(context)),
-          const SizedBox(width: FSSpacing.md),
-          Expanded(
-            child: Text(
-              message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: FSColors.mutedText(context),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategoryIconBadge extends StatelessWidget {
-  const _CategoryIconBadge({
-    required this.icon,
-    this.size = 42,
-    this.iconSize = 21,
-    this.intent = FSIntent.primary,
-  });
-
-  final IconData icon;
-  final double size;
-  final double iconSize;
-  final FSIntent intent;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = FSColors.intent(intent);
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: FSColors.intentContainer(context, intent),
-        borderRadius: BorderRadius.circular(FSRadius.md),
-        border: Border.all(color: FSColors.intentBorder(context, intent)),
-      ),
-      child: Icon(icon, color: color, size: iconSize),
-    );
-  }
-}
-
-class _CategoryActionButton extends StatelessWidget {
-  const _CategoryActionButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-    this.danger = false,
-  });
-
-  final String tooltip;
-  final IconData icon;
+  final String label;
   final VoidCallback onPressed;
-  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 38),
+        padding: const EdgeInsets.symmetric(horizontal: LGSpacing.md),
+        foregroundColor: LGColors.danger,
+        backgroundColor: LGColors.danger.withValues(
+          alpha: LGColors.isDark(context) ? 0.18 : 0.08,
+        ),
+        side: BorderSide(color: LGColors.danger.withValues(alpha: 0.28)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(LGRadius.pill),
+        ),
+        textStyle: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+      child: Text(label),
+    );
+  }
+}
+
+class _IconOptionTile extends StatelessWidget {
+  const _IconOptionTile({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final color =
-        danger ? FSColors.danger : Theme.of(context).colorScheme.primary;
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      style: IconButton.styleFrom(
-        fixedSize: const Size.square(38),
-        backgroundColor: FSColors.alpha(color, 0.10),
-        foregroundColor: color,
-        side: BorderSide(color: FSColors.alpha(color, 0.18)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FSRadius.md),
+        selected
+            ? Theme.of(context).colorScheme.primary
+            : LGColors.textSecondary(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(LGSpacing.sm),
+          decoration: BoxDecoration(
+            color:
+                selected
+                    ? Theme.of(context).colorScheme.primary.withValues(
+                      alpha: LGColors.isDark(context) ? 0.18 : 0.09,
+                    )
+                    : LGColors.surfaceTinted(context),
+            border: Border.all(
+              color:
+                  selected
+                      ? Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.34)
+                      : LGColors.textSecondary(context).withValues(alpha: 0.12),
+            ),
+            borderRadius: BorderRadius.circular(LGRadius.lg),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(height: LGSpacing.xs),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

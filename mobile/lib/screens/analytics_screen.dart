@@ -11,8 +11,8 @@ import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
-import '../ui/finsight_ui.dart';
 import '../utils/format.dart';
+import '../liquid_glass/liquid_glass.dart';
 import '../widgets/pro_widgets.dart';
 
 class AnalyticsScreen extends StatefulWidget {
@@ -140,32 +140,26 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final displayMonths = months.reversed.toList();
     final picked = await showModalBottomSheet<DateTime>(
       context: context,
-      backgroundColor: Colors.transparent,
-      showDragHandle: true,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder:
-          (ctx) => FSBottomSheetShell(
+          (ctx) => LGBottomSheetShell(
             title: I18n.tr(context, 'tx.reportPickMonth'),
             scrollable: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: displayMonths.length,
-                    itemBuilder: (ctx, index) {
-                      final month = displayMonths[index];
-                      final isSelected = _sameMonth(month, selectedMonth);
-                      return _MonthPickerTile(
-                        label: monthFmt.format(month),
-                        selected: isSelected,
-                        onTap: () => Navigator.pop(ctx, month),
-                      );
-                    },
-                  ),
-                ),
-              ],
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: displayMonths.length,
+              separatorBuilder:
+                  (context, index) => const SizedBox(height: LGSpacing.sm),
+              itemBuilder: (ctx, index) {
+                final month = displayMonths[index];
+                final isSelected = _sameMonth(month, selectedMonth);
+                return _MonthOptionTile(
+                  label: monthFmt.format(month),
+                  selected: isSelected,
+                  onTap: () => Navigator.pop(ctx, month),
+                );
+              },
             ),
           ),
     );
@@ -174,15 +168,25 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
   }
 
+  Widget _buildProBlock(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
+      children: [
+        LGPageHeader(
+          title: I18n.t(context, 'title.analytics'),
+          leading: const _HeaderIcon(icon: Icons.analytics_outlined),
+        ),
+        const ProBlock(feature: 'Analytics'),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthStore>();
     if (!auth.isProOrExempt) {
-      return Scaffold(
-        backgroundColor: FSColors.background(context),
-        appBar: AppBar(title: Text(I18n.t(context, 'title.analytics'))),
-        body: const ProBlock(feature: 'Analytics'),
-      );
+      return _buildProBlock(context);
     }
 
     final token = auth.token;
@@ -196,9 +200,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       builder: (context, snap) {
         if (!snap.hasData) {
           if (snap.hasError) {
-            return _AnalyticsErrorState(message: 'Error: ${snap.error}');
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(LGSpacing.lg),
+                child: LGSolidCard(
+                  variant: LGCardVariant.elevated,
+                  child: Text('Error: ${snap.error}'),
+                ),
+              ),
+            );
           }
-          return const FSLoadingState();
+          return const Center(child: LGLoadingState());
         }
 
         final accounts = snap.data![0] as List<Account>;
@@ -228,75 +240,44 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           expense: false,
         );
 
-        return Scaffold(
-          backgroundColor: FSColors.background(context),
-          body: RefreshIndicator(
-            onRefresh: _refresh,
-            color: Theme.of(context).colorScheme.primary,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
-                FSSpacing.lg,
-                FSSpacing.lg,
-                FSSpacing.lg,
-                FSSpacing.xxl,
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
+            children: [
+              LGPageHeader(
+                title: I18n.t(context, 'title.analytics'),
+                leading: const _HeaderIcon(icon: Icons.analytics_outlined),
               ),
-              children: [
-                FSPageHeader(
-                  title: I18n.t(context, 'title.analytics'),
-                  leading: Container(
-                    width: 42,
-                    height: 42,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: FSColors.intentContainer(
-                        context,
-                        FSIntent.primary,
-                      ),
-                      borderRadius: BorderRadius.circular(FSRadius.md),
-                      border: Border.all(
-                        color: FSColors.intentBorder(context, FSIntent.primary),
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.query_stats_rounded,
-                      color: FSColors.primary,
-                    ),
-                  ),
-                ),
-                _SummaryGrid(
-                  totalBalance: totalBalance,
-                  highestAccount: highestAccount,
-                  growthPercent: balanceDatasets.growthPercent,
-                ),
-                const SizedBox(height: FSSpacing.md),
-                _BalanceCharts(
-                  totalSeries: balanceDatasets.totalSeries,
-                  perAccountSeries: balanceDatasets.accountSeries,
-                  accounts: accounts,
-                ),
-                const SizedBox(height: FSSpacing.md),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FSButton(
-                    label: selectedMonthLabel,
-                    icon: Icons.calendar_month_outlined,
-                    variant: FSButtonVariant.outline,
-                    onPressed:
-                        () =>
-                            _pickAnalyticsMonth(availableMonths, selectedMonth),
-                  ),
-                ),
-                const SizedBox(height: FSSpacing.md),
-                _CategoryCharts(
-                  expenseData: expenseByCategory,
-                  incomeData: incomeByCategory,
-                  selectedMonth: selectedMonth,
-                ),
-                const SizedBox(height: FSSpacing.md),
-                _AccountSummary(accounts: accounts),
-              ],
-            ),
+              const SizedBox(height: LGSpacing.sm),
+              _AnalyticsFilterSurface(
+                selectedMonthLabel: selectedMonthLabel,
+                growthPercent: balanceDatasets.growthPercent,
+                onPickMonth:
+                    () => _pickAnalyticsMonth(availableMonths, selectedMonth),
+              ),
+              const SizedBox(height: LGSpacing.md),
+              _SummaryGrid(
+                totalBalance: totalBalance,
+                highestAccount: highestAccount,
+                growthPercent: balanceDatasets.growthPercent,
+              ),
+              const SizedBox(height: LGSpacing.md),
+              _BalanceCharts(
+                totalSeries: balanceDatasets.totalSeries,
+                perAccountSeries: balanceDatasets.accountSeries,
+                accounts: accounts,
+              ),
+              const SizedBox(height: LGSpacing.md),
+              _CategoryCharts(
+                expenseData: expenseByCategory,
+                incomeData: incomeByCategory,
+                selectedMonth: selectedMonth,
+              ),
+              const SizedBox(height: LGSpacing.md),
+              _AccountSummary(accounts: accounts),
+            ],
           ),
         );
       },
@@ -400,8 +381,128 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 }
 
-class _MonthPickerTile extends StatelessWidget {
-  const _MonthPickerTile({
+class _HeaderIcon extends StatelessWidget {
+  const _HeaderIcon({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return Container(
+      width: 52,
+      height: 52,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: LGColors.isDark(context) ? 0.18 : 0.10),
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Icon(icon, color: color, size: 25),
+    );
+  }
+}
+
+class _AnalyticsFilterSurface extends StatelessWidget {
+  const _AnalyticsFilterSurface({
+    required this.selectedMonthLabel,
+    required this.growthPercent,
+    required this.onPickMonth,
+  });
+
+  final String selectedMonthLabel;
+  final double growthPercent;
+  final VoidCallback onPickMonth;
+
+  @override
+  Widget build(BuildContext context) {
+    final trendColor = growthPercent >= 0 ? LGColors.success : LGColors.danger;
+    final trendLabel =
+        '${growthPercent >= 0 ? '+' : ''}${growthPercent.toStringAsFixed(1)}%';
+
+    return LGGlassCard(
+      variant: LGCardVariant.elevated,
+      padding: const EdgeInsets.all(LGSpacing.lg),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  I18n.t(context, 'analytics.balanceGrowth'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: LGColors.textSecondary(context),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: LGSpacing.xs),
+                Text(
+                  trendLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: trendColor,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: LGSpacing.md),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(LGRadius.pill),
+              onTap: onPickMonth,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: LGSpacing.md,
+                  vertical: LGSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: LGColors.glassLight(context),
+                  borderRadius: BorderRadius.circular(LGRadius.pill),
+                  border: Border.all(color: LGColors.glassStroke(context)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.calendar_month_outlined,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: LGSpacing.sm),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 140),
+                      child: Text(
+                        selectedMonthLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: LGColors.textPrimary(context),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthOptionTile extends StatelessWidget {
+  const _MonthOptionTile({
     required this.label,
     required this.selected,
     required this.onTap,
@@ -413,74 +514,49 @@ class _MonthPickerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground =
-        selected
-            ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.onSurface;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: FSSpacing.sm),
-      child: Material(
-        color:
-            selected
-                ? FSColors.intentContainer(context, FSIntent.primary)
-                : FSColors.surface(context),
-        borderRadius: BorderRadius.circular(FSRadius.md),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(FSRadius.md),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 50),
-            padding: const EdgeInsets.symmetric(
-              horizontal: FSSpacing.md,
-              vertical: FSSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(FSRadius.md),
-              border: Border.all(
-                color:
-                    selected
-                        ? FSColors.intentBorder(context, FSIntent.primary)
-                        : FSColors.border(context),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: foreground,
-                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (selected) ...[
-                  const SizedBox(width: FSSpacing.sm),
-                  Icon(Icons.check_rounded, color: foreground, size: 20),
-                ],
-              ],
+    final primary = Theme.of(context).colorScheme.primary;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: LGSpacing.md,
+            vertical: LGSpacing.md,
+          ),
+          decoration: BoxDecoration(
+            color:
+                selected
+                    ? primary.withValues(
+                      alpha: LGColors.isDark(context) ? 0.20 : 0.10,
+                    )
+                    : LGColors.surfaceSolid(context),
+            borderRadius: BorderRadius.circular(LGRadius.lg),
+            border: Border.all(
+              color:
+                  selected
+                      ? primary.withValues(alpha: 0.28)
+                      : LGColors.textSecondary(context).withValues(alpha: 0.14),
             ),
           ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: LGColors.textPrimary(context),
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (selected) Icon(Icons.check_circle, color: primary, size: 20),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-}
-
-class _AnalyticsErrorState extends StatelessWidget {
-  const _AnalyticsErrorState({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: FSCard(
-        margin: const EdgeInsets.all(FSSpacing.lg),
-        variant: FSCardVariant.subtle,
-        child: FSEmptyState(icon: Icons.error_outline_rounded, title: message),
       ),
     );
   }
@@ -500,34 +576,37 @@ class _SummaryGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cards = [
-      FSMetricCard(
+      LGMetricCard(
         title: I18n.t(context, 'analytics.currentTotalBalance'),
         value: money(totalBalance),
         icon: Icons.account_balance_wallet_outlined,
-        accent: FSIntent.success,
+        accentColor: LGColors.success,
       ),
-      FSMetricCard(
+      LGMetricCard(
         title: I18n.t(context, 'analytics.highestBalanceAccount'),
         value: money(highestAccount?.balance ?? 0),
         subtitle: highestAccount?.name ?? '-',
-        icon: Icons.account_balance_rounded,
-        accent: FSIntent.primary,
+        icon: Icons.trending_up_rounded,
+        accentColor: Theme.of(context).colorScheme.primary,
       ),
-      FSMetricCard(
+      LGMetricCard(
         title: I18n.t(context, 'analytics.balanceGrowth'),
         value:
             '${growthPercent >= 0 ? '+' : ''}${growthPercent.toStringAsFixed(1)}%',
-        icon: growthPercent >= 0 ? Icons.trending_up : Icons.trending_down,
-        accent: growthPercent >= 0 ? FSIntent.success : FSIntent.danger,
+        icon:
+            growthPercent >= 0
+                ? Icons.arrow_upward_rounded
+                : Icons.arrow_downward_rounded,
+        accentColor: growthPercent >= 0 ? LGColors.success : LGColors.danger,
       ),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        const spacing = FSSpacing.md;
+        const spacing = 12.0;
         final double maxWidth = constraints.maxWidth;
         final cols = maxWidth < 360 ? 1 : 2;
-        final double itemWidth = (maxWidth - (cols - 1) * spacing) / cols;
+        final double itemWidth = (maxWidth - ((cols - 1) * spacing)) / cols;
         final children = <Widget>[];
         for (var i = 0; i < cards.length; i++) {
           final isLastOdd =
@@ -535,8 +614,10 @@ class _SummaryGrid extends StatelessWidget {
           children.add(
             SizedBox(
               width: isLastOdd ? maxWidth : itemWidth,
-              height: 138,
-              child: cards[i],
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 132),
+                child: cards[i],
+              ),
             ),
           );
         }
@@ -563,15 +644,15 @@ class _BalanceCharts extends StatelessWidget {
     final localeTag = Localizations.localeOf(context).toLanguageTag();
     final compactFormatter = NumberFormat.compact(locale: localeTag);
     final axisLabelStyle = theme.textTheme.bodySmall?.copyWith(
-      color: FSColors.mutedText(context),
+      color: LGColors.textSecondary(context),
       fontWeight: FontWeight.w500,
     );
     final bottomLabelStyle = theme.textTheme.bodySmall?.copyWith(
-      color: FSColors.mutedText(context),
+      color: LGColors.textSecondary(context),
       fontWeight: FontWeight.w600,
     );
-    final gridColor = FSColors.alpha(theme.colorScheme.onSurface, 0.12);
-    final borderColor = FSColors.border(context);
+    final gridColor = LGColors.textSecondary(context).withValues(alpha: 0.16);
+    final borderColor = LGColors.textSecondary(context).withValues(alpha: 0.12);
 
     final totalMax = _maxValue(totalSeries.map((point) => point.value));
     final perAccountMax = _maxValue(
@@ -595,15 +676,13 @@ class _BalanceCharts extends StatelessWidget {
       children: [
         _Card(
           title: I18n.t(context, 'analytics.totalOverTime'),
-          icon: Icons.stacked_line_chart_rounded,
-          accent: FSIntent.primary,
           child: SizedBox(
             height: 260,
             child:
                 totalSeries.isEmpty
-                    ? FSEmptyState(
-                      icon: Icons.stacked_line_chart_rounded,
-                      title: I18n.t(context, 'analytics.noBalanceData'),
+                    ? _InlineEmptyState(
+                      icon: Icons.show_chart_rounded,
+                      label: I18n.t(context, 'analytics.noBalanceData'),
                     )
                     : LineChart(
                       LineChartData(
@@ -681,18 +760,16 @@ class _BalanceCharts extends StatelessWidget {
                     ),
           ),
         ),
-        const SizedBox(height: FSSpacing.md),
+        const SizedBox(height: 16),
         _Card(
           title: I18n.t(context, 'analytics.accountsOverTime'),
-          icon: Icons.account_tree_outlined,
-          accent: FSIntent.info,
           child: SizedBox(
             height: 260,
             child:
                 perAccountSeries.isEmpty
-                    ? FSEmptyState(
-                      icon: Icons.account_tree_outlined,
-                      title: I18n.t(context, 'analytics.noAccBalanceData'),
+                    ? _InlineEmptyState(
+                      icon: Icons.stacked_line_chart_rounded,
+                      label: I18n.t(context, 'analytics.noAccBalanceData'),
                     )
                     : Column(
                       children: [
@@ -790,7 +867,7 @@ class _BalanceCharts extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: FSSpacing.md),
+                        const SizedBox(height: 12),
                         _LineLegend(
                           colorByName: {
                             for (var i = 0; i < accounts.length; i++)
@@ -825,19 +902,15 @@ class _CategoryCharts extends StatelessWidget {
       children: [
         _Card(
           title: I18n.t(context, 'analytics.expensesByCat'),
-          icon: Icons.trending_down_rounded,
-          accent: FSIntent.danger,
           child: _PieBlock(
             data: expenseData,
             emptyMessageKey: 'analytics.noExpenseData',
             month: selectedMonth,
           ),
         ),
-        const SizedBox(height: FSSpacing.md),
+        const SizedBox(height: 16),
         _Card(
           title: I18n.t(context, 'analytics.incomeByCat'),
-          icon: Icons.trending_up_rounded,
-          accent: FSIntent.success,
           child: _PieBlock(
             data: incomeData,
             emptyMessageKey: 'analytics.noIncomeData',
@@ -864,9 +937,9 @@ class _PieBlock extends StatelessWidget {
     if (data.isEmpty) {
       return SizedBox(
         height: 240,
-        child: FSEmptyState(
-          icon: Icons.pie_chart_outline,
-          title: I18n.t(context, emptyMessageKey),
+        child: _InlineEmptyState(
+          icon: Icons.pie_chart_outline_rounded,
+          label: I18n.t(context, emptyMessageKey),
         ),
       );
     }
@@ -875,9 +948,9 @@ class _PieBlock extends StatelessWidget {
     if (slices.isEmpty) {
       return SizedBox(
         height: 240,
-        child: FSEmptyState(
-          icon: Icons.pie_chart_outline,
-          title: I18n.t(context, emptyMessageKey),
+        child: _InlineEmptyState(
+          icon: Icons.pie_chart_outline_rounded,
+          label: I18n.t(context, emptyMessageKey),
         ),
       );
     }
@@ -889,8 +962,8 @@ class _PieBlock extends StatelessWidget {
     final totalText = I18n.t(context, 'analytics.monthlyTotal');
     final topText = language == 'es' ? 'MAYOR' : 'HIGHEST';
     final theme = Theme.of(context);
-    final onSurface = theme.colorScheme.onSurface;
-    final surface = FSColors.surfaceElevated(context);
+    final onSurface = LGColors.textPrimary(context);
+    final surface = LGColors.surfaceSolid(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth =
@@ -906,19 +979,19 @@ class _PieBlock extends StatelessWidget {
             Text(
               '$totalText - $monthLabel',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: FSColors.mutedText(context),
-                fontWeight: FontWeight.w600,
+                color: onSurface.withValues(alpha: 0.74),
+                fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: FSSpacing.xs),
+            const SizedBox(height: 4),
             Text(
               money(total),
               style: theme.textTheme.headlineSmall?.copyWith(
                 color: onSurface,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: FSSpacing.lg),
+            const SizedBox(height: 16),
             Center(
               child: SizedBox(
                 height: chartSize,
@@ -949,9 +1022,7 @@ class _PieBlock extends StatelessWidget {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: FSSpacing.lg,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -959,12 +1030,12 @@ class _PieBlock extends StatelessWidget {
                               topText,
                               textAlign: TextAlign.center,
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: FSColors.mutedText(context),
+                                color: onSurface.withValues(alpha: 0.66),
                                 fontWeight: FontWeight.w700,
-                                letterSpacing: 0,
+                                letterSpacing: 1.2,
                               ),
                             ),
-                            const SizedBox(height: FSSpacing.xs),
+                            const SizedBox(height: 4),
                             Text(
                               top.label,
                               textAlign: TextAlign.center,
@@ -991,7 +1062,7 @@ class _PieBlock extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: FSSpacing.md),
+            const SizedBox(height: 14),
             _LegendGrid(items: slices),
           ],
         );
@@ -1009,7 +1080,7 @@ class _LegendGrid extends StatelessWidget {
     if (items.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(
       builder: (context, constraints) {
-        const gap = FSSpacing.sm;
+        const gap = 10.0;
         final width = constraints.maxWidth;
         final tileWidth =
             width >= 280 ? ((width - gap) / 2).toDouble() : width.toDouble();
@@ -1022,13 +1093,17 @@ class _LegendGrid extends StatelessWidget {
                 width: tileWidth,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: FSSpacing.md,
-                    vertical: FSSpacing.sm,
+                    horizontal: 12,
+                    vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: FSColors.surface(context),
-                    borderRadius: BorderRadius.circular(FSRadius.md),
-                    border: Border.all(color: FSColors.border(context)),
+                    color: LGColors.surfaceTinted(context),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: LGColors.textSecondary(
+                        context,
+                      ).withValues(alpha: 0.16),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -1040,7 +1115,7 @@ class _LegendGrid extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                       ),
-                      const SizedBox(width: FSSpacing.sm),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1053,7 +1128,7 @@ class _LegendGrid extends StatelessWidget {
                               style: Theme.of(
                                 context,
                               ).textTheme.bodySmall?.copyWith(
-                                color: FSColors.mutedText(context),
+                                color: LGColors.textSecondary(context),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -1063,7 +1138,7 @@ class _LegendGrid extends StatelessWidget {
                               style: Theme.of(
                                 context,
                               ).textTheme.titleSmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface,
+                                color: LGColors.textPrimary(context),
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -1089,19 +1164,26 @@ class _AccountSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     return _Card(
       title: I18n.t(context, 'analytics.accountSummary'),
-      icon: Icons.account_balance_wallet_outlined,
-      accent: FSIntent.primary,
-      child: Column(
-        children: [
-          if (accounts.isEmpty)
-            FSEmptyState(
-              icon: Icons.account_balance_wallet_outlined,
-              title: I18n.t(context, 'analytics.accountSummary'),
-            )
-          else
-            ...accounts.map((a) => _AccountSummaryRow(account: a)),
-        ],
-      ),
+      child:
+          accounts.isEmpty
+              ? _InlineEmptyState(
+                icon: Icons.account_balance_wallet_outlined,
+                label: I18n.t(context, 'analytics.noBalanceData'),
+              )
+              : Column(
+                children: [
+                  for (var i = 0; i < accounts.length; i++) ...[
+                    _AccountSummaryRow(account: accounts[i]),
+                    if (i != accounts.length - 1)
+                      Divider(
+                        height: LGSpacing.lg,
+                        color: LGColors.textSecondary(
+                          context,
+                        ).withValues(alpha: 0.14),
+                      ),
+                  ],
+                ],
+              ),
     );
   }
 }
@@ -1113,138 +1195,133 @@ class _AccountSummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final balanceColor =
-        account.balance < 0
-            ? FSColors.danger
-            : Theme.of(context).colorScheme.onSurface;
-    return Container(
-      margin: const EdgeInsets.only(top: FSSpacing.sm),
-      padding: const EdgeInsets.all(FSSpacing.md),
-      decoration: BoxDecoration(
-        color: FSColors.surface(context),
-        borderRadius: BorderRadius.circular(FSRadius.lg),
-        border: Border.all(color: FSColors.border(context)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: FSColors.surfaceElevated(context),
-              borderRadius: BorderRadius.circular(FSRadius.md),
-              border: Border.all(color: FSColors.border(context)),
+    final primary = Theme.of(context).colorScheme.primary;
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: primary.withValues(
+              alpha: LGColors.isDark(context) ? 0.18 : 0.10,
             ),
-            child: Icon(
-              account.isInvestment
-                  ? Icons.trending_up_rounded
-                  : Icons.account_balance_rounded,
-              size: 19,
-              color: FSColors.mutedText(context),
-            ),
+            borderRadius: BorderRadius.circular(LGRadius.md),
+            border: Border.all(color: primary.withValues(alpha: 0.20)),
           ),
-          const SizedBox(width: FSSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  account.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                if ((account.type ?? '').isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    account.type!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: FSColors.mutedText(context),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: FSSpacing.md),
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Text(
-                money(account.balance),
+          child: Icon(Icons.account_balance_wallet_outlined, color: primary),
+        ),
+        const SizedBox(width: LGSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                account.name,
                 maxLines: 1,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: balanceColor,
-                  fontWeight: FontWeight.w900,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: LGColors.textPrimary(context),
+                  fontWeight: FontWeight.w800,
                 ),
               ),
+              if ((account.type ?? '').isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  account.type ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: LGColors.textSecondary(context),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: LGSpacing.sm),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            money(account.balance),
+            maxLines: 1,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: LGColors.textPrimary(context),
+              fontWeight: FontWeight.w900,
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Card extends StatelessWidget {
+  const _Card({required this.title, required this.child});
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LGSolidCard(
+      variant: LGCardVariant.elevated,
+      padding: const EdgeInsets.all(LGSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: LGColors.textPrimary(context),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: LGSpacing.md),
+          child,
         ],
       ),
     );
   }
 }
 
-class _Card extends StatelessWidget {
-  const _Card({
-    required this.title,
-    required this.child,
-    this.icon,
-    this.accent = FSIntent.primary,
-  });
+class _InlineEmptyState extends StatelessWidget {
+  const _InlineEmptyState({required this.icon, required this.label});
 
-  final String title;
-  final Widget child;
-  final IconData? icon;
-  final FSIntent accent;
+  final IconData icon;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return FSCard(
-      variant: FSCardVariant.elevated,
-      padding: const EdgeInsets.all(FSSpacing.lg),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: LGSpacing.lg,
+        vertical: LGSpacing.xl,
+      ),
+      decoration: BoxDecoration(
+        color: LGColors.surfaceTinted(context),
+        borderRadius: BorderRadius.circular(LGRadius.lg),
+        border: Border.all(
+          color: LGColors.textSecondary(context).withValues(alpha: 0.14),
+        ),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              if (icon != null) ...[
-                Container(
-                  width: 40,
-                  height: 40,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: FSColors.intentContainer(context, accent),
-                    borderRadius: BorderRadius.circular(FSRadius.md),
-                    border: Border.all(
-                      color: FSColors.intentBorder(context, accent),
-                    ),
-                  ),
-                  child: Icon(icon, size: 20, color: FSColors.intent(accent)),
-                ),
-                const SizedBox(width: FSSpacing.md),
-              ],
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
+          Icon(icon, color: Theme.of(context).colorScheme.primary, size: 28),
+          const SizedBox(height: LGSpacing.sm),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: LGColors.textSecondary(context),
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          const SizedBox(height: FSSpacing.md),
-          child,
         ],
       ),
     );
@@ -1260,19 +1337,21 @@ class _LineLegend extends StatelessWidget {
     if (colorByName.isEmpty) return const SizedBox.shrink();
     final entries = colorByName.entries.toList();
     return Wrap(
-      spacing: FSSpacing.sm,
-      runSpacing: FSSpacing.sm,
+      spacing: 12,
+      runSpacing: 8,
       children: [
         for (final entry in entries)
           Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: FSSpacing.md,
-              vertical: FSSpacing.sm,
+              horizontal: LGSpacing.sm,
+              vertical: 6,
             ),
             decoration: BoxDecoration(
-              color: FSColors.surface(context),
-              borderRadius: BorderRadius.circular(FSRadius.pill),
-              border: Border.all(color: FSColors.border(context)),
+              color: LGColors.surfaceTinted(context),
+              borderRadius: BorderRadius.circular(LGRadius.pill),
+              border: Border.all(
+                color: LGColors.textSecondary(context).withValues(alpha: 0.14),
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1285,12 +1364,12 @@ class _LineLegend extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(width: FSSpacing.sm),
+                const SizedBox(width: 6),
                 Text(
                   entry.key,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: FSColors.mutedText(context),
-                    fontWeight: FontWeight.w600,
+                    color: LGColors.textSecondary(context),
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],

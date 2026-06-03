@@ -15,6 +15,7 @@ import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
 import '../i18n.dart';
+import '../liquid_glass/liquid_glass.dart';
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -74,16 +75,26 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: Text(I18n.t(context, 'tx.deleteTitle')),
-            content: Text('This will delete "' + t.description + '"'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
+            backgroundColor: LGColors.surfaceSolid(context),
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(LGRadius.xl),
+              side: BorderSide(
+                color: LGColors.alpha(LGColors.textSecondary(context), 0.14),
               ),
-              FilledButton(
+            ),
+            title: Text(I18n.t(context, 'tx.deleteTitle')),
+            content: Text('This will delete "${t.description}"'),
+            actions: [
+              LGButton(
+                label: 'Cancel',
+                size: LGButtonSize.sm,
+                variant: LGButtonVariant.outline,
+                onPressed: () => Navigator.pop(ctx, false),
+              ),
+              _TxSoftDangerButton(
+                label: 'Delete',
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Delete'),
               ),
             ],
           ),
@@ -248,6 +259,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      showDragHandle: false,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setLocal) {
@@ -259,10 +272,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 firstDate: DateTime(2000),
                 lastDate: DateTime(2100),
               );
-              if (picked != null)
+              if (picked != null) {
                 setLocal(
                   () => start = DateTime(picked.year, picked.month, picked.day),
                 );
+              }
             }
 
             Future<void> pickEnd() async {
@@ -273,7 +287,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 firstDate: DateTime(2000),
                 lastDate: DateTime(2100),
               );
-              if (picked != null)
+              if (picked != null) {
                 setLocal(
                   () =>
                       end = DateTime(
@@ -285,57 +299,56 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         59,
                       ),
                 );
+              }
             }
 
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-              ),
-              child: SingleChildScrollView(
+            return LGBottomSheetShell(
+              title: I18n.t(context, 'tx.filters'),
+              solidContent: true,
+              maxHeightFactor: 0.92,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Filters', style: Theme.of(ctx).textTheme.titleMedium),
-                    const SizedBox(height: 12),
-
                     DropdownButtonFormField<String?>(
-                      value: type,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        labelText: 'Type',
+                      key: ValueKey('filter-type-${type ?? 'all'}'),
+                      initialValue: type,
+                      decoration: LGForm.dropdownDecoration(
+                        context,
+                        labelText: I18n.t(context, 'tx.type'),
                       ),
-                      items: const [
+                      items: [
                         DropdownMenuItem<String?>(
                           value: null,
-                          child: Text('All Types'),
+                          child: Text(I18n.t(context, 'tx.allTypes')),
                         ),
                         DropdownMenuItem<String?>(
                           value: 'Income',
-                          child: Text('Income'),
+                          child: Text(I18n.t(context, 'tx.income')),
                         ),
                         DropdownMenuItem<String?>(
                           value: 'Expense',
-                          child: Text('Expense'),
+                          child: Text(I18n.t(context, 'tx.expense')),
                         ),
                       ],
                       onChanged: (v) => setLocal(() => type = v),
                     ),
-                    const SizedBox(height: 12),
-
+                    const SizedBox(height: LGSpacing.md),
                     DropdownButtonFormField<String?>(
-                      value: category,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        labelText: 'Categories',
+                      key: ValueKey('filter-category-${category ?? 'all'}'),
+                      initialValue: category,
+                      decoration: LGForm.dropdownDecoration(
+                        context,
+                        labelText: I18n.t(context, 'tx.categories'),
                       ),
                       items: [
-                        const DropdownMenuItem<String?>(
+                        DropdownMenuItem<String?>(
                           value: null,
-                          child: Text('All Categories'),
+                          child: Text(I18n.t(context, 'tx.allCategories')),
                         ),
                         ..._categories.map(
                           (c) => DropdownMenuItem<String?>(
@@ -346,18 +359,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       ],
                       onChanged: (v) => setLocal(() => category = v),
                     ),
-                    const SizedBox(height: 12),
-
+                    const SizedBox(height: LGSpacing.md),
                     DropdownButtonFormField<int?>(
-                      value: accountId,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        labelText: 'Accounts',
+                      key: ValueKey('filter-account-${accountId ?? 'all'}'),
+                      initialValue: accountId,
+                      decoration: LGForm.dropdownDecoration(
+                        context,
+                        labelText: I18n.t(context, 'tx.accounts'),
                       ),
                       items: [
-                        const DropdownMenuItem<int?>(
+                        DropdownMenuItem<int?>(
                           value: null,
-                          child: Text('All Accounts'),
+                          child: Text(I18n.t(context, 'tx.allAccounts')),
                         ),
                         ..._accounts.map(
                           (a) => DropdownMenuItem<int?>(
@@ -368,18 +381,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       ],
                       onChanged: (v) => setLocal(() => accountId = v),
                     ),
-                    const SizedBox(height: 12),
-
+                    const SizedBox(height: LGSpacing.md),
                     DropdownButtonFormField<int?>(
-                      value: projectId,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        labelText: 'Projects',
+                      key: ValueKey('filter-project-${projectId ?? 'all'}'),
+                      initialValue: projectId,
+                      decoration: LGForm.dropdownDecoration(
+                        context,
+                        labelText: I18n.t(context, 'tx.projects'),
                       ),
                       items: [
-                        const DropdownMenuItem<int?>(
+                        DropdownMenuItem<int?>(
                           value: null,
-                          child: Text('All Projects'),
+                          child: Text(I18n.t(context, 'tx.allProjects')),
                         ),
                         ..._projects.map(
                           (p) => DropdownMenuItem<int?>(
@@ -390,8 +403,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       ],
                       onChanged: (v) => setLocal(() => projectId = v),
                     ),
-                    const SizedBox(height: 12),
-
+                    const SizedBox(height: LGSpacing.md),
                     Row(
                       children: [
                         Expanded(
@@ -400,40 +412,36 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                             controller: TextEditingController(
                               text: start == null ? '' : formatDate(start!),
                             ),
-                            decoration: InputDecoration(
-                              labelText: 'Start date',
-                              border: const OutlineInputBorder(),
-                              suffixIcon: IconButton(
-                                icon: const Icon(Icons.calendar_today_outlined),
-                                onPressed: pickStart,
-                              ),
+                            decoration: LGForm.dateFieldDecoration(
+                              context,
+                              labelText: I18n.t(context, 'tx.startDate'),
+                              onCalendarTap: pickStart,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: LGSpacing.md),
                         Expanded(
                           child: TextField(
                             readOnly: true,
                             controller: TextEditingController(
                               text: end == null ? '' : formatDate(end!),
                             ),
-                            decoration: InputDecoration(
-                              labelText: 'End date',
-                              border: const OutlineInputBorder(),
-                              suffixIcon: IconButton(
-                                icon: const Icon(Icons.calendar_today_outlined),
-                                onPressed: pickEnd,
-                              ),
+                            decoration: LGForm.dateFieldDecoration(
+                              context,
+                              labelText: I18n.t(context, 'tx.endDate'),
+                              onCalendarTap: pickEnd,
                             ),
                           ),
                         ),
                       ],
                     ),
-
-                    const SizedBox(height: 16),
+                    const SizedBox(height: LGSpacing.lg),
                     Row(
                       children: [
-                        TextButton(
+                        LGButton(
+                          label: I18n.t(context, 'label.clear'),
+                          size: LGButtonSize.sm,
+                          variant: LGButtonVariant.outline,
                           onPressed: () {
                             setLocal(() {
                               type = null;
@@ -444,10 +452,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                               end = null;
                             });
                           },
-                          child: const Text('Clear'),
                         ),
                         const Spacer(),
-                        FilledButton(
+                        LGButton(
+                          label: I18n.t(context, 'label.process'),
+                          size: LGButtonSize.sm,
                           onPressed: () {
                             _type = type;
                             _category = category;
@@ -458,7 +467,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                             _applyFilters(resetVisible: true);
                             Navigator.pop(ctx);
                           },
-                          child: const Text('Apply'),
                         ),
                       ],
                     ),
@@ -499,6 +507,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     return showModalBottomSheet<_ReportConfig>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      showDragHandle: false,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setLocal) {
@@ -538,27 +548,23 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               }
             }
 
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-              ),
-              child: SingleChildScrollView(
+            return LGBottomSheetShell(
+              title: I18n.tr(context, 'tx.reportOptions'),
+              solidContent: true,
+              maxHeightFactor: 0.92,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      I18n.tr(context, 'tx.reportOptions'),
-                      style: Theme.of(ctx).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 12),
                     DropdownButtonFormField<String?>(
-                      value: type,
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
+                      key: ValueKey('report-type-${type ?? 'all'}'),
+                      initialValue: type,
+                      decoration: LGForm.dropdownDecoration(
+                        context,
                         labelText: I18n.tr(context, 'tx.type'),
                       ),
                       items: [
@@ -577,11 +583,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       ],
                       onChanged: (value) => setLocal(() => type = value),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: LGSpacing.md),
                     DropdownButtonFormField<String?>(
-                      value: category,
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
+                      key: ValueKey('report-category-${category ?? 'all'}'),
+                      initialValue: category,
+                      decoration: LGForm.dropdownDecoration(
+                        context,
                         labelText: I18n.tr(context, 'tx.categories'),
                       ),
                       items: [
@@ -598,11 +605,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       ],
                       onChanged: (value) => setLocal(() => category = value),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: LGSpacing.md),
                     DropdownButtonFormField<int?>(
-                      value: projectId,
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
+                      key: ValueKey('report-project-${projectId ?? 'all'}'),
+                      initialValue: projectId,
+                      decoration: LGForm.dropdownDecoration(
+                        context,
                         labelText: I18n.tr(context, 'tx.projects'),
                       ),
                       items: [
@@ -619,7 +627,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       ],
                       onChanged: (value) => setLocal(() => projectId = value),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: LGSpacing.lg),
                     Row(
                       children: [
                         Text(
@@ -629,7 +637,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           ),
                         ),
                         const Spacer(),
-                        TextButton(
+                        LGButton(
+                          label: I18n.tr(context, 'tx.allAccounts'),
+                          size: LGButtonSize.sm,
+                          variant: LGButtonVariant.outline,
                           onPressed:
                               () => setLocal(
                                 () =>
@@ -639,11 +650,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                         _accounts.map((account) => account.id),
                                       ),
                               ),
-                          child: Text(I18n.tr(context, 'tx.allAccounts')),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: LGSpacing.sm),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -653,6 +663,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                             return FilterChip(
                               selected: selected,
                               label: Text(account.name),
+                              selectedColor: LGColors.intentContainer(
+                                context,
+                                LGIntent.primary,
+                              ),
+                              checkmarkColor: LGColors.primaryBlue,
                               onSelected:
                                   (value) => setLocal(() {
                                     if (value) {
@@ -664,7 +679,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                             );
                           }).toList(),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: LGSpacing.lg),
                     Row(
                       children: [
                         Expanded(
@@ -673,39 +688,36 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                             controller: TextEditingController(
                               text: start == null ? '' : formatDate(start!),
                             ),
-                            decoration: InputDecoration(
+                            decoration: LGForm.dateFieldDecoration(
+                              context,
                               labelText: I18n.tr(context, 'tx.startDate'),
-                              border: const OutlineInputBorder(),
-                              suffixIcon: IconButton(
-                                icon: const Icon(Icons.calendar_today_outlined),
-                                onPressed: pickStart,
-                              ),
+                              onCalendarTap: pickStart,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: LGSpacing.md),
                         Expanded(
                           child: TextField(
                             readOnly: true,
                             controller: TextEditingController(
                               text: end == null ? '' : formatDate(end!),
                             ),
-                            decoration: InputDecoration(
+                            decoration: LGForm.dateFieldDecoration(
+                              context,
                               labelText: I18n.tr(context, 'tx.endDate'),
-                              border: const OutlineInputBorder(),
-                              suffixIcon: IconButton(
-                                icon: const Icon(Icons.calendar_today_outlined),
-                                onPressed: pickEnd,
-                              ),
+                              onCalendarTap: pickEnd,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: LGSpacing.lg),
                     Row(
                       children: [
-                        TextButton(
+                        LGButton(
+                          label: I18n.tr(context, 'label.clear'),
+                          size: LGButtonSize.sm,
+                          variant: LGButtonVariant.outline,
                           onPressed: () {
                             setLocal(() {
                               type = null;
@@ -720,10 +732,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                 );
                             });
                           },
-                          child: Text(I18n.tr(context, 'label.clear')),
                         ),
                         const Spacer(),
-                        FilledButton(
+                        LGButton(
+                          label: I18n.tr(context, 'tx.generateReport'),
+                          size: LGButtonSize.sm,
                           onPressed: () {
                             if (accountIds.isEmpty) {
                               ScaffoldMessenger.of(ctx).showSnackBar(
@@ -747,7 +760,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                               ),
                             );
                           },
-                          child: Text(I18n.tr(context, 'tx.generateReport')),
                         ),
                       ],
                     ),
@@ -779,8 +791,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     if (start != null && end != null) {
       return '${dateFmt.format(start)} - ${dateFmt.format(end)}';
     }
-    if (start != null)
+    if (start != null) {
       return '${I18n.tr(context, 'tx.startDate')}: ${dateFmt.format(start)}';
+    }
     return '${I18n.tr(context, 'tx.endDate')}: ${dateFmt.format(end!)}';
   }
 
@@ -1150,70 +1163,160 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     }
   }
 
+  List<_FilterBadgeData> _activeFilterBadges() {
+    final badges = <_FilterBadgeData>[];
+    final type = _type;
+    if (type != null) {
+      badges.add(
+        _FilterBadgeData(
+          label:
+              type == 'Income'
+                  ? I18n.t(context, 'tx.income')
+                  : type == 'Expense'
+                  ? I18n.t(context, 'tx.expense')
+                  : type,
+          icon: Icons.swap_vert_rounded,
+          variant:
+              type == 'Income'
+                  ? LGStatusBadgeVariant.success
+                  : type == 'Expense'
+                  ? LGStatusBadgeVariant.danger
+                  : LGStatusBadgeVariant.info,
+        ),
+      );
+    }
+    final category = _category;
+    if (category != null && category.isNotEmpty) {
+      badges.add(
+        _FilterBadgeData(
+          label: category,
+          icon: Icons.sell_outlined,
+          variant: LGStatusBadgeVariant.info,
+        ),
+      );
+    }
+    final accountId = _accountId;
+    if (accountId != null) {
+      final account = _accounts.where((item) => item.id == accountId);
+      badges.add(
+        _FilterBadgeData(
+          label:
+              account.isEmpty
+                  ? '${I18n.t(context, 'tx.account')} $accountId'
+                  : account.first.name,
+          icon: Icons.account_balance_wallet_outlined,
+          variant: LGStatusBadgeVariant.neutral,
+        ),
+      );
+    }
+    final projectId = _projectId;
+    if (projectId != null) {
+      final project = _projects.where((item) => item.id == projectId);
+      badges.add(
+        _FilterBadgeData(
+          label:
+              project.isEmpty
+                  ? '${I18n.t(context, 'tx.projects')} $projectId'
+                  : project.first.name,
+          icon: Icons.folder_outlined,
+          variant: LGStatusBadgeVariant.warning,
+        ),
+      );
+    }
+    if (_start != null) {
+      badges.add(
+        _FilterBadgeData(
+          label: '${I18n.t(context, 'tx.startDate')}: ${formatDate(_start!)}',
+          icon: Icons.calendar_today_outlined,
+          variant: LGStatusBadgeVariant.neutral,
+        ),
+      );
+    }
+    if (_end != null) {
+      badges.add(
+        _FilterBadgeData(
+          label: '${I18n.t(context, 'tx.endDate')}: ${formatDate(_end!)}',
+          icon: Icons.event_available_outlined,
+          variant: LGStatusBadgeVariant.neutral,
+        ),
+      );
+    }
+    return badges;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final visibleItems = _filtered.take(_visible).toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Transactions')),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body:
           _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? SafeArea(
+                child: Center(
+                  child: LGLoadingState(
+                    label: I18n.t(context, 'nav.transactions'),
+                  ),
+                ),
+              )
               : RefreshIndicator(
                 onRefresh: _load,
                 child: ListView(
                   controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(
+                    LGSpacing.lg,
+                    LGSpacing.lg,
+                    LGSpacing.lg,
+                    128,
+                  ),
                   children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: _openFiltersSheet,
-                          icon: const Icon(Icons.filter_alt_outlined),
-                          label: Text(I18n.t(context, 'tx.filters')),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: _reportBusy ? null : _downloadReport,
-                          icon: const Icon(Icons.picture_as_pdf_outlined),
-                          label: Text(I18n.t(context, 'tx.reports')),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            _type = null;
-                            _category = null;
-                            _accountId = null;
-                            _projectId = null;
-                            _start = null;
-                            _end = null;
-                            _applyFilters(resetVisible: true);
-                          },
-                          child: Text(I18n.t(context, 'tx.clearFilters')),
-                        ),
-                      ],
+                    LGPageHeader(
+                      title: I18n.t(context, 'nav.transactions'),
+                      leading: const _TransactionsHeaderIcon(),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: LGSpacing.md),
+                    _TransactionsControlCard(
+                      totalCount: _all.length,
+                      filteredCount: _filtered.length,
+                      visibleCount: visibleItems.length,
+                      badges: _activeFilterBadges(),
+                      onFilters: _openFiltersSheet,
+                      onReport: _reportBusy ? null : _downloadReport,
+                      reportBusy: _reportBusy,
+                      onClear: () {
+                        _type = null;
+                        _category = null;
+                        _accountId = null;
+                        _projectId = null;
+                        _start = null;
+                        _end = null;
+                        _applyFilters(resetVisible: true);
+                      },
+                    ),
+                    const SizedBox(height: LGSpacing.lg),
                     if (_filtered.isEmpty)
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Text(I18n.t(context, 'tx.none')),
-                        ),
+                      LGEmptyState(
+                        icon: Icons.receipt_long_outlined,
+                        title: I18n.t(context, 'tx.none'),
+                        message: I18n.t(context, 'tx.clearFilters'),
                       )
                     else ...[
-                      for (final t in _filtered.take(_visible))
+                      for (final t in visibleItems) ...[
                         _TxCard(
                           item: t,
                           fmt: NumberFormat.currency(symbol: '\$'),
                           onEdit: () => _editTransaction(t),
                           onDelete: () => _deleteTransaction(t),
                         ),
+                        const SizedBox(height: LGSpacing.sm),
+                      ],
                       if (_visible < _filtered.length)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Center(
-                            child: Text(
-                              'Showing $_visible of ${_filtered.length}',
+                            child: LGStatusBadge(
+                              label: 'Showing $_visible of ${_filtered.length}',
+                              variant: LGStatusBadgeVariant.neutral,
                             ),
                           ),
                         ),
@@ -1250,6 +1353,205 @@ class _ReportConfig {
   final int? projectId;
 }
 
+class _FilterBadgeData {
+  const _FilterBadgeData({
+    required this.label,
+    required this.icon,
+    required this.variant,
+  });
+
+  final String label;
+  final IconData icon;
+  final LGStatusBadgeVariant variant;
+}
+
+class _TransactionsHeaderIcon extends StatelessWidget {
+  const _TransactionsHeaderIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 56,
+      height: 56,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: LGColors.intentContainer(context, LGIntent.primary),
+        borderRadius: BorderRadius.circular(LGRadius.xl),
+        border: Border.all(
+          color: LGColors.intentStroke(context, LGIntent.primary),
+        ),
+      ),
+      child: const Icon(
+        Icons.swap_horiz_rounded,
+        color: LGColors.primaryBlue,
+        size: 28,
+      ),
+    );
+  }
+}
+
+class _TransactionsControlCard extends StatelessWidget {
+  const _TransactionsControlCard({
+    required this.totalCount,
+    required this.filteredCount,
+    required this.visibleCount,
+    required this.badges,
+    required this.onFilters,
+    required this.onReport,
+    required this.onClear,
+    required this.reportBusy,
+  });
+
+  final int totalCount;
+  final int filteredCount;
+  final int visibleCount;
+  final List<_FilterBadgeData> badges;
+  final VoidCallback onFilters;
+  final VoidCallback? onReport;
+  final VoidCallback onClear;
+  final bool reportBusy;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return LGGlassCard(
+      variant: LGCardVariant.elevated,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      I18n.t(context, 'label.transactions'),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: LGColors.textPrimary(context),
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: LGSpacing.xs),
+                    Text(
+                      '$visibleCount / $filteredCount',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: LGColors.textSecondary(context),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              LGStatusBadge(
+                label: '$totalCount',
+                variant: LGStatusBadgeVariant.info,
+                icon: Icons.receipt_long_outlined,
+              ),
+            ],
+          ),
+          const SizedBox(height: LGSpacing.md),
+          if (badges.isEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: LGStatusBadge(
+                label: I18n.t(context, 'tx.allTypes'),
+                variant: LGStatusBadgeVariant.neutral,
+                icon: Icons.filter_alt_off_outlined,
+              ),
+            )
+          else
+            Wrap(
+              spacing: LGSpacing.sm,
+              runSpacing: LGSpacing.sm,
+              children: [
+                for (final badge in badges)
+                  LGStatusBadge(
+                    label: badge.label,
+                    variant: badge.variant,
+                    icon: badge.icon,
+                  ),
+              ],
+            ),
+          const SizedBox(height: LGSpacing.lg),
+          Wrap(
+            spacing: LGSpacing.sm,
+            runSpacing: LGSpacing.sm,
+            children: [
+              LGButton(
+                label: I18n.t(context, 'tx.filters'),
+                icon: Icons.filter_alt_outlined,
+                size: LGButtonSize.sm,
+                variant: LGButtonVariant.outline,
+                onPressed: onFilters,
+              ),
+              LGButton(
+                label: I18n.t(context, 'tx.reports'),
+                icon: Icons.picture_as_pdf_outlined,
+                size: LGButtonSize.sm,
+                variant: LGButtonVariant.outline,
+                loading: reportBusy,
+                onPressed: onReport,
+              ),
+              LGButton(
+                label: I18n.t(context, 'tx.clearFilters'),
+                size: LGButtonSize.sm,
+                variant: LGButtonVariant.ghost,
+                onPressed: onClear,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TxSoftDangerButton extends StatelessWidget {
+  const _TxSoftDangerButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(LGRadius.pill),
+          onTap: onPressed,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 38),
+            padding: const EdgeInsets.symmetric(
+              horizontal: LGSpacing.md,
+              vertical: LGSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: LGColors.intentContainer(context, LGIntent.danger),
+              borderRadius: BorderRadius.circular(LGRadius.pill),
+              border: Border.all(
+                color: LGColors.intentStroke(context, LGIntent.danger),
+              ),
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: LGColors.danger,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TxCard extends StatelessWidget {
   const _TxCard({
     required this.item,
@@ -1264,12 +1566,30 @@ class _TxCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final isTransfer = item.isTransfer;
     final isIncome = !isTransfer && item.amount >= 0;
     final amountStr = (isIncome ? '+' : '-') + fmt.format(item.amount.abs());
     final color =
-        isTransfer ? Colors.blue : (isIncome ? Colors.green : Colors.red);
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+        isTransfer
+            ? LGColors.info
+            : (isIncome ? LGColors.success : LGColors.danger);
+    final intent =
+        isTransfer
+            ? LGIntent.info
+            : (isIncome ? LGIntent.success : LGIntent.danger);
+    final typeLabel =
+        isTransfer
+            ? I18n.t(context, 'tx.transfer')
+            : (isIncome
+                ? I18n.t(context, 'tx.income')
+                : I18n.t(context, 'tx.expense'));
+    final typeVariant =
+        isTransfer
+            ? LGStatusBadgeVariant.info
+            : (isIncome
+                ? LGStatusBadgeVariant.success
+                : LGStatusBadgeVariant.danger);
     final iconKey =
         (item.subcategoryIcon?.trim().isNotEmpty ?? false)
             ? item.subcategoryIcon!.trim()
@@ -1284,112 +1604,172 @@ class _TxCard extends StatelessWidget {
                 : isIncome
                 ? Icons.trending_up_outlined
                 : Icons.receipt_long_outlined);
-    final iconFg =
-        isDark
-            ? Theme.of(context).colorScheme.onSurface
-            : Theme.of(context).colorScheme.primary;
-    final iconBg =
-        isDark
-            ? Colors.black.withValues(alpha: 0.22)
-            : Colors.white.withValues(alpha: 0.82);
-    final Color bg =
-        isDark
-            ? (isTransfer
-                ? const Color(0xFF1D2A44)
-                : (isIncome
-                    ? const Color(0xFF103521)
-                    : const Color(0xFF3A1C1C)))
-            : (isTransfer
-                ? Colors.blue.shade50
-                : (isIncome ? Colors.green.shade50 : Colors.red.shade50));
-    return Card(
-      color: bg,
-      elevation: 6,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: iconBg,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(iconData, size: 20, color: iconFg),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.description.isEmpty
-                            ? '(No description)'
-                            : item.description,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      Builder(
-                        builder: (context) {
-                          final parts = <String>[];
-                          if ((item.accountName ?? '').isNotEmpty)
-                            parts.add(item.accountName!);
-                          parts.add(formatDate(item.date));
-                          if ((item.effectiveCategory ?? '').isNotEmpty)
-                            parts.add(item.effectiveCategory!);
-                          if ((item.projectName ?? '').isNotEmpty)
-                            parts.add(item.projectName!);
-                          return Text(
-                            parts.join(' - '),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          );
-                        },
-                      ),
-                    ],
+    final metadata = <String>[];
+    if ((item.accountName ?? '').isNotEmpty) metadata.add(item.accountName!);
+    metadata.add(formatDate(item.date));
+    if ((item.projectName ?? '').isNotEmpty) metadata.add(item.projectName!);
+    final category = item.effectiveCategory;
+
+    return LGSolidCard(
+      variant: LGCardVariant.elevated,
+      tinted: true,
+      padding: const EdgeInsets.symmetric(
+        horizontal: LGSpacing.md,
+        vertical: 14,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: LGColors.intentContainer(context, intent),
+                  borderRadius: BorderRadius.circular(LGRadius.md),
+                  border: Border.all(
+                    color: LGColors.intentStroke(context, intent),
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                child: Icon(iconData, size: 20, color: color),
+              ),
+              const SizedBox(width: LGSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      amountStr,
-                      style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.w700,
+                      item.description.isEmpty
+                          ? '(No description)'
+                          : item.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: LGColors.textPrimary(context),
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: 'Edit',
-                          icon: Icon(Icons.edit_outlined, size: 20),
-                          onPressed: onEdit,
-                        ),
-                        IconButton(
-                          tooltip: 'Delete',
-                          icon: Icon(
-                            Icons.delete_outline,
-                            color: Colors.redAccent,
-                            size: 20,
-                          ),
-                          onPressed: onDelete,
-                        ),
-                      ],
+                    const SizedBox(height: LGSpacing.xs),
+                    Text(
+                      metadata.join(' - '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: LGColors.textSecondary(context),
+                        height: 1.2,
+                      ),
                     ),
                   ],
                 ),
-              ],
+              ),
+              const SizedBox(width: LGSpacing.sm),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  amountStr,
+                  maxLines: 1,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: LGSpacing.sm),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: LGSpacing.xs,
+                  runSpacing: LGSpacing.xs,
+                  children: [
+                    LGStatusBadge(
+                      label: typeLabel,
+                      variant: typeVariant,
+                      icon:
+                          isTransfer
+                              ? Icons.swap_horiz_rounded
+                              : isIncome
+                              ? Icons.trending_up_outlined
+                              : Icons.trending_down_outlined,
+                    ),
+                    if ((category ?? '').isNotEmpty)
+                      LGStatusBadge(
+                        label: category!,
+                        variant: LGStatusBadgeVariant.neutral,
+                        icon: Icons.sell_outlined,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: LGSpacing.sm),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _TxIconAction(
+                    tooltip: 'Edit',
+                    icon: Icons.edit_outlined,
+                    intent: LGIntent.primary,
+                    onPressed: onEdit,
+                  ),
+                  const SizedBox(width: LGSpacing.xs),
+                  _TxIconAction(
+                    tooltip: 'Delete',
+                    icon: Icons.delete_outline,
+                    intent: LGIntent.danger,
+                    onPressed: onDelete,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TxIconAction extends StatelessWidget {
+  const _TxIconAction({
+    required this.tooltip,
+    required this.icon,
+    required this.intent,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final LGIntent intent;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = LGColors.intentColor(intent);
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(LGRadius.pill),
+          onTap: onPressed,
+          child: Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: LGColors.intentContainer(context, intent),
+              borderRadius: BorderRadius.circular(LGRadius.pill),
+              border: Border.all(color: LGColors.intentStroke(context, intent)),
             ),
-          ],
+            child: Icon(icon, size: 18, color: color),
+          ),
         ),
       ),
     );

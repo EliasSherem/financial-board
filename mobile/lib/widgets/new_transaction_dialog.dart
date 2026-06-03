@@ -7,6 +7,7 @@ import '../utils/format.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
 import '../i18n.dart';
+import '../liquid_glass/liquid_glass.dart';
 import '../screens/manage_categories_screen.dart';
 import 'category_picker.dart';
 
@@ -25,11 +26,8 @@ Future<bool?> showNewTransactionDialog(
     context: context,
     barrierDismissible: !enforce,
     builder:
-        (_) => _TransactionForm(
-          data: svc,
-          initial: initial,
-          forceCreate: enforce,
-        ),
+        (_) =>
+            _TransactionForm(data: svc, initial: initial, forceCreate: enforce),
   );
 }
 
@@ -217,6 +215,12 @@ class _TransactionFormState extends State<_TransactionForm> {
         .clamp(200.0, 360.0);
 
     final dialog = AlertDialog(
+      backgroundColor: LGColors.glassStrong(context),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(LGRadius.xl),
+        side: BorderSide(color: LGColors.glassStroke(context)),
+      ),
       title: Text(
         isEdit
             ? I18n.t(context, 'tx.editTitle')
@@ -436,88 +440,113 @@ class _TransactionFormState extends State<_TransactionForm> {
                   ],
                 ),
               ),
+      actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
       actions: [
-        if (!widget.forceCreate)
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(I18n.tr(context, 'label.cancel')),
-          ),
-        FilledButton(
-          onPressed:
-              saving
-                  ? null
-                  : () async {
-                    final amount = double.tryParse(amtCtrl.text) ?? 0;
-                    if (accountId == null || descCtrl.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            I18n.tr(context, 'tx.validationDescAccount'),
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-                    setState(() => saving = true);
-                    try {
-                      final manualCategory =
-                          categories.isEmpty
-                              ? (categoryCtrl.text.trim().isEmpty
-                                  ? null
-                                  : categoryCtrl.text.trim())
-                              : null;
-                      final selectedCatId =
-                          categories.isEmpty ? null : selectedCategory?.id;
-                      final selectedSubId =
-                          categories.isEmpty ? null : selectedSubcategory?.id;
-                      if (isEdit) {
-                        await widget.data.updateTransaction(
-                          id: widget.initial!.id,
-                          accountId: accountId!,
-                          date: date,
-                          description: descCtrl.text.trim(),
-                          amount: amount,
-                          type: type,
-                          category: manualCategory,
-                          categoryId: selectedCatId,
-                          subcategoryId: selectedSubId,
-                          projectId: projectId,
-                        );
-                      } else {
-                        await widget.data.createTransaction(
-                          accountId: accountId!,
-                          date: date,
-                          description: descCtrl.text.trim(),
-                          amount: amount,
-                          type: type,
-                          category: manualCategory,
-                          categoryId: selectedCatId,
-                          subcategoryId: selectedSubId,
-                          projectId: projectId,
-                        );
-                      }
-                      if (context.mounted) {
-                        context.read<RefreshBus>().notifyTransactions();
-                      }
-                      if (mounted) Navigator.pop(context, true);
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              I18n.tr(context, 'label.failed') + ': $e',
-                            ),
-                          ),
-                        );
-                      }
-                    } finally {
-                      if (mounted) setState(() => saving = false);
-                    }
-                  },
-          child: Text(
-            isEdit
-                ? I18n.t(context, 'tx.saveChanges')
-                : I18n.t(context, 'tx.create'),
+        SizedBox(
+          width: double.infinity,
+          child: Row(
+            children: [
+              if (!widget.forceCreate) ...[
+                Expanded(
+                  child: LGButton(
+                    label: I18n.tr(context, 'label.cancel'),
+                    variant: LGButtonVariant.glass,
+                    fullWidth: true,
+                    onPressed: () => Navigator.pop(context, false),
+                  ),
+                ),
+                const SizedBox(width: LGSpacing.md),
+              ],
+              Expanded(
+                child: LGButton(
+                  label:
+                      isEdit
+                          ? I18n.t(context, 'tx.saveChanges')
+                          : I18n.t(context, 'tx.create'),
+                  loading: saving,
+                  fullWidth: true,
+                  onPressed:
+                      saving
+                          ? null
+                          : () async {
+                            final amount = double.tryParse(amtCtrl.text) ?? 0;
+                            if (accountId == null ||
+                                descCtrl.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    I18n.tr(
+                                      context,
+                                      'tx.validationDescAccount',
+                                    ),
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
+                            setState(() => saving = true);
+                            try {
+                              final manualCategory =
+                                  categories.isEmpty
+                                      ? (categoryCtrl.text.trim().isEmpty
+                                          ? null
+                                          : categoryCtrl.text.trim())
+                                      : null;
+                              final selectedCatId =
+                                  categories.isEmpty
+                                      ? null
+                                      : selectedCategory?.id;
+                              final selectedSubId =
+                                  categories.isEmpty
+                                      ? null
+                                      : selectedSubcategory?.id;
+                              if (isEdit) {
+                                await widget.data.updateTransaction(
+                                  id: widget.initial!.id,
+                                  accountId: accountId!,
+                                  date: date,
+                                  description: descCtrl.text.trim(),
+                                  amount: amount,
+                                  type: type,
+                                  category: manualCategory,
+                                  categoryId: selectedCatId,
+                                  subcategoryId: selectedSubId,
+                                  projectId: projectId,
+                                );
+                              } else {
+                                await widget.data.createTransaction(
+                                  accountId: accountId!,
+                                  date: date,
+                                  description: descCtrl.text.trim(),
+                                  amount: amount,
+                                  type: type,
+                                  category: manualCategory,
+                                  categoryId: selectedCatId,
+                                  subcategoryId: selectedSubId,
+                                  projectId: projectId,
+                                );
+                              }
+                              if (context.mounted) {
+                                context.read<RefreshBus>().notifyTransactions();
+                              }
+                              if (mounted) Navigator.pop(context, true);
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      I18n.tr(context, 'label.failed') + ': $e',
+                                    ),
+                                  ),
+                                );
+                              }
+                            } finally {
+                              if (mounted) setState(() => saving = false);
+                            }
+                          },
+                ),
+              ),
+            ],
           ),
         ),
       ],
