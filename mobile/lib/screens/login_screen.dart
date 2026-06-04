@@ -10,6 +10,7 @@ import '../services/biometric_service.dart';
 import '../state/auth_store.dart';
 import 'signup_screen.dart';
 import '../i18n.dart';
+import '../liquid_glass/liquid_glass.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -141,38 +142,30 @@ class _LoginScreenState extends State<LoginScreen> {
     final canUseBiometric = _biometricChecked && _biometricAvailable;
     final showBiometric =
         !kIsWeb && auth.biometricEnabled && auth.hasToken && canUseBiometric;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = Theme.of(
-      context,
-    ).textTheme.bodySmall?.color?.withOpacity(0.65);
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration:
-            isDark
-                ? null
-                : const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFF2F6FF), Color(0xFFEAF2FF)],
-                  ),
-                ),
-        child: Center(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: LGBackground(
+        child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            padding: const EdgeInsets.symmetric(
+              horizontal: LGSpacing.lg,
+              vertical: LGSpacing.xl,
+            ),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Card(
-                elevation: 12,
-                color: isDark ? Theme.of(context).colorScheme.surface : null,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Padding(
+              constraints: BoxConstraints(
+                maxWidth: 460,
+                minHeight:
+                    MediaQuery.sizeOf(context).height -
+                    MediaQuery.paddingOf(context).vertical -
+                    (LGSpacing.xl * 2),
+              ),
+              child: Center(
+                child: LGGlassCard(
+                  variant: LGCardVariant.hero,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 28,
+                    horizontal: LGSpacing.xl,
+                    vertical: LGSpacing.xxl,
                   ),
                   child: Form(
                     key: _formKey,
@@ -180,50 +173,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Logo
-                        Align(
-                          alignment: Alignment.center,
-                          child: CircleAvatar(
-                            radius: 28,
-                            backgroundColor: const Color(0xFF2563EB),
-                            child: Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: SvgPicture.asset(
-                                'assets/finsight-icon.svg',
-                                width: 28,
-                                height: 28,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        // Title & subtitle
+                        const _AuthLogo(),
+                        const SizedBox(height: LGSpacing.lg),
                         Text(
                           'FinSight',
                           textAlign: TextAlign.center,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: Theme.of(context).colorScheme.onSurface,
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            color: LGColors.textPrimary(context),
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0,
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: LGSpacing.xs),
                         Text(
                           I18n.t(context, 'auth.signInSubtitle'),
                           textAlign: TextAlign.center,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodyMedium?.copyWith(color: muted),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: LGColors.textSecondary(context),
+                            height: 1.35,
+                          ),
                         ),
-                        const SizedBox(height: 22),
-                        // Username
-                        Text(
-                          I18n.t(context, 'auth.username'),
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: LGSpacing.xl),
                         TextFormField(
                           controller: _usernameCtrl,
                           validator:
@@ -231,31 +201,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                   (v == null || v.isEmpty)
                                       ? I18n.t(context, 'validation.required')
                                       : null,
-                          decoration: InputDecoration(
+                          decoration: LGForm.solidInputDecoration(
+                            context,
+                            labelText: I18n.t(context, 'auth.username'),
                             hintText: I18n.t(context, 'auth.enterUsername'),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Theme.of(context).dividerColor,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 14,
-                            ),
+                            prefixIcon: const Icon(Icons.person_outline),
                           ),
                         ),
-                        const SizedBox(height: 14),
-                        // Password
-                        Text(
-                          I18n.t(context, 'auth.password'),
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: LGSpacing.md),
                         TextFormField(
                           controller: _passwordCtrl,
                           obscureText: true,
@@ -264,138 +217,77 @@ class _LoginScreenState extends State<LoginScreen> {
                                   (v == null || v.isEmpty)
                                       ? I18n.t(context, 'validation.required')
                                       : null,
-                          decoration: InputDecoration(
+                          decoration: LGForm.solidInputDecoration(
+                            context,
+                            labelText: I18n.t(context, 'auth.password'),
                             hintText: I18n.t(context, 'auth.enterPassword'),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Theme.of(context).dividerColor,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 14,
-                            ),
+                            prefixIcon: const Icon(Icons.lock_outline),
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        // Sign In button
-                        SizedBox(
-                          height: 48,
-                          child: FilledButton.icon(
-                            onPressed: _submitting ? null : _submit,
-                            icon: const Icon(Icons.login_rounded),
-                            label: Text(I18n.t(context, 'auth.signIn')),
-                          ),
+                        const SizedBox(height: LGSpacing.lg),
+                        LGButton(
+                          label: I18n.t(context, 'auth.signIn'),
+                          icon: Icons.login_rounded,
+                          size: LGButtonSize.lg,
+                          fullWidth: true,
+                          loading: _submitting,
+                          onPressed: _submitting ? null : _submit,
                         ),
-                        const SizedBox(height: 18),
-                        // Divider with OR
+                        if (showBiometric) ...[
+                          const SizedBox(height: LGSpacing.md),
+                          LGButton(
+                            label: I18n.t(context, 'auth.signInBiometric'),
+                            icon: Icons.fingerprint,
+                            size: LGButtonSize.lg,
+                            variant: LGButtonVariant.glass,
+                            fullWidth: true,
+                            onPressed:
+                                _submitting ? null : _loginWithBiometrics,
+                          ),
+                        ],
+                        const SizedBox(height: LGSpacing.lg),
                         Row(
                           children: [
                             const Expanded(child: Divider()),
                             Padding(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
+                                horizontal: LGSpacing.sm,
                               ),
                               child: Text(
                                 I18n.t(context, 'auth.or'),
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.bodySmall?.copyWith(color: muted),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: LGColors.textSecondary(context),
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                             const Expanded(child: Divider()),
                           ],
                         ),
-                        if (showBiometric) ...[
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 48,
-                            child: OutlinedButton.icon(
-                              onPressed:
-                                  _submitting ? null : _loginWithBiometrics,
-                              icon: const Icon(Icons.fingerprint),
-                              label: Text(
-                                I18n.t(context, 'auth.signInBiometric'),
-                              ),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 18),
-                        // Signup link
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              I18n.t(context, 'auth.signupCta'),
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodyMedium?.copyWith(color: muted),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Center(
-                          child: TextButton.icon(
-                            onPressed:
-                                () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const SignupScreen(),
-                                  ),
-                                ),
-                            icon: const Icon(Icons.person_add_alt_1_rounded),
-                            label: Text(I18n.t(context, 'auth.signupFree')),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        // Legal with links
-                        RichText(
+                        const SizedBox(height: LGSpacing.md),
+                        Text(
+                          I18n.t(context, 'auth.signupCta'),
                           textAlign: TextAlign.center,
-                          text: TextSpan(
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: const Color(0xFF4F5D75)),
-                            children: [
-                              TextSpan(
-                                text: I18n.t(context, 'legal.loginPrefix'),
-                              ),
-                              TextSpan(
-                                text: I18n.t(context, 'menu.terms'),
-                                style: const TextStyle(
-                                  color: Color(0xFF2563EB),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                recognizer:
-                                    TapGestureRecognizer()
-                                      ..onTap =
-                                          () => openLink(
-                                            context,
-                                            'https://finsight.com.mx/terms',
-                                          ),
-                              ),
-                              TextSpan(
-                                text: ' ${I18n.t(context, 'legal.and')} ',
-                              ),
-                              TextSpan(
-                                text: I18n.t(context, 'menu.privacy'),
-                                style: const TextStyle(
-                                  color: Color(0xFF2563EB),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                recognizer:
-                                    TapGestureRecognizer()
-                                      ..onTap =
-                                          () => openLink(
-                                            context,
-                                            'https://finsight.com.mx/privacy',
-                                          ),
-                              ),
-                              const TextSpan(text: '.'),
-                            ],
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: LGColors.textSecondary(context),
                           ),
                         ),
+                        const SizedBox(height: LGSpacing.sm),
+                        LGButton(
+                          label: I18n.t(context, 'auth.signupFree'),
+                          icon: Icons.person_add_alt_1_rounded,
+                          size: LGButtonSize.md,
+                          variant: LGButtonVariant.outline,
+                          fullWidth: true,
+                          onPressed:
+                              () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const SignupScreen(),
+                                ),
+                              ),
+                        ),
+                        const SizedBox(height: LGSpacing.lg),
+                        _AuthLegalText(prefixKey: 'legal.loginPrefix'),
                       ],
                     ),
                   ),
@@ -409,14 +301,87 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
+class _AuthLogo extends StatelessWidget {
+  const _AuthLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.center,
+      child: Container(
+        width: 62,
+        height: 62,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: LGColors.primaryBlue,
+          borderRadius: BorderRadius.circular(LGRadius.xl),
+          boxShadow: LGShadows.floating(context),
+        ),
+        child: SvgPicture.asset(
+          'assets/finsight-icon.svg',
+          width: 34,
+          height: 34,
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthLegalText extends StatelessWidget {
+  const _AuthLegalText({required this.prefixKey});
+
+  final String prefixKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return RichText(
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: LGColors.textSecondary(context),
+          height: 1.35,
+        ),
+        children: [
+          TextSpan(text: I18n.t(context, prefixKey)),
+          TextSpan(
+            text: I18n.t(context, 'menu.terms'),
+            style: const TextStyle(
+              color: LGColors.primaryBlue,
+              fontWeight: FontWeight.w800,
+            ),
+            recognizer:
+                TapGestureRecognizer()
+                  ..onTap =
+                      () => openLink(context, 'https://finsight.com.mx/terms'),
+          ),
+          TextSpan(text: ' ${I18n.t(context, 'legal.and')} '),
+          TextSpan(
+            text: I18n.t(context, 'menu.privacy'),
+            style: const TextStyle(
+              color: LGColors.primaryBlue,
+              fontWeight: FontWeight.w800,
+            ),
+            recognizer:
+                TapGestureRecognizer()
+                  ..onTap =
+                      () =>
+                          openLink(context, 'https://finsight.com.mx/privacy'),
+          ),
+          const TextSpan(text: '.'),
+        ],
+      ),
+    );
+  }
+}
+
 class SigningInScreen extends StatelessWidget {
   const SigningInScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return WillPopScope(
-      onWillPop: () async => false,
+    return PopScope(
+      canPop: false,
       child: Scaffold(
         backgroundColor: theme.colorScheme.surface,
         body: Center(

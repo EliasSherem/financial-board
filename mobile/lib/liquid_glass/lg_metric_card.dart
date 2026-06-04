@@ -5,6 +5,77 @@ import 'lg_tokens.dart';
 
 enum LGMetricCardStyle { solid, glass }
 
+class LGMetricGrid extends StatelessWidget {
+  const LGMetricGrid({
+    super.key,
+    required this.children,
+    this.gap = LGSpacing.md,
+    this.runGap,
+    this.twoColumnBreakpoint = 340,
+    this.threeColumnBreakpoint = 900,
+    this.maxColumns = 2,
+    this.expandLastOdd = true,
+    this.minChildHeight,
+  });
+
+  final List<Widget> children;
+  final double gap;
+  final double? runGap;
+  final double twoColumnBreakpoint;
+  final double threeColumnBreakpoint;
+  final int maxColumns;
+  final bool expandLastOdd;
+  final double? minChildHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fallbackWidth = MediaQuery.sizeOf(context).width;
+        final rawWidth =
+            constraints.hasBoundedWidth ? constraints.maxWidth : fallbackWidth;
+        final width = rawWidth > 0 ? rawWidth : fallbackWidth;
+        final columns =
+            maxColumns >= 3 && width >= threeColumnBreakpoint
+                ? 3
+                : maxColumns >= 2 && width >= twoColumnBreakpoint
+                ? 2
+                : 1;
+        final itemWidth =
+            columns == 1 ? width : (width - ((columns - 1) * gap)) / columns;
+
+        return Wrap(
+          spacing: gap,
+          runSpacing: runGap ?? gap,
+          children: [
+            for (var i = 0; i < children.length; i++)
+              SizedBox(
+                width:
+                    expandLastOdd &&
+                            columns == 2 &&
+                            children.length.isOdd &&
+                            i == children.length - 1
+                        ? width
+                        : itemWidth,
+                child:
+                    minChildHeight == null
+                        ? children[i]
+                        : ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: minChildHeight!,
+                          ),
+                          child: children[i],
+                        ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class LGMetricCard extends StatelessWidget {
   const LGMetricCard({
     super.key,

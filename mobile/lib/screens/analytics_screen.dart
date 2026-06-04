@@ -601,28 +601,11 @@ class _SummaryGrid extends StatelessWidget {
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const spacing = 12.0;
-        final double maxWidth = constraints.maxWidth;
-        final cols = maxWidth < 360 ? 1 : 2;
-        final double itemWidth = (maxWidth - ((cols - 1) * spacing)) / cols;
-        final children = <Widget>[];
-        for (var i = 0; i < cards.length; i++) {
-          final isLastOdd =
-              cols == 2 && cards.length.isOdd && i == cards.length - 1;
-          children.add(
-            SizedBox(
-              width: isLastOdd ? maxWidth : itemWidth,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 132),
-                child: cards[i],
-              ),
-            ),
-          );
-        }
-        return Wrap(spacing: spacing, runSpacing: spacing, children: children);
-      },
+    return LGMetricGrid(
+      gap: 12,
+      minChildHeight: 132,
+      twoColumnBreakpoint: 300,
+      children: cards,
     );
   }
 }

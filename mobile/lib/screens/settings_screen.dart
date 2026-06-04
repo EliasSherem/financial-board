@@ -6,6 +6,7 @@ import '../services/data_service.dart';
 import '../services/purchase_service.dart';
 import 'update_profile_screen.dart';
 import '../lang_store.dart';
+import '../theme_mode_store.dart';
 import '../state/auth_store.dart';
 import '../models.dart';
 import '../services/biometric_service.dart';
@@ -204,8 +205,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final api = ApiClient()..setToken(auth.token);
     final data = DataService(api);
     final langStore = context.watch<LangStore>();
+    final themeModeStore = context.watch<ThemeModeStore>();
     final isEs = langStore.lang == 'es';
     String L(String en, String es) => isEs ? es : en;
+    String themeModeLabel(ThemeMode mode) {
+      return switch (mode) {
+        ThemeMode.light => L('Light', 'Claro'),
+        ThemeMode.dark => L('Dark', 'Oscuro'),
+        ThemeMode.system => L('System setting', 'Sistema'),
+      };
+    }
+
     final biometricReady = _biometricChecked && _biometricAvailable;
     final biometricEnabled = auth.biometricEnabled;
     final canEnableBiometric = biometricReady;
@@ -341,6 +351,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsSection(
               title: L('Preferences', 'Preferencias'),
               children: [
+                _SettingsRow(
+                  icon: Icons.contrast_outlined,
+                  title: L('Theme', 'Tema'),
+                  subtitle: themeModeLabel(themeModeStore.mode),
+                  onTap: () async {
+                    await showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      showDragHandle: false,
+                      builder: (_) {
+                        return LGBottomSheetShell(
+                          title: L('Theme', 'Tema'),
+                          solidContent: true,
+                          child: RadioGroup<ThemeMode>(
+                            groupValue: themeModeStore.mode,
+                            onChanged: (value) {
+                              Navigator.pop(context);
+                              if (value != null) {
+                                context.read<ThemeModeStore>().setMode(value);
+                              }
+                            },
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                RadioListTile<ThemeMode>(
+                                  value: ThemeMode.system,
+                                  title: Text(L('System setting', 'Sistema')),
+                                  subtitle: Text(
+                                    L(
+                                      'Follow your phone theme',
+                                      'Usar el tema del telefono',
+                                    ),
+                                  ),
+                                ),
+                                RadioListTile<ThemeMode>(
+                                  value: ThemeMode.light,
+                                  title: Text(L('Light', 'Claro')),
+                                ),
+                                RadioListTile<ThemeMode>(
+                                  value: ThemeMode.dark,
+                                  title: Text(L('Dark', 'Oscuro')),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
                 _SettingsRow(
                   icon: Icons.language_outlined,
                   title: L('Language', 'Idioma'),

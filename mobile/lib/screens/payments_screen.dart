@@ -274,52 +274,41 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                   onProcessOverdue: processOverdue,
                 ),
                 const SizedBox(height: LGSpacing.lg),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final w = constraints.maxWidth;
-                    const gap = LGSpacing.md;
-                    final cards = <Widget>[
-                      LGMetricCard(
-                        title: I18n.t(context, 'payments.kpi.active'),
-                        value: active.length.toString(),
-                        icon: Icons.play_arrow_rounded,
-                        accentColor: LGColors.success,
-                      ),
-                      LGMetricCard(
-                        title: I18n.t(context, 'payments.kpi.paused'),
-                        value: paused.length.toString(),
-                        icon: Icons.pause_circle_outline,
-                        accentColor: LGColors.warning,
-                      ),
-                      LGMetricCard(
-                        title: I18n.t(context, 'payments.kpi.monthly'),
-                        value: NumberFormat.currency(
-                          locale: 'en_US',
-                          symbol: '\$',
-                        ).format(monthlyTotal),
-                        icon: Icons.attach_money,
-                        accentColor: LGColors.primaryBlue,
-                      ),
-                      LGMetricCard(
-                        title: I18n.t(context, 'payments.kpi.dueWeek'),
-                        value: dueThisWeek().toString(),
-                        icon: Icons.event_available_outlined,
-                        accentColor:
-                            dueThisWeek() > 0
-                                ? LGColors.warning
-                                : LGColors.success,
-                      ),
-                    ];
-                    final itemW = w >= 520 ? (w - gap) / 2 : w;
-                    return Wrap(
-                      spacing: gap,
-                      runSpacing: gap,
-                      children: [
-                        for (final card in cards)
-                          SizedBox(width: itemW, child: card),
-                      ],
-                    );
-                  },
+                LGMetricGrid(
+                  minChildHeight: 132,
+                  twoColumnBreakpoint: 300,
+                  children: [
+                    LGMetricCard(
+                      title: I18n.t(context, 'payments.kpi.active'),
+                      value: active.length.toString(),
+                      icon: Icons.play_arrow_rounded,
+                      accentColor: LGColors.success,
+                    ),
+                    LGMetricCard(
+                      title: I18n.t(context, 'payments.kpi.paused'),
+                      value: paused.length.toString(),
+                      icon: Icons.pause_circle_outline,
+                      accentColor: LGColors.warning,
+                    ),
+                    LGMetricCard(
+                      title: I18n.t(context, 'payments.kpi.monthly'),
+                      value: NumberFormat.currency(
+                        locale: 'en_US',
+                        symbol: '\$',
+                      ).format(monthlyTotal),
+                      icon: Icons.attach_money,
+                      accentColor: LGColors.primaryBlue,
+                    ),
+                    LGMetricCard(
+                      title: I18n.t(context, 'payments.kpi.dueWeek'),
+                      value: dueThisWeek().toString(),
+                      icon: Icons.event_available_outlined,
+                      accentColor:
+                          dueThisWeek() > 0
+                              ? LGColors.warning
+                              : LGColors.success,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: LGSpacing.xl),
                 Text(

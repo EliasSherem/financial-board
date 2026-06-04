@@ -406,65 +406,50 @@ class _InvestmentDetailScreenState extends State<InvestmentDetailScreen> {
           ),
         ),
         const SizedBox(height: LGSpacing.md),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final twoColumns = constraints.maxWidth >= 360;
-            final gap = twoColumns ? LGSpacing.md : LGSpacing.sm;
-            final itemWidth =
-                twoColumns
-                    ? (constraints.maxWidth - gap) / 2
-                    : constraints.maxWidth;
-            final metrics = [
-              _kv(
-                'Initial Amount',
-                money(principal),
-                Icons.account_balance_wallet_outlined,
-                Theme.of(context).colorScheme.primary,
-              ),
-              _kv(
-                'Rate (APR)',
-                '${rate.toStringAsFixed(2)}%',
-                Icons.percent_rounded,
-                LGColors.info,
-              ),
-              _kv(
-                'Days Active',
-                daysActive.toString(),
-                Icons.calendar_view_day_outlined,
-                LGColors.warning,
-              ),
-              _kv(
-                'Total Contributed',
-                money(totalContrib),
-                Icons.add_card_outlined,
-                LGColors.info,
-              ),
-              _kv(
-                'Current Value',
-                money(current),
-                Icons.stacked_line_chart_rounded,
-                LGColors.success,
-              ),
-              _kv(
-                'Revenue',
-                money(revenue),
-                revenue >= 0
-                    ? Icons.trending_up_rounded
-                    : Icons.trending_down_rounded,
-                revenueColor,
-                valueColor: revenueColor,
-              ),
-            ];
-
-            return Wrap(
-              spacing: gap,
-              runSpacing: LGSpacing.sm,
-              children: [
-                for (final metric in metrics)
-                  SizedBox(width: itemWidth, child: metric),
-              ],
-            );
-          },
+        LGMetricGrid(
+          runGap: LGSpacing.sm,
+          expandLastOdd: false,
+          children: [
+            _kv(
+              'Initial Amount',
+              money(principal),
+              Icons.account_balance_wallet_outlined,
+              Theme.of(context).colorScheme.primary,
+            ),
+            _kv(
+              'Rate (APR)',
+              '${rate.toStringAsFixed(2)}%',
+              Icons.percent_rounded,
+              LGColors.info,
+            ),
+            _kv(
+              'Days Active',
+              daysActive.toString(),
+              Icons.calendar_view_day_outlined,
+              LGColors.warning,
+            ),
+            _kv(
+              'Total Contributed',
+              money(totalContrib),
+              Icons.add_card_outlined,
+              LGColors.info,
+            ),
+            _kv(
+              'Current Value',
+              money(current),
+              Icons.stacked_line_chart_rounded,
+              LGColors.success,
+            ),
+            _kv(
+              'Revenue',
+              money(revenue),
+              revenue >= 0
+                  ? Icons.trending_up_rounded
+                  : Icons.trending_down_rounded,
+              revenueColor,
+              valueColor: revenueColor,
+            ),
+          ],
         ),
       ],
     );

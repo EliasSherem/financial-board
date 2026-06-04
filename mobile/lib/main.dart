@@ -29,6 +29,7 @@ import 'widgets/pro_widgets.dart';
 import 'dart:async';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'lang_store.dart';
+import 'theme_mode_store.dart';
 import 'i18n.dart';
 import 'widgets/quick_create_dialogs.dart';
 import 'liquid_glass/liquid_glass.dart';
@@ -73,6 +74,7 @@ class FinancialBoardRoot extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthStore()..load()),
         ChangeNotifierProvider(create: (_) => LangStore()..load()),
+        ChangeNotifierProvider(create: (_) => ThemeModeStore()..load()),
         ChangeNotifierProvider(create: (_) => RefreshBus()),
       ],
       child: const FinancialBoardApp(),
@@ -89,6 +91,7 @@ class FinancialBoardApp extends StatelessWidget {
       title: 'Financial Board',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
+      themeMode: context.watch<ThemeModeStore>().mode,
       locale: context.watch<LangStore>().locale,
       supportedLocales: const [Locale('en'), Locale('es')],
       localizationsDelegates: const [

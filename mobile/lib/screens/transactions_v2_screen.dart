@@ -1247,6 +1247,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   @override
   Widget build(BuildContext context) {
     final visibleItems = _filtered.take(_visible).toList();
+
+    void openNewTransaction() async {
+      final ok = await showNewTransactionDialog(context, _data);
+      if (ok == true && mounted) await _load();
+    }
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body:
@@ -1273,6 +1279,15 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     LGPageHeader(
                       title: I18n.t(context, 'nav.transactions'),
                       leading: const _TransactionsHeaderIcon(),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: LGButton(
+                        label: I18n.t(context, 'add.newTransaction'),
+                        icon: Icons.add,
+                        size: LGButtonSize.sm,
+                        onPressed: openNewTransaction,
+                      ),
                     ),
                     const SizedBox(height: LGSpacing.md),
                     _TransactionsControlCard(
@@ -1325,10 +1340,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 ),
               ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final ok = await showNewTransactionDialog(context, _data);
-          if (ok == true && mounted) await _load();
-        },
+        onPressed: openNewTransaction,
         child: const Icon(Icons.add),
       ),
     );

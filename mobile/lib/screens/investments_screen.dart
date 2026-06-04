@@ -591,27 +591,11 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
         (t['revenue'] ?? 0) >= 0 ? LGColors.success : LGColors.danger,
       ),
     ];
-    return LayoutBuilder(
-      builder: (ctx, c) {
-        const spacing = 12.0;
-        final w = c.maxWidth;
-        final cols = w < 360 ? 1 : 2;
-        final itemW = (w - ((cols - 1) * spacing)) / cols;
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            for (final tile in tiles)
-              SizedBox(
-                width: itemW,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 132),
-                  child: tile,
-                ),
-              ),
-          ],
-        );
-      },
+    return LGMetricGrid(
+      gap: 12,
+      minChildHeight: 132,
+      twoColumnBreakpoint: 300,
+      children: tiles,
     );
   }
 
@@ -733,65 +717,44 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
             ],
           ),
           const SizedBox(height: LGSpacing.lg),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final twoColumns = constraints.maxWidth >= 360;
-              final gap = twoColumns ? LGSpacing.md : LGSpacing.sm;
-              final itemWidth =
-                  twoColumns
-                      ? (constraints.maxWidth - gap) / 2
-                      : constraints.maxWidth;
-              return Wrap(
-                spacing: gap,
-                runSpacing: LGSpacing.sm,
-                children: [
-                  SizedBox(
-                    width: itemWidth,
-                    child: _kv(
-                      context,
-                      I18n.t(context, 'invest.amount'),
-                      money(it.principal),
-                      Icons.account_balance_wallet_outlined,
-                      primary,
-                    ),
-                  ),
-                  SizedBox(
-                    width: itemWidth,
-                    child: _kv(
-                      context,
-                      I18n.t(context, 'invest.estimatedValue'),
-                      money(value),
-                      Icons.stacked_line_chart_rounded,
-                      LGColors.success,
-                    ),
-                  ),
-                  if (it.totalContrib > 0)
-                    SizedBox(
-                      width: itemWidth,
-                      child: _kv(
-                        context,
-                        'Total Contributions',
-                        money(it.totalContrib),
-                        Icons.add_card_outlined,
-                        LGColors.info,
-                      ),
-                    ),
-                  SizedBox(
-                    width: itemWidth,
-                    child: _kv(
-                      context,
-                      'Total Revenue',
-                      money(gain),
-                      gain >= 0
-                          ? Icons.trending_up_rounded
-                          : Icons.trending_down_rounded,
-                      gainColor,
-                      valueColor: gainColor,
-                    ),
-                  ),
-                ],
-              );
-            },
+          LGMetricGrid(
+            runGap: LGSpacing.sm,
+            expandLastOdd: false,
+            twoColumnBreakpoint: 300,
+            children: [
+              _kv(
+                context,
+                I18n.t(context, 'invest.amount'),
+                money(it.principal),
+                Icons.account_balance_wallet_outlined,
+                primary,
+              ),
+              _kv(
+                context,
+                I18n.t(context, 'invest.estimatedValue'),
+                money(value),
+                Icons.stacked_line_chart_rounded,
+                LGColors.success,
+              ),
+              if (it.totalContrib > 0)
+                _kv(
+                  context,
+                  'Total Contributions',
+                  money(it.totalContrib),
+                  Icons.add_card_outlined,
+                  LGColors.info,
+                ),
+              _kv(
+                context,
+                'Total Revenue',
+                money(gain),
+                gain >= 0
+                    ? Icons.trending_up_rounded
+                    : Icons.trending_down_rounded,
+                gainColor,
+                valueColor: gainColor,
+              ),
+            ],
           ),
         ],
       ),

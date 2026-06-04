@@ -618,60 +618,41 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
             const SizedBox(height: LGSpacing.xl),
             sectionTitle(I18n.t(context, 'accounts.details.metrics')),
             const SizedBox(height: LGSpacing.md),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth;
-                int cols = 1;
-                if (width >= 900) {
-                  cols = 3;
-                } else if (width >= 600) {
-                  cols = 2;
-                }
-                const spacing = 12.0;
-                final double tileWidth =
-                    cols == 1 ? width : (width - (cols - 1) * spacing) / cols;
-                final tiles = [
-                  metricTile(
-                    icon: Icons.swap_vert,
-                    label: I18n.t(context, 'accounts.details.count30'),
-                    value: count30.toString(),
-                  ),
-                  metricTile(
-                    icon: Icons.call_received,
-                    label: I18n.t(context, 'accounts.details.inflow30'),
-                    value: money(inflow30),
-                    valueColor: const Color(0xFF16A34A),
-                  ),
-                  metricTile(
-                    icon: Icons.call_made,
-                    label: I18n.t(context, 'accounts.details.outflow30'),
-                    value: money(outflow30),
-                    valueColor: colorScheme.error,
-                  ),
-                  metricTile(
-                    icon: Icons.trending_up,
-                    label: I18n.t(context, 'accounts.details.net30'),
-                    value: money(net30),
-                    valueColor:
-                        net30 >= 0
-                            ? const Color(0xFF16A34A)
-                            : colorScheme.error,
-                  ),
-                  metricTile(
-                    icon: Icons.payments_outlined,
-                    label: I18n.t(context, 'accounts.details.avgTicket'),
-                    value: money(avgTicket),
-                  ),
-                ];
-                return Wrap(
-                  spacing: spacing,
-                  runSpacing: spacing,
-                  children: [
-                    for (final tile in tiles)
-                      SizedBox(width: tileWidth, child: tile),
-                  ],
-                );
-              },
+            LGMetricGrid(
+              gap: 12,
+              maxColumns: 3,
+              expandLastOdd: false,
+              children: [
+                metricTile(
+                  icon: Icons.swap_vert,
+                  label: I18n.t(context, 'accounts.details.count30'),
+                  value: count30.toString(),
+                ),
+                metricTile(
+                  icon: Icons.call_received,
+                  label: I18n.t(context, 'accounts.details.inflow30'),
+                  value: money(inflow30),
+                  valueColor: const Color(0xFF16A34A),
+                ),
+                metricTile(
+                  icon: Icons.call_made,
+                  label: I18n.t(context, 'accounts.details.outflow30'),
+                  value: money(outflow30),
+                  valueColor: colorScheme.error,
+                ),
+                metricTile(
+                  icon: Icons.trending_up,
+                  label: I18n.t(context, 'accounts.details.net30'),
+                  value: money(net30),
+                  valueColor:
+                      net30 >= 0 ? const Color(0xFF16A34A) : colorScheme.error,
+                ),
+                metricTile(
+                  icon: Icons.payments_outlined,
+                  label: I18n.t(context, 'accounts.details.avgTicket'),
+                  value: money(avgTicket),
+                ),
+              ],
             ),
             const SizedBox(height: LGSpacing.xl),
             sectionTitle(I18n.t(context, 'accounts.details.accountInfo')),

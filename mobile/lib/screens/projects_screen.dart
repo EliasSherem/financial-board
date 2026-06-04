@@ -630,41 +630,25 @@ class _ProjectCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: LGSpacing.lg),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final twoColumns = constraints.maxWidth >= 360;
-              final gap = twoColumns ? LGSpacing.md : LGSpacing.sm;
-              final itemWidth =
-                  twoColumns
-                      ? (constraints.maxWidth - gap) / 2
-                      : constraints.maxWidth;
-              return Wrap(
-                spacing: gap,
-                runSpacing: LGSpacing.sm,
-                children: [
-                  SizedBox(
-                    width: itemWidth,
-                    child: _kv(
-                      context,
-                      I18n.t(context, 'projects.budget'),
-                      money(budget),
-                      Icons.account_balance_wallet_outlined,
-                      primary,
-                    ),
-                  ),
-                  SizedBox(
-                    width: itemWidth,
-                    child: _kv(
-                      context,
-                      I18n.t(context, 'home.spent'),
-                      money(spent),
-                      Icons.payments_outlined,
-                      LGColors.info,
-                    ),
-                  ),
-                ],
-              );
-            },
+          LGMetricGrid(
+            runGap: LGSpacing.sm,
+            expandLastOdd: false,
+            children: [
+              _kv(
+                context,
+                I18n.t(context, 'projects.budget'),
+                money(budget),
+                Icons.account_balance_wallet_outlined,
+                primary,
+              ),
+              _kv(
+                context,
+                I18n.t(context, 'home.spent'),
+                money(spent),
+                Icons.payments_outlined,
+                LGColors.info,
+              ),
+            ],
           ),
           const SizedBox(height: LGSpacing.lg),
           Row(

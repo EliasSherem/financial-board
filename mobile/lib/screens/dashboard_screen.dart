@@ -666,67 +666,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       if (!auth.isProOrExempt) const UpgradeBanner(),
                       const SizedBox(height: 12),
                       // KPI Grid
-                      LayoutBuilder(
-                        builder: (context, c) {
-                          final w = c.maxWidth;
-                          final kpis = [
-                            KpiCard(
-                              title: I18n.t(context, 'kpi.totalBalance'),
-                              value: money(totalBalance),
-                              icon: Icons.attach_money,
-                              deltaPercent: growth.abs(),
-                              deltaIsPositive: growth >= 0,
-                              subtitle: I18n.t(context, 'kpi.balanceGrowth'),
-                            ),
-                            KpiCard(
-                              title: I18n.t(context, 'kpi.netThisMonth'),
-                              value: money(currNet),
-                              icon: Icons.account_balance_wallet_outlined,
-                            ),
-                            KpiCard(
-                              title: I18n.t(context, 'kpi.thisMonthExpenses'),
-                              value: money(currExp),
-                              icon: Icons.trending_down,
-                              deltaPercent: expDelta.abs().toDouble(),
-                              deltaIsPositive: currExp <= prevExp,
-                              titleMaxLines: 2,
-                              subtitle: I18n.t(context, 'kpi.vsLastMonth'),
-                            ),
-                            KpiCard(
-                              title: I18n.t(context, 'kpi.budgetOverview'),
-                              value: money(totalBudget),
-                              icon: Icons.pie_chart_outline,
-                              titleMaxLines: 2,
-                              footer: budgetFooter,
-                            ),
-                          ];
-                          // Two tiles per row when there is room; cards can grow
-                          // vertically for localized labels, badges, and large values.
-                          final cols = w < 360 ? 1 : 2;
-                          const spacing = 12.0;
-                          final itemWidth = (w - (cols - 1) * spacing) / cols;
-                          return Wrap(
-                            spacing: spacing,
-                            runSpacing: spacing,
-                            children: [
-                              for (int i = 0; i < kpis.length; i++)
-                                SizedBox(
-                                  width:
-                                      (cols == 2 &&
-                                              i == kpis.length - 1 &&
-                                              kpis.length % 2 == 1)
-                                          ? w
-                                          : itemWidth,
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      minHeight: 132,
-                                    ),
-                                    child: kpis[i],
-                                  ),
-                                ),
-                            ],
-                          );
-                        },
+                      LGMetricGrid(
+                        gap: 12,
+                        minChildHeight: 132,
+                        twoColumnBreakpoint: 300,
+                        children: [
+                          KpiCard(
+                            title: I18n.t(context, 'kpi.totalBalance'),
+                            value: money(totalBalance),
+                            icon: Icons.attach_money,
+                            deltaPercent: growth.abs(),
+                            deltaIsPositive: growth >= 0,
+                            subtitle: I18n.t(context, 'kpi.balanceGrowth'),
+                          ),
+                          KpiCard(
+                            title: I18n.t(context, 'kpi.netThisMonth'),
+                            value: money(currNet),
+                            icon: Icons.account_balance_wallet_outlined,
+                          ),
+                          KpiCard(
+                            title: I18n.t(context, 'kpi.thisMonthExpenses'),
+                            value: money(currExp),
+                            icon: Icons.trending_down,
+                            deltaPercent: expDelta.abs().toDouble(),
+                            deltaIsPositive: currExp <= prevExp,
+                            titleMaxLines: 2,
+                            subtitle: I18n.t(context, 'kpi.vsLastMonth'),
+                          ),
+                          KpiCard(
+                            title: I18n.t(context, 'kpi.budgetOverview'),
+                            value: money(totalBudget),
+                            icon: Icons.pie_chart_outline,
+                            titleMaxLines: 2,
+                            footer: budgetFooter,
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 12),
                       UpcomingEvents(payments: payments),

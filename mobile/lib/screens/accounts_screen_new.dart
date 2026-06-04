@@ -341,47 +341,28 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                 ],
               ),
               const SizedBox(height: LGSpacing.md),
-              LayoutBuilder(
-                builder: (context, c) {
-                  final w = c.maxWidth;
-                  const gap = LGSpacing.md;
-                  final cards = <Widget>[
-                    kpi(
-                      Icons.attach_money,
-                      I18n.t(context, 'kpi.totalBalance'),
-                      money(total),
-                      total >= 0 ? LGColors.success : LGColors.danger,
-                    ),
-                    kpi(
-                      Icons.account_balance_wallet_outlined,
-                      I18n.t(context, 'kpi.accounts'),
-                      activeCount.toString(),
-                      Theme.of(context).colorScheme.primary,
-                    ),
-                    kpi(
-                      Icons.trending_up,
-                      I18n.t(context, 'analytics.highestBalanceAccount'),
-                      money(highest?.displayBalance ?? 0),
-                      LGColors.info,
-                    ),
-                  ];
-                  final columns = w < 360 ? 1 : 2;
-                  final itemW = (w - (columns - 1) * gap) / columns;
-                  final children = <Widget>[];
-                  for (var i = 0; i < cards.length; i++) {
-                    final isLastOdd =
-                        columns > 1 &&
-                        (cards.length % 2 == 1) &&
-                        i == cards.length - 1;
-                    final width = isLastOdd ? w : itemW;
-                    children.add(SizedBox(width: width, child: cards[i]));
-                  }
-                  return Wrap(
-                    spacing: gap,
-                    runSpacing: gap,
-                    children: children,
-                  );
-                },
+              LGMetricGrid(
+                twoColumnBreakpoint: 300,
+                children: [
+                  kpi(
+                    Icons.attach_money,
+                    I18n.t(context, 'kpi.totalBalance'),
+                    money(total),
+                    total >= 0 ? LGColors.success : LGColors.danger,
+                  ),
+                  kpi(
+                    Icons.account_balance_wallet_outlined,
+                    I18n.t(context, 'kpi.accounts'),
+                    activeCount.toString(),
+                    Theme.of(context).colorScheme.primary,
+                  ),
+                  kpi(
+                    Icons.trending_up,
+                    I18n.t(context, 'analytics.highestBalanceAccount'),
+                    money(highest?.displayBalance ?? 0),
+                    LGColors.info,
+                  ),
+                ],
               ),
               const SizedBox(height: LGSpacing.lg),
               if (accounts.isEmpty)

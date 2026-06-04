@@ -226,39 +226,55 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         children: [
           LGGlassCard(
             variant: LGCardVariant.elevated,
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _InvoiceHeaderIcon(
-                  icon: Icons.people_alt_outlined,
-                  intent: LGIntent.info,
+                Row(
+                  children: [
+                    _InvoiceHeaderIcon(
+                      icon: Icons.people_alt_outlined,
+                      intent: LGIntent.info,
+                    ),
+                    const SizedBox(width: LGSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            I18n.t(context, 'title.customers'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleLarge?.copyWith(
+                              color: LGColors.textPrimary(context),
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: LGSpacing.xs),
+                          Text(
+                            '${_customers.length}',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyMedium?.copyWith(
+                              color: LGColors.textSecondary(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: LGSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        I18n.t(context, 'title.customers'),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: LGColors.textPrimary(context),
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: LGSpacing.xs),
-                      Text(
-                        '${_customers.length}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: LGColors.textSecondary(context),
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: LGSpacing.md),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: LGButton(
+                    label: I18n.t(context, 'invoices.addCustomer'),
+                    icon: Icons.person_add_alt_1,
+                    size: LGButtonSize.sm,
+                    variant: LGButtonVariant.glass,
+                    onPressed: _showAddCustomer,
                   ),
-                ),
-                LGButton(
-                  label: I18n.t(context, 'invoices.addCustomer'),
-                  icon: Icons.person_add_alt_1,
-                  variant: LGButtonVariant.glass,
-                  onPressed: _showAddCustomer,
                 ),
               ],
             ),
@@ -1435,84 +1451,36 @@ class _InvoiceSummaryPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LGGlassCard(
-      variant: LGCardVariant.hero,
-      child: Wrap(
-        spacing: LGSpacing.sm,
-        runSpacing: LGSpacing.sm,
-        children: [
-          _InvoiceSummaryMetric(
-            label: I18n.t(context, 'title.invoices'),
-            value: '$invoiceCount',
-            intent: LGIntent.primary,
-          ),
-          _InvoiceSummaryMetric(
-            label: I18n.t(context, 'invoices.paid'),
-            value: '$paidCount',
-            intent: LGIntent.success,
-          ),
-          _InvoiceSummaryMetric(
-            label: I18n.t(context, 'invoices.dueAmount'),
-            value: money(totalDue),
-            intent: totalDue > 0 ? LGIntent.warning : LGIntent.success,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InvoiceSummaryMetric extends StatelessWidget {
-  const _InvoiceSummaryMetric({
-    required this.label,
-    required this.value,
-    required this.intent,
-  });
-
-  final String label;
-  final String value;
-  final LGIntent intent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 112),
-      padding: const EdgeInsets.symmetric(
-        horizontal: LGSpacing.md,
-        vertical: LGSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: LGColors.intentContainer(context, intent),
-        borderRadius: BorderRadius.circular(LGRadius.lg),
-        border: Border.all(color: LGColors.intentStroke(context, intent)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: LGColors.textSecondary(context),
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: LGSpacing.xs),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              maxLines: 1,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: LGColors.textPrimary(context),
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final dueCount = math.max(invoiceCount - paidCount, 0);
+    return LGMetricGrid(
+      minChildHeight: 132,
+      twoColumnBreakpoint: 300,
+      children: [
+        LGMetricCard(
+          title: I18n.t(context, 'title.invoices'),
+          value: '$invoiceCount',
+          icon: Icons.receipt_long_outlined,
+          accentColor: LGColors.primaryBlue,
+        ),
+        LGMetricCard(
+          title: I18n.t(context, 'invoices.paid'),
+          value: '$paidCount',
+          icon: Icons.check_circle_outline,
+          accentColor: LGColors.success,
+        ),
+        LGMetricCard(
+          title: I18n.t(context, 'invoices.due'),
+          value: '$dueCount',
+          icon: Icons.pending_actions_outlined,
+          accentColor: dueCount > 0 ? LGColors.warning : LGColors.success,
+        ),
+        LGMetricCard(
+          title: I18n.t(context, 'invoices.dueAmount'),
+          value: money(totalDue),
+          icon: Icons.event_busy_outlined,
+          accentColor: totalDue > 0 ? LGColors.warning : LGColors.success,
+        ),
+      ],
     );
   }
 }
