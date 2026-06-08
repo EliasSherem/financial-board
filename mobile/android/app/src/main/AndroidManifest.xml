@@ -10,6 +10,10 @@
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config">
+        <!-- Production AdMob app ID. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-6230562819068631~5043032559" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -94,4 +98,3 @@
         </intent>
     </queries>
 </manifest>
-

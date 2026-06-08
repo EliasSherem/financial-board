@@ -10,25 +10,31 @@ import '../i18n.dart';
 import '../liquid_glass/liquid_glass.dart';
 import '../screens/manage_categories_screen.dart';
 import 'category_picker.dart';
+import 'non_pro_interstitial_ad_controller.dart';
 
 Future<bool?> showNewTransactionDialog(
   BuildContext context,
   DataService? data, {
   TransactionItem? initial,
   bool forceCreate = false,
-}) {
+}) async {
   // Allow passing null; if null, build DataService from AuthStore
   final svc =
       data ??
       DataService(ApiClient()..setToken(context.read<AuthStore>().token));
   final enforce = forceCreate && initial == null;
-  return showDialog<bool>(
+  NonProInterstitialAdController.preloadIfEligible(context);
+  final result = await showDialog<bool>(
     context: context,
     barrierDismissible: !enforce,
     builder:
         (_) =>
             _TransactionForm(data: svc, initial: initial, forceCreate: enforce),
   );
+  if (result == true && context.mounted) {
+    await NonProInterstitialAdController.recordSuccessfulMutation(context);
+  }
+  return result;
 }
 
 class _TransactionForm extends StatefulWidget {

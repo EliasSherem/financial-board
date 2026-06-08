@@ -12,6 +12,7 @@ import '../state/refresh_bus.dart';
 import '../i18n.dart';
 import '../liquid_glass/liquid_glass.dart';
 import '../utils/invoice_pdf.dart';
+import '../widgets/non_pro_interstitial_ad_controller.dart';
 
 Future<Map<String, dynamic>> _emailInvoicePdf({
   required BuildContext context,
@@ -354,6 +355,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   }
 
   Future<void> _showAddCustomer() async {
+    NonProInterstitialAdController.preloadIfEligible(context);
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final ok = await showDialog<bool>(
@@ -411,6 +413,9 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       if (!mounted) return;
       context.read<RefreshBus>().notifyCustomers();
       await _load();
+      if (mounted) {
+        await NonProInterstitialAdController.recordSuccessfulMutation(context);
+      }
     } catch (e, st) {
       debugPrint('Failed to create customer: $e\n$st');
       if (!mounted) return;
@@ -423,6 +428,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   }
 
   Future<void> _editCustomer(Customer c) async {
+    NonProInterstitialAdController.preloadIfEligible(context);
     final nameCtrl = TextEditingController(text: c.name);
     final emailCtrl = TextEditingController(text: c.email ?? '');
     final companyCtrl = TextEditingController(text: c.company ?? '');
@@ -511,6 +517,9 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       if (!mounted) return;
       context.read<RefreshBus>().notifyCustomers();
       await _load();
+      if (mounted) {
+        await NonProInterstitialAdController.recordSuccessfulMutation(context);
+      }
     } catch (e, st) {
       debugPrint('Failed to update customer ${c.id}: $e\n$st');
       if (!mounted) return;
@@ -561,6 +570,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   }
 
   void _showAddInvoice() async {
+    NonProInterstitialAdController.preloadIfEligible(context);
     int? customerId = _customers.isNotEmpty ? _customers.first.id : null;
     int? projectId;
     final issueCtrl = TextEditingController(text: formatDate(DateTime.now()));
@@ -1273,6 +1283,9 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     if (ok == true && mounted) {
       context.read<RefreshBus>().notifyInvoices();
       await _load();
+      if (mounted) {
+        await NonProInterstitialAdController.recordSuccessfulMutation(context);
+      }
     }
   }
 
@@ -2036,13 +2049,19 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                   tooltip: I18n.t(context, 'invoices.editInvoice'),
                   icon: const Icon(Icons.edit_outlined),
                   onPressed: () async {
+                    NonProInterstitialAdController.preloadIfEligible(context);
                     final saved = await Navigator.push<bool>(
                       context,
                       MaterialPageRoute(
                         builder: (_) => EditInvoiceScreen(detail: d),
                       ),
                     );
-                    if (saved == true) _refresh();
+                    if (saved == true && context.mounted) {
+                      _refresh();
+                      await NonProInterstitialAdController.recordSuccessfulMutation(
+                        context,
+                      );
+                    }
                   },
                 ),
             ],

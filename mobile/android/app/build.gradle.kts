@@ -47,7 +47,7 @@ android {
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
         // Bump versionCode for Play uploads (was flutter.versionCode)
-        versionCode = 46
+        versionCode = 47
         versionName = flutter.versionName
     }
     

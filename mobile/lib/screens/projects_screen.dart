@@ -9,6 +9,7 @@ import '../utils/format.dart';
 import '../widgets/pro_widgets.dart';
 import '../i18n.dart';
 import '../liquid_glass/liquid_glass.dart';
+import '../widgets/non_pro_interstitial_ad_controller.dart';
 import 'project_detail_screen.dart';
 
 class ProjectsScreen extends StatefulWidget {
@@ -302,6 +303,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     )
     onSubmit,
   }) async {
+    NonProInterstitialAdController.preloadIfEligible(context);
     final nameCtrl = TextEditingController(text: initial?.name ?? '');
     final descCtrl = TextEditingController(text: initial?.description ?? '');
     final initialBudget = initial?.budget;
@@ -510,6 +512,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     );
     if (saved == true && context.mounted) {
       context.read<RefreshBus>().notifyProjects();
+      await NonProInterstitialAdController.recordSuccessfulMutation(context);
     }
   }
 }

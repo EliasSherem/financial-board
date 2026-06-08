@@ -10,6 +10,7 @@ import '../widgets/pro_widgets.dart';
 import '../i18n.dart';
 import '../widgets/onboarding_coach.dart';
 import '../liquid_glass/liquid_glass.dart';
+import '../widgets/non_pro_interstitial_ad_controller.dart';
 
 class ManageCategoriesScreen extends StatefulWidget {
   const ManageCategoriesScreen({
@@ -76,6 +77,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
   }
 
   Future<void> _openCategoryDialog({ExpenseCategory? category}) async {
+    NonProInterstitialAdController.preloadIfEligible(context);
     final nameCtrl = TextEditingController(text: category?.name ?? '');
     String iconKey = category?.icon ?? kCategoryIconOptions.first.key;
 
@@ -170,6 +172,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
         if (!mounted) return;
         _replaceCategory(created);
         widget.onCategoryCreated?.call();
+        await NonProInterstitialAdController.recordSuccessfulMutation(context);
       } else {
         final updated = await _data!.updateExpenseCategory(
           id: category.id,
@@ -178,6 +181,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
         );
         if (!mounted) return;
         _replaceCategory(updated);
+        await NonProInterstitialAdController.recordSuccessfulMutation(context);
       }
     } catch (e) {
       if (!mounted) return;
@@ -239,6 +243,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
     ExpenseSubcategory? subcategory,
   }) async {
     if (_data == null) return;
+    NonProInterstitialAdController.preloadIfEligible(context);
     final nameCtrl = TextEditingController(text: subcategory?.name ?? '');
     String iconKey = subcategory?.icon ?? kCategoryIconOptions.first.key;
     final isPro = context.read<AuthStore>().isProOrExempt;
@@ -398,6 +403,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
       }
       if (!mounted) return;
       _replaceCategory(updated);
+      await NonProInterstitialAdController.recordSuccessfulMutation(context);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -22,6 +22,9 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<!-- Production AdMob app ID. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-6230562819068631~5157896867</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

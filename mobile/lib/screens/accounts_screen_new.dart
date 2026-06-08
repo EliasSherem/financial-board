@@ -9,6 +9,7 @@ import '../state/refresh_bus.dart';
 import '../utils/format.dart';
 import '../i18n.dart';
 import '../liquid_glass/liquid_glass.dart';
+import '../widgets/non_pro_interstitial_ad_controller.dart';
 import 'account_detail_screen.dart';
 
 class AccountsScreenNew extends StatefulWidget {
@@ -608,6 +609,7 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
     DataService data, {
     bool forceCreate = false,
   }) async {
+    NonProInterstitialAdController.preloadIfEligible(context);
     final nameCtrl = TextEditingController();
     final balanceCtrl = TextEditingController(text: '');
     final bankCtrl = TextEditingController();
@@ -752,9 +754,10 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
             ),
           ),
     );
-    if (saved == true && mounted) {
+    if (saved == true && context.mounted) {
       context.read<RefreshBus>().notifyAccounts();
       _refresh();
+      await NonProInterstitialAdController.recordSuccessfulMutation(context);
     }
   }
 
@@ -763,6 +766,7 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
     DataService data,
     Account a,
   ) async {
+    NonProInterstitialAdController.preloadIfEligible(context);
     final nameCtrl = TextEditingController(text: a.name);
     final balanceCtrl = TextEditingController(
       text: a.editableBalance.toStringAsFixed(2),
@@ -891,9 +895,10 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                 ),
           ),
     );
-    if (saved == true && mounted) {
+    if (saved == true && context.mounted) {
       context.read<RefreshBus>().notifyAccounts();
       _refresh();
+      await NonProInterstitialAdController.recordSuccessfulMutation(context);
     }
   }
 }

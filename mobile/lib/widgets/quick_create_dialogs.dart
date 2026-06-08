@@ -13,6 +13,7 @@ import '../liquid_glass/liquid_glass.dart';
 import '../models.dart';
 import '../widgets/category_picker.dart';
 import '../screens/manage_categories_screen.dart';
+import 'non_pro_interstitial_ad_controller.dart';
 
 Future<DataService> _svc(BuildContext context) async {
   final api = ApiClient()..setToken(context.read<AuthStore>().token);
@@ -34,6 +35,7 @@ InputDecoration _quickFieldDecoration(
 }
 
 Future<bool?> showQuickNewPaymentDialog(BuildContext context) async {
+  NonProInterstitialAdController.preloadIfEligible(context);
   final data = await _svc(context);
   List<Account> accounts = [];
   List<Project> projects = [];
@@ -496,11 +498,13 @@ Future<bool?> showQuickNewPaymentDialog(BuildContext context) async {
   );
   if (created == true && context.mounted) {
     context.read<RefreshBus>().notifyPayments();
+    await NonProInterstitialAdController.recordSuccessfulMutation(context);
   }
   return created;
 }
 
 Future<bool?> showQuickNewAccountDialog(BuildContext context) async {
+  NonProInterstitialAdController.preloadIfEligible(context);
   final data = await _svc(context);
   final nameCtrl = TextEditingController();
   final balanceCtrl = TextEditingController(text: '');
@@ -622,11 +626,13 @@ Future<bool?> showQuickNewAccountDialog(BuildContext context) async {
   );
   if (created == true && context.mounted) {
     context.read<RefreshBus>().notifyAccounts();
+    await NonProInterstitialAdController.recordSuccessfulMutation(context);
   }
   return created;
 }
 
 Future<bool?> showQuickNewCustomerDialog(BuildContext context) async {
+  NonProInterstitialAdController.preloadIfEligible(context);
   final data = await _svc(context);
   final nameCtrl = TextEditingController();
   final emailCtrl = TextEditingController();
@@ -680,11 +686,13 @@ Future<bool?> showQuickNewCustomerDialog(BuildContext context) async {
   );
   if (created == true && context.mounted) {
     context.read<RefreshBus>().notifyCustomers();
+    await NonProInterstitialAdController.recordSuccessfulMutation(context);
   }
   return created;
 }
 
 Future<bool?> showQuickNewProjectDialog(BuildContext context) async {
+  NonProInterstitialAdController.preloadIfEligible(context);
   final data = await _svc(context);
   final nameCtrl = TextEditingController();
   final descCtrl = TextEditingController();
@@ -831,11 +839,13 @@ Future<bool?> showQuickNewProjectDialog(BuildContext context) async {
   );
   if (created == true && context.mounted) {
     context.read<RefreshBus>().notifyProjects();
+    await NonProInterstitialAdController.recordSuccessfulMutation(context);
   }
   return created;
 }
 
 Future<bool?> showQuickNewInvoiceDialog(BuildContext context) async {
+  NonProInterstitialAdController.preloadIfEligible(context);
   final data = await _svc(context);
   List<Customer> customers = [];
   List<Project> projects = [];
@@ -1188,6 +1198,7 @@ Future<bool?> showQuickNewInvoiceDialog(BuildContext context) async {
   );
   if (created == true && context.mounted) {
     context.read<RefreshBus>().notifyInvoices();
+    await NonProInterstitialAdController.recordSuccessfulMutation(context);
   }
   return created;
 }

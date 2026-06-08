@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -22,6 +23,8 @@ import 'screens/lock_screen.dart';
 import 'services/api.dart';
 import 'services/data_service.dart';
 import 'widgets/new_transaction_dialog.dart';
+import 'widgets/non_pro_banner_ad.dart';
+import 'widgets/non_pro_interstitial_ad_controller.dart';
 import 'state/auth_store.dart';
 import 'state/refresh_bus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -47,8 +50,22 @@ Future<void> main() async {
     // ignore: deprecated_member_use
     await InAppPurchaseStoreKitPlatform.enableStoreKit1();
   }
+  unawaited(_initializeMobileAds());
   runApp(const FinancialBoardRoot());
   unawaited(_initializeStartupServices());
+}
+
+Future<void> _initializeMobileAds() async {
+  if (kIsWeb ||
+      (defaultTargetPlatform != TargetPlatform.android &&
+          defaultTargetPlatform != TargetPlatform.iOS)) {
+    return;
+  }
+  try {
+    await MobileAds.instance.initialize();
+  } catch (e, stack) {
+    debugPrint('Ads init failed: $e\n$stack');
+  }
 }
 
 Future<void> _initializeStartupServices() async {
@@ -137,6 +154,7 @@ class _HomeShellState extends State<HomeShell> {
   StreamSubscription<Uri>? _widgetSubscription;
   StreamSubscription<PushAction>? _pushSubscription;
   bool _processingWidgetAction = false;
+  bool _adEntitlementStateKnown = false;
   final GlobalKey<PopupMenuButtonState<String>> _profileMenuKey =
       GlobalKey<PopupMenuButtonState<String>>();
 
@@ -181,6 +199,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void initState() {
     super.initState();
+    NonProInterstitialAdController.clearEntitlementState();
     // One-time Play Billing sync after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
@@ -200,10 +219,13 @@ class _HomeShellState extends State<HomeShell> {
         try {
           final me = await data.getMe();
           final pro = (me['is_pro'] == true) || (me['is_pro'] == 1);
-          if (context.mounted) {
-            authStore.setServerPro(pro);
-            if (!pro) await authStore.setLocalPro(false);
-          }
+          if (!mounted) return;
+          authStore.setServerPro(pro);
+          if (!pro) await authStore.setLocalPro(false);
+          NonProInterstitialAdController.markEntitlementKnownForUser(
+            authStore.userId,
+          );
+          if (mounted) setState(() => _adEntitlementStateKnown = true);
         } catch (_) {}
       } catch (_) {}
     });
@@ -230,16 +252,37 @@ class _HomeShellState extends State<HomeShell> {
   void dispose() {
     _widgetSubscription?.cancel();
     _pushSubscription?.cancel();
+    NonProInterstitialAdController.clearEntitlementState();
     super.dispose();
   }
 
   void _handleRouteChanged(String? name) {
-    final next = (name == null || name.isEmpty) ? '/root' : name;
+    final next = (name == null || name.isEmpty) ? '/unknown' : name;
     if (!mounted || next == _currentRouteName) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || next == _currentRouteName) return;
       setState(() => _currentRouteName = next);
     });
+  }
+
+  bool _isBannerRouteAllowed() {
+    if (_currentRouteName == '/calendar') return true;
+    if (_currentRouteName != '/root') return false;
+    return _currentIndex == 1 ||
+        _currentIndex == 2 ||
+        _currentIndex == 3 ||
+        _currentIndex == 4;
+  }
+
+  bool _shouldShowBannerAd(AuthStore auth) {
+    if (!_adEntitlementStateKnown) return false;
+    if (!auth.isAuthenticated || auth.isLocked || !auth.hasToken) return false;
+    if (auth.isProOrExempt) return false;
+    final shellRoute = ModalRoute.of(context);
+    if (shellRoute != null && !shellRoute.isCurrent) return false;
+    if (!_isBannerRouteAllowed()) return false;
+    if (MediaQuery.viewInsetsOf(context).bottom > 0) return false;
+    return true;
   }
 
   List<Widget> _buildAppBarActions() {
@@ -394,7 +437,9 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final isPro = context.watch<AuthStore>().isProOrExempt;
+    final auth = context.watch<AuthStore>();
+    final isPro = auth.isProOrExempt;
+    final showBannerAd = _shouldShowBannerAd(auth);
     final shellBackground = Theme.of(context).colorScheme.surface;
     return Scaffold(
       backgroundColor: shellBackground,
@@ -548,7 +593,13 @@ class _HomeShellState extends State<HomeShell> {
           ],
         ),
       ),
-      bottomNavigationBar: _BottomNavBar(current: _currentIndex, onTap: _onTab),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showBannerAd) const NonProBannerAd(),
+          _BottomNavBar(current: _currentIndex, onTap: _onTab),
+        ],
+      ),
       floatingActionButton:
           _currentRouteName == '/ai-chat'
               ? null

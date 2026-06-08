@@ -10,6 +10,7 @@ import '../state/refresh_bus.dart';
 import '../liquid_glass/liquid_glass.dart';
 import 'investment_detail_screen.dart';
 import '../widgets/pro_widgets.dart';
+import '../widgets/non_pro_interstitial_ad_controller.dart';
 
 double _toDouble(dynamic v) {
   if (v == null) return 0.0;
@@ -199,6 +200,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
   }
 
   Future<void> _addDialog() async {
+    NonProInterstitialAdController.preloadIfEligible(context);
     final nameCtrl = TextEditingController();
     final amountCtrl = TextEditingController(text: '');
     final rateCtrl = TextEditingController(text: '');
@@ -318,6 +320,9 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
     if (ok == true && mounted) {
       context.read<RefreshBus>().notifyInvestments();
       await _load();
+      if (mounted) {
+        await NonProInterstitialAdController.recordSuccessfulMutation(context);
+      }
     }
   }
 
@@ -325,6 +330,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
     final id = int.tryParse(inv.id) ?? 0;
     if (id == 0) return;
 
+    NonProInterstitialAdController.preloadIfEligible(context);
     final nameCtrl = TextEditingController(text: inv.name);
     final amountCtrl = TextEditingController(
       text: inv.principal.toStringAsFixed(2),
@@ -451,6 +457,9 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
     if (ok == true && mounted) {
       context.read<RefreshBus>().notifyInvestments();
       await _load();
+      if (mounted) {
+        await NonProInterstitialAdController.recordSuccessfulMutation(context);
+      }
     }
   }
 

@@ -10,6 +10,7 @@ import '../state/refresh_bus.dart';
 import '../i18n.dart';
 import '../liquid_glass/liquid_glass.dart';
 import '../widgets/category_picker.dart';
+import '../widgets/non_pro_interstitial_ad_controller.dart';
 import '../screens/manage_categories_screen.dart';
 
 class PaymentsScreen extends StatefulWidget {
@@ -358,6 +359,9 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     DataService data, {
     PaymentItem? initial,
   }) async {
+    final parentContext = context;
+    var paymentMutationSucceeded = false;
+    NonProInterstitialAdController.preloadIfEligible(parentContext);
     final accounts = await data.getAccounts();
     List<Project> projects = [];
     try {
@@ -828,6 +832,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                                       categoryId: categoryId,
                                       subcategoryId: subcategoryId,
                                     );
+                                    paymentMutationSucceeded = true;
                                   } else {
                                     await data.createPayment(
                                       accountId: accountId!,
@@ -848,6 +853,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                                       subcategoryId: subcategoryId,
                                       projectId: projectId,
                                     );
+                                    paymentMutationSucceeded = true;
                                   }
                                 } else {
                                   await data.updatePayment(
@@ -870,6 +876,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                                     subcategoryId: subcategoryId,
                                     projectId: projectId,
                                   );
+                                  paymentMutationSucceeded = true;
                                 }
                                 if (context.mounted) {
                                   context.read<RefreshBus>().notifyPayments();
@@ -895,6 +902,11 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             },
           ),
     );
+    if (paymentMutationSucceeded && parentContext.mounted) {
+      await NonProInterstitialAdController.recordSuccessfulMutation(
+        parentContext,
+      );
+    }
   }
 }
 

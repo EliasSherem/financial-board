@@ -10,6 +10,7 @@ import '../state/refresh_bus.dart';
 import '../utils/format.dart';
 import '../liquid_glass/liquid_glass.dart';
 import '../widgets/new_transaction_dialog.dart';
+import '../widgets/non_pro_interstitial_ad_controller.dart';
 import '../widgets/quick_create_dialogs.dart';
 
 class AccountDetailScreen extends StatefulWidget {
@@ -148,6 +149,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
   }
 
   Future<void> _editAccount() async {
+    NonProInterstitialAdController.preloadIfEligible(context);
     final acc = _account ?? widget.account;
     final nameCtrl = TextEditingController(text: acc.name);
     final balanceCtrl = TextEditingController(
@@ -295,6 +297,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
             content: Text(I18n.t(context, 'accounts.details.updateSuccess')),
           ),
         );
+        await NonProInterstitialAdController.recordSuccessfulMutation(context);
       }
     }
   }

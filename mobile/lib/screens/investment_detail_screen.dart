@@ -9,6 +9,7 @@ import '../utils/format.dart';
 import '../widgets/pro_widgets.dart';
 import '../i18n.dart';
 import '../liquid_glass/liquid_glass.dart';
+import '../widgets/non_pro_interstitial_ad_controller.dart';
 
 class InvestmentDetailScreen extends StatefulWidget {
   const InvestmentDetailScreen({
@@ -82,6 +83,7 @@ class _InvestmentDetailScreenState extends State<InvestmentDetailScreen> {
   }
 
   Future<void> _addContribution() async {
+    NonProInterstitialAdController.preloadIfEligible(context);
     final amtCtrl = TextEditingController();
     DateTime date = DateTime.now();
     final ok = await showDialog<bool>(
@@ -164,6 +166,9 @@ class _InvestmentDetailScreenState extends State<InvestmentDetailScreen> {
             SnackBar(
               content: Text(I18n.tr(context, 'invest.contributionAdded')),
             ),
+          );
+          await NonProInterstitialAdController.recordSuccessfulMutation(
+            context,
           );
         }
       } catch (e) {
