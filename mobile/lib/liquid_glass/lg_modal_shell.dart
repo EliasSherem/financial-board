@@ -14,6 +14,8 @@ class LGBottomSheetShell extends StatelessWidget {
     this.scrollable = true,
     this.maxHeightFactor = 0.88,
     this.solidContent = false,
+    this.showBorder = true,
+    this.solidContentShowBorder = true,
   });
 
   final Widget child;
@@ -23,6 +25,8 @@ class LGBottomSheetShell extends StatelessWidget {
   final bool scrollable;
   final double maxHeightFactor;
   final bool solidContent;
+  final bool showBorder;
+  final bool solidContentShowBorder;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +41,7 @@ class LGBottomSheetShell extends StatelessWidget {
           blur: LGBlur.medium,
           intensity: LGGlassIntensity.strong,
           padding: EdgeInsets.zero,
+          showBorder: showBorder,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -77,6 +82,7 @@ class LGBottomSheetShell extends StatelessWidget {
     return LGSolidCard(
       padding: const EdgeInsets.all(LGSpacing.lg),
       variant: LGCardVariant.standard,
+      showBorder: solidContentShowBorder,
       child: child,
     );
   }

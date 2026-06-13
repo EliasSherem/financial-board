@@ -28,9 +28,6 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
   final _descriptionCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
   final _categoryCtrl = TextEditingController();
-  final _paymentMethodCtrl = TextEditingController();
-  final _currencyCtrl = TextEditingController(text: 'MXN');
-  final _notesCtrl = TextEditingController();
 
   bool _metadataLoaded = false;
   bool _reading = false;
@@ -64,9 +61,6 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
     _descriptionCtrl.dispose();
     _amountCtrl.dispose();
     _categoryCtrl.dispose();
-    _paymentMethodCtrl.dispose();
-    _currencyCtrl.dispose();
-    _notesCtrl.dispose();
     super.dispose();
   }
 
@@ -169,7 +163,7 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
     final description = draft.description ?? tx?.description ?? tx?.merchant;
     final category = draft.category ?? tx?.category;
 
-    _date = draft.date ?? tx?.date;
+    _date = draft.date ?? tx?.date ?? DateTime.now();
     _descriptionCtrl.text = description ?? '';
     _amountCtrl.text =
         amount == null || amount == 0 ? '' : amount.abs().toStringAsFixed(2);
@@ -177,9 +171,6 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
     _accountId =
         draft.accountId ?? (_accounts.isNotEmpty ? _accounts.first.id : null);
     _projectId = draft.projectId;
-    _paymentMethodCtrl.text = draft.paymentMethod ?? tx?.paymentMethod ?? '';
-    _currencyCtrl.text = draft.currency ?? tx?.currency ?? 'MXN';
-    _notesCtrl.text = draft.notes ?? '';
 
     _selectedCategory = null;
     _selectedSubcategory = null;
@@ -251,13 +242,13 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
       _duplicateError = null;
     });
 
-    final selectedCatId = _selectedCategory?.id;
-    final selectedSubId = _selectedSubcategory?.id;
+    final selectedCatId = _categories.isEmpty ? null : _selectedCategory?.id;
+    final selectedSubId = _categories.isEmpty ? null : _selectedSubcategory?.id;
     final manualCategory =
-        selectedCatId == null && _categoryCtrl.text.trim().isNotEmpty
+        _categories.isEmpty && _categoryCtrl.text.trim().isNotEmpty
             ? _categoryCtrl.text.trim()
             : null;
-    final normalizedAmount = _type == 'Expense' ? -amount.abs() : amount.abs();
+    final normalizedAmount = amount.abs();
 
     try {
       await _data.updateTransactionDraft(draft.id, {
@@ -270,15 +261,6 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
         'category': manualCategory,
         'category_id': selectedCatId,
         'subcategory_id': selectedSubId,
-        'payment_method':
-            _paymentMethodCtrl.text.trim().isEmpty
-                ? null
-                : _paymentMethodCtrl.text.trim(),
-        'currency':
-            _currencyCtrl.text.trim().isEmpty
-                ? 'MXN'
-                : _currencyCtrl.text.trim().toUpperCase(),
-        'notes': _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       });
       await _data.confirmTransactionDraft(draft.id);
       if (!mounted) return;
@@ -448,9 +430,9 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
         (draft.confidence != null && draft.confidence! < 0.75) ||
         draft.warningsJson.isNotEmpty ||
         (_error != null && _error!.trim().isNotEmpty);
-    final categoryWidth = (MediaQuery.of(context).size.width - 64).clamp(
-      220.0,
-      520.0,
+    final categoryWidth = (MediaQuery.of(context).size.width * 0.7).clamp(
+      200.0,
+      360.0,
     );
 
     return ListView(
@@ -490,48 +472,6 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              DropdownButtonFormField<int>(
-                initialValue: _metadataLoaded ? _accountId : null,
-                items:
-                    _accounts
-                        .map(
-                          (a) => DropdownMenuItem<int>(
-                            value: a.id,
-                            child: Text(a.name),
-                          ),
-                        )
-                        .toList(),
-                onChanged:
-                    _metadataLoaded
-                        ? (v) => setState(() => _accountId = v)
-                        : null,
-                decoration: LGForm.dropdownDecoration(
-                  context,
-                  labelText: I18n.tr(context, 'tx.account'),
-                ),
-              ),
-              const SizedBox(height: LGSpacing.md),
-              DropdownButtonFormField<int?>(
-                initialValue: _projectId,
-                items: [
-                  DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text(I18n.tr(context, 'tx.noProject')),
-                  ),
-                  ..._projects.map(
-                    (p) => DropdownMenuItem<int?>(
-                      value: p.id,
-                      child: Text(p.name),
-                    ),
-                  ),
-                ],
-                onChanged: (v) => setState(() => _projectId = v),
-                decoration: LGForm.dropdownDecoration(
-                  context,
-                  labelText: I18n.tr(context, 'tx.projectOptional'),
-                ),
-              ),
-              const SizedBox(height: LGSpacing.md),
               InkWell(
                 borderRadius: BorderRadius.circular(LGRadius.lg),
                 onTap: _pickDate,
@@ -602,7 +542,15 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
                 ],
               ),
               const SizedBox(height: LGSpacing.md),
-              if (_categories.isNotEmpty) ...[
+              if (_categories.isEmpty)
+                TextField(
+                  controller: _categoryCtrl,
+                  decoration: LGForm.solidInputDecoration(
+                    context,
+                    labelText: I18n.tr(context, 'tx.category'),
+                  ),
+                )
+              else
                 CategorySelectorField(
                   width: categoryWidth,
                   selectedCategory: _selectedCategory,
@@ -616,49 +564,50 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
                   },
                   labelText: I18n.tr(context, 'tx.category'),
                 ),
-                if (_selectedCategory == null &&
-                    _selectedSubcategory == null) ...[
-                  const SizedBox(height: LGSpacing.sm),
-                  TextField(
-                    controller: _categoryCtrl,
-                    decoration: LGForm.solidInputDecoration(
-                      context,
-                      labelText: I18n.tr(context, 'receipt.categoryText'),
+              const SizedBox(height: LGSpacing.md),
+              DropdownButtonFormField<int>(
+                initialValue: _metadataLoaded ? _accountId : null,
+                items:
+                    _accounts.map((a) {
+                      final isInvestment =
+                          (a.type ?? '').toLowerCase() == 'investment';
+                      final label =
+                          isInvestment
+                              ? '${a.name} (${I18n.t(context, 'accounts.type.investment')})'
+                              : a.name;
+                      return DropdownMenuItem<int>(
+                        value: a.id,
+                        child: Text(label),
+                      );
+                    }).toList(),
+                onChanged:
+                    _metadataLoaded
+                        ? (v) => setState(() => _accountId = v)
+                        : null,
+                decoration: LGForm.dropdownDecoration(
+                  context,
+                  labelText: I18n.tr(context, 'tx.account'),
+                ),
+              ),
+              const SizedBox(height: LGSpacing.md),
+              DropdownButtonFormField<int?>(
+                initialValue: _projectId,
+                items: [
+                  DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text(I18n.tr(context, 'tx.noProject')),
+                  ),
+                  ..._projects.map(
+                    (p) => DropdownMenuItem<int?>(
+                      value: p.id,
+                      child: Text(p.name),
                     ),
                   ),
                 ],
-              ] else
-                TextField(
-                  controller: _categoryCtrl,
-                  decoration: LGForm.solidInputDecoration(
-                    context,
-                    labelText: I18n.tr(context, 'tx.category'),
-                  ),
-                ),
-              const SizedBox(height: LGSpacing.md),
-              TextField(
-                controller: _paymentMethodCtrl,
-                decoration: LGForm.solidInputDecoration(
+                onChanged: (v) => setState(() => _projectId = v),
+                decoration: LGForm.dropdownDecoration(
                   context,
-                  labelText: I18n.tr(context, 'receipt.paymentMethod'),
-                ),
-              ),
-              const SizedBox(height: LGSpacing.md),
-              TextField(
-                controller: _currencyCtrl,
-                textCapitalization: TextCapitalization.characters,
-                decoration: LGForm.solidInputDecoration(
-                  context,
-                  labelText: I18n.tr(context, 'receipt.currency'),
-                ),
-              ),
-              const SizedBox(height: LGSpacing.md),
-              TextField(
-                controller: _notesCtrl,
-                maxLines: 3,
-                decoration: LGForm.textAreaDecoration(
-                  context,
-                  labelText: I18n.tr(context, 'receipt.notes'),
+                  labelText: I18n.tr(context, 'tx.projectOptional'),
                 ),
               ),
               const SizedBox(height: LGSpacing.lg),

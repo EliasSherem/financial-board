@@ -84,6 +84,7 @@ class LGSolidCard extends StatelessWidget {
     this.variant = LGCardVariant.standard,
     this.tinted = false,
     this.borderRadius,
+    this.showBorder = true,
   });
 
   final Widget child;
@@ -93,6 +94,7 @@ class LGSolidCard extends StatelessWidget {
   final LGCardVariant variant;
   final bool tinted;
   final BorderRadius? borderRadius;
+  final bool showBorder;
 
   @override
   Widget build(BuildContext context) {
@@ -106,12 +108,15 @@ class LGSolidCard extends StatelessWidget {
                 ? LGColors.surfaceTinted(context)
                 : LGColors.surfaceSolid(context),
         borderRadius: radius,
-        border: Border.all(
-          color: LGColors.alpha(
-            LGColors.textSecondary(context),
-            LGColors.isDark(context) ? 0.18 : 0.12,
-          ),
-        ),
+        border:
+            showBorder
+                ? Border.all(
+                  color: LGColors.alpha(
+                    LGColors.textSecondary(context),
+                    LGColors.isDark(context) ? 0.18 : 0.12,
+                  ),
+                )
+                : null,
         boxShadow: _shadows(context),
       ),
       child: child,

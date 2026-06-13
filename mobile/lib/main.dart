@@ -616,8 +616,8 @@ class _HomeShellState extends State<HomeShell> {
       case NativeWidgetBridge.actionCreateTransaction:
         _openQuickTransactionFromWidget();
         break;
-      case NativeWidgetBridge.actionCreateRecurringPayment:
-        _openQuickRecurringPaymentFromWidget();
+      case NativeWidgetBridge.actionScanReceipt:
+        _openReceiptScanFromWidget();
         break;
     }
   }
@@ -640,14 +640,21 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
-  Future<void> _openQuickRecurringPaymentFromWidget() async {
+  Future<void> _openReceiptScanFromWidget() async {
     if (_processingWidgetAction) return;
     _processingWidgetAction = true;
     try {
       if (!mounted) return;
-      await showQuickNewPaymentDialog(context);
+      final ok = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const ReceiptScanScreen()),
+      );
+      if (ok == true && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(I18n.tr(context, 'receipt.saved'))),
+        );
+      }
     } catch (e, stack) {
-      debugPrint('Quick recurring payment launch failed: $e\n$stack');
+      debugPrint('Quick receipt scan launch failed: $e\n$stack');
     } finally {
       _processingWidgetAction = false;
     }
@@ -658,13 +665,15 @@ class _HomeShellState extends State<HomeShell> {
     final data = DataService(api);
     await showModalBottomSheet(
       context: context,
-      showDragHandle: true,
+      showDragHandle: false,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) {
         final isPro = context.watch<AuthStore>().isProOrExempt;
         return LGBottomSheetShell(
           solidContent: true,
+          showBorder: false,
+          solidContentShowBorder: false,
           scrollable: true,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1112,6 +1121,7 @@ class _AddMenuAction extends StatelessWidget {
           horizontal: LGSpacing.md,
           vertical: LGSpacing.md,
         ),
+        showBorder: false,
         onTap: onTap,
         child: Row(
           children: [

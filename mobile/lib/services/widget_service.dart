@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:home_widget/home_widget.dart';
 
 /// Thin wrapper around [home_widget] so the rest of the app does not need to
@@ -14,50 +15,64 @@ class NativeWidgetBridge {
 
   static const String actionCreateTransaction = 'create-transaction';
   static const String actionCreateRecurringPayment = 'create-recurring-payment';
+  static const String actionScanReceipt = 'scan-receipt';
 
   static const String _keyDisplay = 'kpi_spent_display';
   static const String _keyMonthLabel = 'kpi_spent_month_label';
   static const String _keyUpdatedAt = 'kpi_spent_updated_at';
   static const String _keyAmount = 'kpi_spent_amount';
+  static const String _keyThemeMode = 'widget_theme_mode';
 
   static bool _initialised = false;
   static final StreamController<Uri> _uriController =
       StreamController<Uri>.broadcast();
   static Uri? _initialUri;
+  static Future<void>? _initialising;
 
   static Stream<Uri> get widgetEvents => _uriController.stream;
 
   static Future<void> ensureInitialized() async {
     if (_initialised) return;
-    _initialised = true;
+    final pending = _initialising;
+    if (pending != null) return pending;
 
-    if (Platform.isIOS) {
-      try {
-        await HomeWidget.setAppGroupId(_appGroupId);
-      } catch (e, stack) {
-        debugPrint('HomeWidget setAppGroupId failed: $e\n$stack');
-      }
-    }
+    _initialising = _doEnsureInitialized();
+    await _initialising!;
+  }
 
+  static Future<void> _doEnsureInitialized() async {
     try {
-      final initialUri = await HomeWidget.initiallyLaunchedFromHomeWidget();
-      if (initialUri != null) {
-        _initialUri = initialUri;
-      }
-    } catch (e) {
-      debugPrint('HomeWidget initial launch query failed: $e');
-    }
-
-    HomeWidget.widgetClicked.listen(
-      (uri) {
-        if (uri != null) {
-          _uriController.add(uri);
+      if (Platform.isIOS) {
+        try {
+          await HomeWidget.setAppGroupId(_appGroupId);
+        } catch (e, stack) {
+          debugPrint('HomeWidget setAppGroupId failed: $e\n$stack');
         }
-      },
-      onError: (Object error, StackTrace stack) {
-        debugPrint('HomeWidget click stream error: $error\n$stack');
-      },
-    );
+      }
+
+      try {
+        final initialUri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+        if (initialUri != null) {
+          _initialUri = initialUri;
+        }
+      } catch (e) {
+        debugPrint('HomeWidget initial launch query failed: $e');
+      }
+
+      HomeWidget.widgetClicked.listen(
+        (uri) {
+          if (uri != null) {
+            _uriController.add(uri);
+          }
+        },
+        onError: (Object error, StackTrace stack) {
+          debugPrint('HomeWidget click stream error: $error\n$stack');
+        },
+      );
+    } finally {
+      _initialised = true;
+      _initialising = null;
+    }
   }
 
   static Future<void> updateMonthlySpend({
@@ -66,6 +81,7 @@ class NativeWidgetBridge {
     required double rawAmount,
   }) async {
     try {
+      await ensureInitialized();
       await HomeWidget.saveWidgetData(_keyDisplay, displayValue);
       await HomeWidget.saveWidgetData(_keyMonthLabel, monthLabel);
       await HomeWidget.saveWidgetData(
@@ -82,6 +98,19 @@ class NativeWidgetBridge {
     }
   }
 
+  static Future<void> updateThemeMode(ThemeMode mode) async {
+    try {
+      await ensureInitialized();
+      await HomeWidget.saveWidgetData(_keyThemeMode, _serializeThemeMode(mode));
+      await HomeWidget.updateWidget(
+        qualifiedAndroidName: _androidQualifiedName,
+        iOSName: _iosWidgetName,
+      );
+    } catch (e, stack) {
+      debugPrint('Failed updating home widget theme: $e\n$stack');
+    }
+  }
+
   static String? actionFromUri(Uri uri) {
     final List<String> tokens = [
       if (uri.host.isNotEmpty) uri.host,
@@ -91,10 +120,12 @@ class NativeWidgetBridge {
     if (queryAction != null && queryAction.isNotEmpty) {
       tokens.add(queryAction);
     }
-    if (tokens.contains(actionCreateTransaction))
+    if (tokens.contains(actionCreateTransaction)) {
       return actionCreateTransaction;
-    if (tokens.contains(actionCreateRecurringPayment)) {
-      return actionCreateRecurringPayment;
+    }
+    if (tokens.contains(actionScanReceipt) ||
+        tokens.contains(actionCreateRecurringPayment)) {
+      return actionScanReceipt;
     }
     return null;
   }
@@ -107,5 +138,13 @@ class NativeWidgetBridge {
     final uri = _initialUri;
     _initialUri = null;
     return uri;
+  }
+
+  static String _serializeThemeMode(ThemeMode mode) {
+    return switch (mode) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      ThemeMode.system => 'system',
+    };
   }
 }

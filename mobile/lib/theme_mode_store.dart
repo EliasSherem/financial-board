@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'services/widget_service.dart';
 
 class ThemeModeStore extends ChangeNotifier {
   static const _key = 'theme_mode';
@@ -15,6 +19,7 @@ class ThemeModeStore extends ChangeNotifier {
     } catch (_) {
       _mode = ThemeMode.system;
     }
+    unawaited(NativeWidgetBridge.updateThemeMode(_mode));
     notifyListeners();
   }
 
@@ -24,6 +29,7 @@ class ThemeModeStore extends ChangeNotifier {
       final sp = await SharedPreferences.getInstance();
       await sp.setString(_key, _serialize(value));
     } catch (_) {}
+    unawaited(NativeWidgetBridge.updateThemeMode(value));
     notifyListeners();
   }
 

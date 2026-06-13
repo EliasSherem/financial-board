@@ -3,6 +3,6 @@
     <string name="widget_spent_title">Spent this month</string>
     <string name="widget_default_amount">$0.00</string>
     <string name="widget_cta">New transaction</string>
-    <string name="widget_cta_recurring">New recurring payment</string>
+    <string name="widget_cta_scan_receipt">Scan receipt</string>
     <string name="widget_default_month">This month</string>
 </resources>

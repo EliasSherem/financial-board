@@ -4,8 +4,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
+    android:gravity="center_vertical"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:padding="8dp">
 
     <LinearLayout
         android:id="@+id/widget_card"
@@ -13,7 +14,10 @@
         android:layout_height="wrap_content"
         android:background="@drawable/widget_card_background"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:paddingStart="10dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="8dp">
 
         <TextView
             android:id="@+id/widget_title"
@@ -22,7 +26,7 @@
             android:text="@string/widget_spent_title"
             android:textAllCaps="true"
             android:textColor="@color/widget_text_secondary"
-            android:textSize="12sp"
+            android:textSize="10sp"
             android:fontFamily="sans-serif-medium"
             android:letterSpacing="0.04" />
 
@@ -30,40 +34,43 @@
             android:id="@+id/widget_amount"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingTop="6dp"
+            android:paddingTop="2dp"
             android:text="@string/widget_default_amount"
             android:textColor="@color/widget_text_primary"
-            android:textSize="22sp"
+            android:textSize="20sp"
             android:textStyle="bold"
-            android:fontFamily="sans-serif-medium" />
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:ellipsize="end" />
 
         <TextView
             android:id="@+id/widget_month_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingTop="4dp"
+            android:paddingTop="1dp"
             android:text="@string/widget_default_month"
             android:textColor="@color/widget_text_secondary"
-            android:textSize="12sp"
-            android:fontFamily="sans-serif" />
+            android:textSize="10sp"
+            android:fontFamily="sans-serif"
+            android:maxLines="1"
+            android:ellipsize="end" />
     </LinearLayout>
 
     <LinearLayout
         android:id="@+id/widget_action_container"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_height="32dp"
+        android:layout_marginTop="7dp"
         android:background="@drawable/widget_button_background"
         android:gravity="center"
-        android:minHeight="44dp"
         android:orientation="horizontal"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp">
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp">
 
         <ImageView
             android:id="@+id/widget_action_icon"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="17dp"
+            android:layout_height="17dp"
             android:contentDescription="@string/widget_cta"
             android:src="@android:drawable/ic_input_add"
             android:tint="@color/widget_primary" />
@@ -72,10 +79,10 @@
             android:id="@+id/widget_action_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="8dp"
+            android:paddingStart="6dp"
             android:text="@string/widget_cta"
             android:textColor="@color/widget_primary"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"
@@ -85,31 +92,30 @@
     <LinearLayout
         android:id="@+id/widget_recurring_container"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_height="32dp"
+        android:layout_marginTop="5dp"
         android:background="@drawable/widget_button_background"
         android:gravity="center"
-        android:minHeight="44dp"
         android:orientation="horizontal"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp">
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp">
 
         <ImageView
             android:id="@+id/widget_recurring_icon"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:contentDescription="@string/widget_cta_recurring"
-            android:src="@android:drawable/ic_popup_sync"
+            android:layout_width="17dp"
+            android:layout_height="17dp"
+            android:contentDescription="@string/widget_cta_scan_receipt"
+            android:src="@android:drawable/ic_menu_camera"
             android:tint="@color/widget_primary" />
 
         <TextView
             android:id="@+id/widget_recurring_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="8dp"
-            android:text="@string/widget_cta_recurring"
+            android:paddingStart="6dp"
+            android:text="@string/widget_cta_scan_receipt"
             android:textColor="@color/widget_primary"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"

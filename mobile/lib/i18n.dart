@@ -397,10 +397,6 @@ class I18n {
       'es': 'Revisa cuidadosamente. Algunos campos pueden ser inciertos.',
     },
     'receipt.selectDate': {'en': 'Select date', 'es': 'Selecciona fecha'},
-    'receipt.categoryText': {'en': 'Category text', 'es': 'Texto de categoria'},
-    'receipt.paymentMethod': {'en': 'Payment method', 'es': 'Metodo de pago'},
-    'receipt.currency': {'en': 'Currency', 'es': 'Moneda'},
-    'receipt.notes': {'en': 'Notes', 'es': 'Notas'},
     'receipt.validationRequired': {
       'en': 'Choose an account, date, description, and valid amount.',
       'es': 'Elige cuenta, fecha, descripcion y un monto valido.',
