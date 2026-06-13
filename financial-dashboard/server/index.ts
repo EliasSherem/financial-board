@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { initializeDatabase } from './db.js';
 import { startNotificationCron } from './notification_cron.js';
-import routes from './routes.js';
+import routes, { ensureTransactionDraftSchema } from './routes.js';
 import { stripeWebhookHandler } from './stripe.js';
 import { inboundEmailWebhookHandler } from './email.js';
 
@@ -79,6 +79,7 @@ async function boot() {
 
   try {
     await initializeDatabase();
+    await ensureTransactionDraftSchema();
     startNotificationCron();
   } catch (error) {
     console.error('Database initialization failed (server still running):', error);

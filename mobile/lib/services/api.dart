@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../state/refresh_bus.dart';
 
@@ -74,6 +76,66 @@ class ApiClient {
     return decoded;
   }
 
+  Future<dynamic> patch(String path, {Object? body, Headers? headers}) async {
+    final mergedHeaders = {
+      'Content-Type': 'application/json',
+      ..._mergeHeaders(headers),
+    };
+    final res = await _send(
+      () => http.patch(
+        _uri(path),
+        body: jsonEncode(body),
+        headers: mergedHeaders,
+      ),
+    );
+    final decoded = _decode(res);
+    _notifyMutation(path);
+    return decoded;
+  }
+
+  Future<dynamic> uploadFile(
+    String path, {
+    required File file,
+    required String fieldName,
+    Headers? headers,
+    Duration timeout = const Duration(seconds: 90),
+    Set<int> allowedErrorStatusCodes = const {},
+  }) async {
+    try {
+      final request = http.MultipartRequest('POST', _uri(path));
+      request.headers.addAll(_mergeHeaders(headers));
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          fieldName,
+          file.path,
+          contentType: _mediaTypeForPath(file.path),
+        ),
+      );
+      final streamed = await request.send().timeout(timeout);
+      final res = await http.Response.fromStream(streamed);
+      if (allowedErrorStatusCodes.contains(res.statusCode)) {
+        final decoded = res.body.isEmpty ? null : jsonDecode(res.body);
+        _notifyMutation(path);
+        return decoded;
+      }
+      final decoded = _decode(res);
+      _notifyMutation(path);
+      return decoded;
+    } on TimeoutException {
+      throw Exception(
+        'Unable to connect to ${_hostLabel()}. The upload timed out.',
+      );
+    } on http.ClientException catch (e) {
+      throw Exception(_transportMessage(e.toString()));
+    } catch (e) {
+      final raw = e.toString();
+      if (_looksLikeTransportError(raw)) {
+        throw Exception(_transportMessage(raw));
+      }
+      rethrow;
+    }
+  }
+
   Future<dynamic> delete(String path, {Headers? headers}) async {
     final res = await _send(
       () => http.delete(_uri(path), headers: _mergeHeaders(headers)),
@@ -89,6 +151,16 @@ class ApiClient {
       h['Authorization'] = 'Bearer $_token';
     }
     return h;
+  }
+
+  MediaType _mediaTypeForPath(String path) {
+    final filename = path.split(RegExp(r'[/\\]')).last.toLowerCase();
+    if (filename.endsWith('.jpg') || filename.endsWith('.jpeg')) {
+      return MediaType('image', 'jpeg');
+    }
+    if (filename.endsWith('.png')) return MediaType('image', 'png');
+    if (filename.endsWith('.webp')) return MediaType('image', 'webp');
+    return MediaType('application', 'octet-stream');
   }
 
   Future<http.Response> _send(Future<http.Response> Function() request) async {

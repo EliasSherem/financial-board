@@ -18,6 +18,7 @@ import 'screens/guide_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/manage_categories_screen.dart';
 import 'screens/ai_chat_screen.dart';
+import 'screens/receipt_scan_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/lock_screen.dart';
 import 'services/api.dart';
@@ -682,6 +683,32 @@ class _HomeShellState extends State<HomeShell> {
                 },
               ),
               _AddMenuAction(
+                icon: Icons.receipt_long_outlined,
+                label: I18n.t(context, 'add.scanReceipt'),
+                trailing: isPro ? null : const ProMiniChip(),
+                onTap: () async {
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.of(context);
+                  final proMessage = I18n.tr(context, 'receipt.proRequired');
+                  final savedMessage = I18n.tr(context, 'receipt.saved');
+                  navigator.pop();
+                  if (!isPro) {
+                    messenger.showSnackBar(SnackBar(content: Text(proMessage)));
+                    return;
+                  }
+                  final ok = await navigator.push<bool>(
+                    MaterialPageRoute(
+                      builder: (_) => const ReceiptScanScreen(),
+                    ),
+                  );
+                  if (ok == true && mounted) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(savedMessage)),
+                    );
+                  }
+                },
+              ),
+              _AddMenuAction(
                 icon: Icons.event_repeat,
                 label: I18n.t(context, 'add.newRecurringPayment'),
                 onTap: () async {
@@ -1143,15 +1170,6 @@ class _LiquidGlassFab extends StatelessWidget {
           onTap: onPressed,
           child: Stack(
             children: [
-              Positioned(
-                left: 10,
-                right: 10,
-                top: 6,
-                child: ColoredBox(
-                  color: Colors.white.withValues(alpha: 0.34),
-                  child: const SizedBox(height: 1),
-                ),
-              ),
               const SizedBox(
                 width: 58,
                 height: 58,

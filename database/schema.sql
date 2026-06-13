@@ -124,6 +124,51 @@ ALTER TABLE transactions ADD CONSTRAINT fk_transactions_subcategory FOREIGN KEY 
 ALTER TABLE transactions ADD INDEX idx_category_id (category_id);
 ALTER TABLE transactions ADD INDEX idx_subcategory_id (subcategory_id);
 
+-- Receipt/ticket scan drafts. These are reviewable drafts only; confirmed
+-- transactions are created separately after explicit user approval.
+CREATE TABLE IF NOT EXISTS transaction_drafts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'processing',
+    account_id INT NULL,
+    project_id INT NULL,
+    date DATE NULL,
+    description VARCHAR(255) NULL,
+    amount DECIMAL(12, 2) NULL,
+    type VARCHAR(32) NULL,
+    category VARCHAR(100) NULL,
+    category_id INT NULL,
+    subcategory_id INT NULL,
+    payment_method VARCHAR(32) NULL,
+    currency VARCHAR(8) NULL DEFAULT 'MXN',
+    notes TEXT NULL,
+    confidence DECIMAL(5, 4) NULL,
+    extraction_json JSON NULL,
+    warnings_json JSON NULL,
+    image_sha256 VARCHAR(64) NULL,
+    image_mime VARCHAR(100) NULL,
+    image_size_bytes INT NULL,
+    error_message TEXT NULL,
+    confirmed_transaction_id INT NULL,
+    confirmed_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_transaction_drafts_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_transaction_drafts_account FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE SET NULL,
+    CONSTRAINT fk_transaction_drafts_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
+    CONSTRAINT fk_transaction_drafts_category FOREIGN KEY (category_id) REFERENCES expense_categories(id) ON DELETE SET NULL,
+    CONSTRAINT fk_transaction_drafts_subcategory FOREIGN KEY (subcategory_id) REFERENCES expense_subcategories(id) ON DELETE SET NULL,
+    CONSTRAINT fk_transaction_drafts_confirmed_transaction FOREIGN KEY (confirmed_transaction_id) REFERENCES transactions(id) ON DELETE SET NULL,
+    INDEX idx_transaction_drafts_user_status (user_id, status),
+    INDEX idx_transaction_drafts_user_created (user_id, created_at),
+    INDEX idx_transaction_drafts_image_sha256 (image_sha256),
+    INDEX idx_transaction_drafts_confirmed_transaction_id (confirmed_transaction_id),
+    INDEX idx_transaction_drafts_account_id (account_id),
+    INDEX idx_transaction_drafts_project_id (project_id),
+    INDEX idx_transaction_drafts_category_id (category_id),
+    INDEX idx_transaction_drafts_subcategory_id (subcategory_id)
+);
+
 -- Create payments table (for recurring payments)
 CREATE TABLE IF NOT EXISTS payments (
     id INT AUTO_INCREMENT PRIMARY KEY,

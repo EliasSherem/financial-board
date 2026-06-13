@@ -42,6 +42,10 @@
 	<false/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to sign in to FinSight.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>FinSight needs camera access to scan your receipt.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>FinSight needs photo access so you can upload a receipt.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

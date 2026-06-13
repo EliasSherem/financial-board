@@ -5,6 +5,44 @@ double _asDouble(dynamic v) {
   return 0;
 }
 
+int? _asIntOrNull(dynamic v) {
+  if (v == null) return null;
+  if (v is num) return v.toInt();
+  if (v is String) return int.tryParse(v);
+  return null;
+}
+
+double? _asDoubleOrNull(dynamic v) {
+  if (v == null) return null;
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v.replaceAll(',', ''));
+  return null;
+}
+
+String? _asStringOrNull(dynamic v) {
+  if (v == null) return null;
+  final text = v.toString();
+  return text.isEmpty ? null : text;
+}
+
+DateTime? _asDateTimeOrNull(dynamic v) {
+  if (v == null) return null;
+  if (v is DateTime) return v;
+  if (v is String && v.trim().isNotEmpty) return DateTime.tryParse(v);
+  return null;
+}
+
+Map<String, dynamic>? _asMapOrNull(dynamic v) {
+  if (v is Map<String, dynamic>) return v;
+  if (v is Map) return v.cast<String, dynamic>();
+  return null;
+}
+
+List<String> _asStringList(dynamic v) {
+  if (v is! List) return const [];
+  return v.map((e) => e.toString()).toList();
+}
+
 class Account {
   final int id;
   final String name;
@@ -168,6 +206,160 @@ class TransactionItem {
 
   bool get isExpense => amount < 0 && !isTransfer;
   bool get isIncome => amount > 0 && !isTransfer;
+}
+
+class TransactionDraft {
+  final int id;
+  final String status;
+  final int? accountId;
+  final int? projectId;
+  final DateTime? date;
+  final String? description;
+  final double? amount;
+  final String? type;
+  final String? category;
+  final int? categoryId;
+  final int? subcategoryId;
+  final String? paymentMethod;
+  final String? currency;
+  final String? notes;
+  final double? confidence;
+  final Map<String, dynamic>? extractionJson;
+  final List<String> warningsJson;
+  final String? errorMessage;
+  final int? confirmedTransactionId;
+  final DateTime? confirmedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  const TransactionDraft({
+    required this.id,
+    required this.status,
+    this.accountId,
+    this.projectId,
+    this.date,
+    this.description,
+    this.amount,
+    this.type,
+    this.category,
+    this.categoryId,
+    this.subcategoryId,
+    this.paymentMethod,
+    this.currency,
+    this.notes,
+    this.confidence,
+    this.extractionJson,
+    this.warningsJson = const [],
+    this.errorMessage,
+    this.confirmedTransactionId,
+    this.confirmedAt,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  factory TransactionDraft.fromJson(Map<String, dynamic> j) => TransactionDraft(
+    id: _asIntOrNull(j['id']) ?? _asIntOrNull(j['draft_id']) ?? 0,
+    status: j['status'] as String? ?? 'processing',
+    accountId: _asIntOrNull(j['account_id']),
+    projectId: _asIntOrNull(j['project_id']),
+    date: _asDateTimeOrNull(j['date']),
+    description: _asStringOrNull(j['description']),
+    amount: _asDoubleOrNull(j['amount']),
+    type: _asStringOrNull(j['type']),
+    category: _asStringOrNull(j['category']),
+    categoryId: _asIntOrNull(j['category_id']),
+    subcategoryId: _asIntOrNull(j['subcategory_id']),
+    paymentMethod: _asStringOrNull(j['payment_method']),
+    currency: _asStringOrNull(j['currency']),
+    notes: _asStringOrNull(j['notes']),
+    confidence: _asDoubleOrNull(j['confidence']),
+    extractionJson: _asMapOrNull(j['extraction_json']),
+    warningsJson: _asStringList(j['warnings_json']),
+    errorMessage: _asStringOrNull(j['error_message'] ?? j['error']),
+    confirmedTransactionId: _asIntOrNull(j['confirmed_transaction_id']),
+    confirmedAt: _asDateTimeOrNull(j['confirmed_at']),
+    createdAt: _asDateTimeOrNull(j['created_at']),
+    updatedAt: _asDateTimeOrNull(j['updated_at']),
+  );
+
+  bool get isProcessing => status == 'processing';
+  bool get isReady => status == 'ready';
+  bool get isFailed => status == 'failed';
+  bool get isConfirmed => status == 'confirmed';
+  bool get isDiscarded => status == 'discarded';
+}
+
+class ReceiptUploadTransaction {
+  final String? merchant;
+  final DateTime? date;
+  final String? description;
+  final double? amount;
+  final String? type;
+  final String? category;
+  final String? paymentMethod;
+  final String? currency;
+  final double? confidence;
+  final List<String> warnings;
+
+  const ReceiptUploadTransaction({
+    this.merchant,
+    this.date,
+    this.description,
+    this.amount,
+    this.type,
+    this.category,
+    this.paymentMethod,
+    this.currency,
+    this.confidence,
+    this.warnings = const [],
+  });
+
+  factory ReceiptUploadTransaction.fromJson(Map<String, dynamic> j) =>
+      ReceiptUploadTransaction(
+        merchant: _asStringOrNull(j['merchant']),
+        date: _asDateTimeOrNull(j['date']),
+        description: _asStringOrNull(j['description']),
+        amount: _asDoubleOrNull(j['amount']),
+        type: _asStringOrNull(j['type']),
+        category: _asStringOrNull(j['category']),
+        paymentMethod: _asStringOrNull(j['payment_method']),
+        currency: _asStringOrNull(j['currency']),
+        confidence: _asDoubleOrNull(j['confidence']),
+        warnings: _asStringList(j['warnings']),
+      );
+}
+
+class ReceiptUploadResponse {
+  final int draftId;
+  final String status;
+  final bool needsReview;
+  final ReceiptUploadTransaction? transaction;
+  final String? error;
+
+  const ReceiptUploadResponse({
+    required this.draftId,
+    required this.status,
+    required this.needsReview,
+    this.transaction,
+    this.error,
+  });
+
+  factory ReceiptUploadResponse.fromJson(Map<String, dynamic> j) {
+    final transactionJson = _asMapOrNull(j['transaction']);
+    return ReceiptUploadResponse(
+      draftId: _asIntOrNull(j['draft_id']) ?? _asIntOrNull(j['id']) ?? 0,
+      status: j['status'] as String? ?? 'processing',
+      needsReview: j['needs_review'] == true,
+      transaction:
+          transactionJson == null
+              ? null
+              : ReceiptUploadTransaction.fromJson(transactionJson),
+      error: _asStringOrNull(j['error'] ?? j['message']),
+    );
+  }
+
+  bool get isReady => status == 'ready';
+  bool get isFailed => status == 'failed';
 }
 
 class ExpenseSubcategory {

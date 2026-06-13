@@ -1,4 +1,5 @@
 ﻿import { Router, Request, Response } from 'express';
+import multer from 'multer';
 import { db } from './db.js';
 import { isFcmConfigured, sendFcmNotification } from './fcm.js';
 import { isEmailConfigured, sendResendEmail } from './email.js';
@@ -7,10 +8,15 @@ import { createCheckoutSession, createPortalSession, syncUserSubscription, cance
 import { google } from 'googleapis';
 import crypto from 'crypto';
 import OpenAI from 'openai';
+import { extractReceiptFromImage } from './receiptExtraction.js';
+import { createTransactionForUser } from './transactionWriter.js';
 
 const router = Router();
 const APPLE_VERIFY_RECEIPT_PRODUCTION_URL = 'https://buy.itunes.apple.com/verifyReceipt';
 const APPLE_VERIFY_RECEIPT_SANDBOX_URL = 'https://sandbox.itunes.apple.com/verifyReceipt';
+const RECEIPT_UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
+const RECEIPT_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const RECEIPT_SCANNING_PRO_MESSAGE = 'Receipt scanning is available with FinSight Pro.';
 
 type NormalizedAppleVerification = {
   status: number;
@@ -28,6 +34,10 @@ function getOpenAiClient(): OpenAI | null {
   if (!apiKey) return null;
   openaiClient = new OpenAI({ apiKey });
   return openaiClient;
+}
+
+function isReceiptScanningEnabled(): boolean {
+  return String(process.env.RECEIPT_SCANNING_ENABLED || '').trim().toLowerCase() === 'true';
 }
 
 function escapeEmailHtml(value: string): string {
@@ -582,6 +592,7 @@ async function fetchExpenseCategory(userId: number, categoryId: number): Promise
 
 let investmentAccountSchemaEnsured = false;
 let transactionTransferTypeSchemaEnsured = false;
+let transactionDraftSchemaEnsured = false;
 
 async function ensureTransactionTransferTypeSchema() {
   if (transactionTransferTypeSchemaEnsured) return;
@@ -600,6 +611,709 @@ async function ensureTransactionTransferTypeSchema() {
     }
   }
   transactionTransferTypeSchemaEnsured = true;
+}
+
+export async function ensureTransactionDraftSchema() {
+  if (transactionDraftSchemaEnsured) return;
+
+  const createTableSql = `
+    CREATE TABLE IF NOT EXISTS transaction_drafts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'processing',
+      account_id INT NULL,
+      project_id INT NULL,
+      date DATE NULL,
+      description VARCHAR(255) NULL,
+      amount DECIMAL(12, 2) NULL,
+      type VARCHAR(32) NULL,
+      category VARCHAR(100) NULL,
+      category_id INT NULL,
+      subcategory_id INT NULL,
+      payment_method VARCHAR(32) NULL,
+      currency VARCHAR(8) NULL DEFAULT 'MXN',
+      notes TEXT NULL,
+      confidence DECIMAL(5, 4) NULL,
+      extraction_json JSON NULL,
+      warnings_json JSON NULL,
+      image_sha256 VARCHAR(64) NULL,
+      image_mime VARCHAR(100) NULL,
+      image_size_bytes INT NULL,
+      error_message TEXT NULL,
+      confirmed_transaction_id INT NULL,
+      confirmed_at DATETIME NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_transaction_drafts_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_transaction_drafts_account FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE SET NULL,
+      CONSTRAINT fk_transaction_drafts_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
+      CONSTRAINT fk_transaction_drafts_category FOREIGN KEY (category_id) REFERENCES expense_categories(id) ON DELETE SET NULL,
+      CONSTRAINT fk_transaction_drafts_subcategory FOREIGN KEY (subcategory_id) REFERENCES expense_subcategories(id) ON DELETE SET NULL,
+      CONSTRAINT fk_transaction_drafts_confirmed_transaction FOREIGN KEY (confirmed_transaction_id) REFERENCES transactions(id) ON DELETE SET NULL,
+      INDEX idx_transaction_drafts_user_status (user_id, status),
+      INDEX idx_transaction_drafts_user_created (user_id, created_at),
+      INDEX idx_transaction_drafts_image_sha256 (image_sha256),
+      INDEX idx_transaction_drafts_confirmed_transaction_id (confirmed_transaction_id),
+      INDEX idx_transaction_drafts_account_id (account_id),
+      INDEX idx_transaction_drafts_project_id (project_id),
+      INDEX idx_transaction_drafts_category_id (category_id),
+      INDEX idx_transaction_drafts_subcategory_id (subcategory_id)
+    )
+  `;
+
+  try {
+    await db.query(createTableSql);
+  } catch (error: any) {
+    console.warn('Transaction drafts schema warning (create table):', error?.message || error);
+  }
+
+  const columns: Array<[string, string]> = [
+    ['user_id', 'INT NOT NULL'],
+    ['status', "VARCHAR(32) NOT NULL DEFAULT 'processing'"],
+    ['account_id', 'INT NULL'],
+    ['project_id', 'INT NULL'],
+    ['date', 'DATE NULL'],
+    ['description', 'VARCHAR(255) NULL'],
+    ['amount', 'DECIMAL(12, 2) NULL'],
+    ['type', 'VARCHAR(32) NULL'],
+    ['category', 'VARCHAR(100) NULL'],
+    ['category_id', 'INT NULL'],
+    ['subcategory_id', 'INT NULL'],
+    ['payment_method', 'VARCHAR(32) NULL'],
+    ['currency', "VARCHAR(8) NULL DEFAULT 'MXN'"],
+    ['notes', 'TEXT NULL'],
+    ['confidence', 'DECIMAL(5, 4) NULL'],
+    ['extraction_json', 'JSON NULL'],
+    ['warnings_json', 'JSON NULL'],
+    ['image_sha256', 'VARCHAR(64) NULL'],
+    ['image_mime', 'VARCHAR(100) NULL'],
+    ['image_size_bytes', 'INT NULL'],
+    ['error_message', 'TEXT NULL'],
+    ['confirmed_transaction_id', 'INT NULL'],
+    ['confirmed_at', 'DATETIME NULL'],
+    ['created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
+    ['updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'],
+  ];
+
+  for (const [name, definition] of columns) {
+    try {
+      await db.query(`ALTER TABLE transaction_drafts ADD COLUMN ${name} ${definition}`);
+    } catch (error: any) {
+      if (error?.code !== 'ER_DUP_FIELDNAME') {
+        console.warn(`Transaction drafts schema warning (${name}):`, error?.message || error);
+      }
+    }
+  }
+
+  const indexes: Array<[string, string]> = [
+    [
+      'idx_transaction_drafts_user_status',
+      'CREATE INDEX idx_transaction_drafts_user_status ON transaction_drafts (user_id, status)'
+    ],
+    [
+      'idx_transaction_drafts_user_created',
+      'CREATE INDEX idx_transaction_drafts_user_created ON transaction_drafts (user_id, created_at)'
+    ],
+    [
+      'idx_transaction_drafts_image_sha256',
+      'CREATE INDEX idx_transaction_drafts_image_sha256 ON transaction_drafts (image_sha256)'
+    ],
+    [
+      'idx_transaction_drafts_confirmed_transaction_id',
+      'CREATE INDEX idx_transaction_drafts_confirmed_transaction_id ON transaction_drafts (confirmed_transaction_id)'
+    ],
+    [
+      'idx_transaction_drafts_account_id',
+      'CREATE INDEX idx_transaction_drafts_account_id ON transaction_drafts (account_id)'
+    ],
+    [
+      'idx_transaction_drafts_project_id',
+      'CREATE INDEX idx_transaction_drafts_project_id ON transaction_drafts (project_id)'
+    ],
+    [
+      'idx_transaction_drafts_category_id',
+      'CREATE INDEX idx_transaction_drafts_category_id ON transaction_drafts (category_id)'
+    ],
+    [
+      'idx_transaction_drafts_subcategory_id',
+      'CREATE INDEX idx_transaction_drafts_subcategory_id ON transaction_drafts (subcategory_id)'
+    ],
+  ];
+
+  for (const [name, sql] of indexes) {
+    try {
+      await db.query(sql);
+    } catch (error: any) {
+      if (error?.code !== 'ER_DUP_KEYNAME') {
+        console.warn(`Transaction drafts schema warning (${name}):`, error?.message || error);
+      }
+    }
+  }
+
+  const constraints: Array<[string, string]> = [
+    [
+      'fk_transaction_drafts_user',
+      'ALTER TABLE transaction_drafts ADD CONSTRAINT fk_transaction_drafts_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE'
+    ],
+    [
+      'fk_transaction_drafts_account',
+      'ALTER TABLE transaction_drafts ADD CONSTRAINT fk_transaction_drafts_account FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE SET NULL'
+    ],
+    [
+      'fk_transaction_drafts_project',
+      'ALTER TABLE transaction_drafts ADD CONSTRAINT fk_transaction_drafts_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL'
+    ],
+    [
+      'fk_transaction_drafts_category',
+      'ALTER TABLE transaction_drafts ADD CONSTRAINT fk_transaction_drafts_category FOREIGN KEY (category_id) REFERENCES expense_categories(id) ON DELETE SET NULL'
+    ],
+    [
+      'fk_transaction_drafts_subcategory',
+      'ALTER TABLE transaction_drafts ADD CONSTRAINT fk_transaction_drafts_subcategory FOREIGN KEY (subcategory_id) REFERENCES expense_subcategories(id) ON DELETE SET NULL'
+    ],
+    [
+      'fk_transaction_drafts_confirmed_transaction',
+      'ALTER TABLE transaction_drafts ADD CONSTRAINT fk_transaction_drafts_confirmed_transaction FOREIGN KEY (confirmed_transaction_id) REFERENCES transactions(id) ON DELETE SET NULL'
+    ],
+  ];
+
+  for (const [name, sql] of constraints) {
+    try {
+      await db.query(sql);
+    } catch (error: any) {
+      if (error?.code !== 'ER_FK_DUP_NAME' && error?.code !== 'ER_DUP_KEYNAME') {
+        console.warn(`Transaction drafts schema warning (${name}):`, error?.message || error);
+      }
+    }
+  }
+
+  transactionDraftSchemaEnsured = true;
+}
+
+const receiptUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: RECEIPT_UPLOAD_MAX_BYTES,
+    files: 1,
+  },
+  fileFilter: (_req, file, cb) => {
+    const mime = String(file.mimetype || '').toLowerCase();
+    if (!RECEIPT_IMAGE_MIME_TYPES.has(mime)) {
+      cb(new Error('INVALID_RECEIPT_MIME'));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+function parseReceiptUpload(req: Request, res: Response): Promise<boolean> {
+  return new Promise((resolve) => {
+    receiptUpload.single('receipt')(req, res, (error: any) => {
+      if (!error) {
+        resolve(true);
+        return;
+      }
+
+      if (error instanceof multer.MulterError) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          res.status(413).json({ message: 'Receipt image must be 8MB or smaller' });
+          resolve(false);
+          return;
+        }
+        if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+          res.status(400).json({ message: 'Use a single image file field named receipt' });
+          resolve(false);
+          return;
+        }
+        res.status(400).json({ message: error.message || 'Invalid receipt upload' });
+        resolve(false);
+        return;
+      }
+
+      if (error?.message === 'INVALID_RECEIPT_MIME') {
+        res.status(400).json({ message: 'Receipt must be a JPEG, PNG, or WebP image' });
+        resolve(false);
+        return;
+      }
+
+      console.error('Receipt upload parse error:', error);
+      res.status(400).json({ message: 'Invalid receipt upload' });
+      resolve(false);
+    });
+  });
+}
+
+function receiptExtractionClientError(error: unknown): { status: number; message: string } {
+  const message = error instanceof Error ? error.message : '';
+  if (message.includes('OPENAI_API_KEY')) {
+    return { status: 503, message: 'Receipt extraction is not configured.' };
+  }
+  return { status: 422, message: 'Could not extract a clear transaction from this receipt.' };
+}
+
+const TRANSACTION_DRAFT_SELECT = `
+  SELECT
+    id,
+    user_id,
+    status,
+    account_id,
+    project_id,
+    DATE_FORMAT(date, '%Y-%m-%d') AS date,
+    description,
+    amount,
+    type,
+    category,
+    category_id,
+    subcategory_id,
+    payment_method,
+    currency,
+    notes,
+    confidence,
+    extraction_json,
+    warnings_json,
+    image_sha256,
+    error_message,
+    confirmed_transaction_id,
+    confirmed_at,
+    created_at,
+    updated_at
+  FROM transaction_drafts
+`;
+
+const TRANSACTION_DRAFT_MUTABLE_FIELDS = new Set([
+  'account_id',
+  'project_id',
+  'date',
+  'description',
+  'amount',
+  'type',
+  'category',
+  'category_id',
+  'subcategory_id',
+  'payment_method',
+  'currency',
+  'notes',
+]);
+
+type DraftMutableValues = {
+  account_id: number | null;
+  project_id: number | null;
+  date: string | null;
+  description: string | null;
+  amount: number | null;
+  type: string | null;
+  category: string | null;
+  category_id: number | null;
+  subcategory_id: number | null;
+  payment_method: string | null;
+  currency: string | null;
+  notes: string | null;
+};
+
+class DraftValidationError extends Error {
+  status: number;
+
+  constructor(message: string, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
+function parseDraftId(value: unknown): number | null {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function hasOwnValue(source: Record<string, unknown>, key: string) {
+  return Object.prototype.hasOwnProperty.call(source, key);
+}
+
+function parseJsonColumn(value: unknown, fallback: unknown) {
+  if (value == null) return fallback;
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeTransactionType(value: unknown): string | null {
+  if (value == null) return null;
+  const raw = String(value).trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === 'income') return 'Income';
+  if (raw === 'expense') return 'Expense';
+  if (raw === 'transfer') return 'Transfer';
+  return null;
+}
+
+function normalizeDateValue(value: unknown): string | null {
+  if (value == null || value === '') return null;
+  const raw =
+    value instanceof Date
+      ? value.toISOString().slice(0, 10)
+      : String(value).trim().slice(0, 10);
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(`${raw}T00:00:00.000Z`);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() + 1 !== month ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return raw;
+}
+
+function normalizeNullableId(value: unknown, fieldName: string): number | null {
+  if (value == null || value === '') return null;
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new DraftValidationError(`Invalid ${fieldName}`);
+  }
+  return id;
+}
+
+function normalizeNullableAmount(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount === 0) {
+    throw new DraftValidationError('Invalid amount');
+  }
+  return amount;
+}
+
+function normalizeNullableText(value: unknown, fieldName: string, maxLength: number): string | null {
+  if (value == null) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  if (text.length > maxLength) {
+    throw new DraftValidationError(`${fieldName} is too long`);
+  }
+  return text;
+}
+
+function normalizeCurrency(value: unknown): string | null {
+  const currency = normalizeNullableText(value, 'currency', 8);
+  return currency ? currency.toUpperCase() : null;
+}
+
+function normalizePaymentMethod(value: unknown): string | null {
+  const paymentMethod = normalizeNullableText(value, 'payment_method', 32);
+  return paymentMethod ? paymentMethod.toLowerCase() : null;
+}
+
+function formatTransactionDraft(row: any) {
+  const warnings = parseJsonColumn(row.warnings_json, []);
+  return {
+    id: row.id,
+    status: row.status,
+    account_id: row.account_id == null ? null : Number(row.account_id),
+    project_id: row.project_id == null ? null : Number(row.project_id),
+    date: row.date ?? null,
+    description: row.description ?? null,
+    amount: row.amount == null ? null : Number(row.amount),
+    type: normalizeTransactionType(row.type) ?? row.type ?? null,
+    category: row.category ?? null,
+    category_id: row.category_id == null ? null : Number(row.category_id),
+    subcategory_id: row.subcategory_id == null ? null : Number(row.subcategory_id),
+    payment_method: row.payment_method ?? null,
+    currency: row.currency ?? null,
+    notes: row.notes ?? null,
+    confidence: row.confidence == null ? null : Number(row.confidence),
+    extraction_json: parseJsonColumn(row.extraction_json, null),
+    warnings_json: Array.isArray(warnings) ? warnings : [],
+    error_message: row.error_message ?? null,
+    confirmed_transaction_id:
+      row.confirmed_transaction_id == null ? null : Number(row.confirmed_transaction_id),
+    confirmed_at: row.confirmed_at ?? null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+async function fetchTransactionDraftForUser(userId: number, draftId: number) {
+  const [rows] = await db.query(
+    `${TRANSACTION_DRAFT_SELECT} WHERE id = ? AND user_id = ?`,
+    [draftId, userId]
+  );
+  return (rows as any[])[0] ?? null;
+}
+
+function draftMutableValuesFromRow(row: any): DraftMutableValues {
+  return {
+    account_id: row.account_id == null ? null : Number(row.account_id),
+    project_id: row.project_id == null ? null : Number(row.project_id),
+    date: row.date ?? null,
+    description: row.description ?? null,
+    amount: row.amount == null ? null : Number(row.amount),
+    type: normalizeTransactionType(row.type) ?? null,
+    category: row.category ?? null,
+    category_id: row.category_id == null ? null : Number(row.category_id),
+    subcategory_id: row.subcategory_id == null ? null : Number(row.subcategory_id),
+    payment_method: row.payment_method ?? null,
+    currency: row.currency ?? null,
+    notes: row.notes ?? null,
+  };
+}
+
+async function ensureAccountBelongsToUser(userId: number, accountId: number) {
+  const [rows] = await db.query(
+    'SELECT id FROM accounts WHERE id = ? AND user_id = ? LIMIT 1',
+    [accountId, userId]
+  );
+  if ((rows as any[]).length === 0) {
+    throw new DraftValidationError('Account not found');
+  }
+}
+
+async function ensureProjectBelongsToUser(userId: number, projectId: number) {
+  const [rows] = await db.query(
+    'SELECT id FROM projects WHERE id = ? AND user_id = ? LIMIT 1',
+    [projectId, userId]
+  );
+  if ((rows as any[]).length === 0) {
+    throw new DraftValidationError('Project not found');
+  }
+}
+
+async function resolveDraftCategoryValues(userId: number, values: DraftMutableValues) {
+  let categoryId = values.category_id;
+  let subcategoryId = values.subcategory_id;
+  let categoryLabel = values.category;
+
+  if (subcategoryId !== null) {
+    const [subRows] = await db.query(
+      'SELECT id, category_id, name FROM expense_subcategories WHERE id = ? AND user_id = ?',
+      [subcategoryId, userId]
+    );
+    if ((subRows as any[]).length === 0) {
+      throw new DraftValidationError('Subcategory not found');
+    }
+    const sub = (subRows as any[])[0];
+    if (categoryId !== null && categoryId !== Number(sub.category_id)) {
+      throw new DraftValidationError('Subcategory does not belong to the specified category');
+    }
+    categoryId = Number(sub.category_id);
+    categoryLabel = sub.name;
+  }
+
+  if (categoryId !== null) {
+    const [catRows] = await db.query(
+      'SELECT id, name FROM expense_categories WHERE id = ? AND user_id = ?',
+      [categoryId, userId]
+    );
+    if ((catRows as any[]).length === 0) {
+      throw new DraftValidationError('Category not found');
+    }
+    if (!categoryLabel) {
+      categoryLabel = (catRows as any[])[0].name;
+    }
+  }
+
+  if (categoryLabel && categoryLabel.length > 50) {
+    categoryLabel = categoryLabel.slice(0, 50);
+  }
+
+  return {
+    ...values,
+    category: categoryLabel,
+    category_id: categoryId,
+    subcategory_id: subcategoryId,
+  };
+}
+
+async function buildDraftMutableValues({
+  userId,
+  draft,
+  patch,
+  requireTransactionFields,
+}: {
+  userId: number;
+  draft: any;
+  patch?: Record<string, unknown>;
+  requireTransactionFields: boolean;
+}) {
+  let values = draftMutableValuesFromRow(draft);
+
+  if (patch) {
+    for (const key of Object.keys(patch)) {
+      if (!TRANSACTION_DRAFT_MUTABLE_FIELDS.has(key)) {
+        throw new DraftValidationError(`${key} cannot be updated`);
+      }
+    }
+
+    if (hasOwnValue(patch, 'account_id')) {
+      values.account_id = normalizeNullableId(patch.account_id, 'account_id');
+    }
+    if (hasOwnValue(patch, 'project_id')) {
+      values.project_id = normalizeNullableId(patch.project_id, 'project_id');
+    }
+    if (hasOwnValue(patch, 'date')) {
+      const date = normalizeDateValue(patch.date);
+      if (patch.date != null && patch.date !== '' && !date) {
+        throw new DraftValidationError('Invalid date');
+      }
+      values.date = date;
+    }
+    if (hasOwnValue(patch, 'description')) {
+      values.description = normalizeNullableText(patch.description, 'description', 255);
+    }
+    if (hasOwnValue(patch, 'amount')) {
+      values.amount = normalizeNullableAmount(patch.amount);
+    }
+    if (hasOwnValue(patch, 'type')) {
+      const type = normalizeTransactionType(patch.type);
+      if (!type) {
+        throw new DraftValidationError('Invalid type');
+      }
+      values.type = type;
+    }
+    if (hasOwnValue(patch, 'category')) {
+      values.category = normalizeNullableText(patch.category, 'category', 100);
+    }
+    if (hasOwnValue(patch, 'category_id')) {
+      values.category_id = normalizeNullableId(patch.category_id, 'category_id');
+    }
+    if (hasOwnValue(patch, 'subcategory_id')) {
+      values.subcategory_id = normalizeNullableId(patch.subcategory_id, 'subcategory_id');
+    }
+    if (hasOwnValue(patch, 'payment_method')) {
+      values.payment_method = normalizePaymentMethod(patch.payment_method);
+    }
+    if (hasOwnValue(patch, 'currency')) {
+      values.currency = normalizeCurrency(patch.currency);
+    }
+    if (hasOwnValue(patch, 'notes')) {
+      values.notes = normalizeNullableText(patch.notes, 'notes', 2000);
+    }
+  }
+
+  values.date = normalizeDateValue(values.date);
+  values.type = normalizeTransactionType(values.type);
+
+  if (values.account_id !== null) {
+    await ensureAccountBelongsToUser(userId, values.account_id);
+  }
+  if (values.project_id !== null) {
+    await ensureProjectBelongsToUser(userId, values.project_id);
+  }
+
+  values = await resolveDraftCategoryValues(userId, values);
+
+  if (requireTransactionFields) {
+    if (values.account_id === null) throw new DraftValidationError('account_id is required');
+    if (!values.date) throw new DraftValidationError('date is required');
+    if (!values.description) throw new DraftValidationError('description is required');
+    if (values.amount === null) throw new DraftValidationError('amount is required');
+    if (!values.type) throw new DraftValidationError('type is required');
+  }
+
+  return values;
+}
+
+function normalizeAmountForTransaction(amount: number, type: string) {
+  if (type === 'Expense') return -Math.abs(amount);
+  if (type === 'Income') return Math.abs(amount);
+  return amount;
+}
+
+function normalizeComparableText(value: unknown) {
+  return String(value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function valuesAreSimilar(left: unknown, right: unknown) {
+  const a = normalizeComparableText(left);
+  const b = normalizeComparableText(right);
+  if (!a || !b) return false;
+  if (a === b) return true;
+
+  const compactA = a.replace(/\s+/g, '');
+  const compactB = b.replace(/\s+/g, '');
+  if (
+    Math.min(compactA.length, compactB.length) >= 5 &&
+    (compactA.includes(compactB) || compactB.includes(compactA))
+  ) {
+    return true;
+  }
+
+  const aTokens = new Set(a.split(/\s+/).filter((token) => token.length >= 3));
+  const bTokens = new Set(b.split(/\s+/).filter((token) => token.length >= 3));
+  if (aTokens.size === 0 || bTokens.size === 0) return false;
+  let overlap = 0;
+  for (const token of aTokens) {
+    if (bTokens.has(token)) overlap += 1;
+  }
+  return overlap >= 2 && overlap / Math.min(aTokens.size, bTokens.size) >= 0.67;
+}
+
+async function findDuplicateDraftTransaction({
+  userId,
+  draftId,
+  imageSha256,
+  payload,
+}: {
+  userId: number;
+  draftId: number;
+  imageSha256: string | null;
+  payload: {
+    date: string;
+    amount: number;
+    description: string;
+    category: string | null;
+  };
+}) {
+  if (imageSha256) {
+    const [draftRows] = await db.query(
+      `SELECT confirmed_transaction_id
+         FROM transaction_drafts
+        WHERE user_id = ?
+          AND id <> ?
+          AND status = 'confirmed'
+          AND image_sha256 = ?
+          AND confirmed_transaction_id IS NOT NULL
+        ORDER BY confirmed_at DESC, id DESC
+        LIMIT 1`,
+      [userId, draftId, imageSha256]
+    );
+    const duplicateDraft = (draftRows as any[])[0];
+    if (duplicateDraft?.confirmed_transaction_id) {
+      return Number(duplicateDraft.confirmed_transaction_id);
+    }
+  }
+
+  const [transactionRows] = await db.query(
+    `SELECT id, description, category
+       FROM transactions
+      WHERE user_id = ?
+        AND date = ?
+        AND amount = ?
+      ORDER BY id DESC
+      LIMIT 25`,
+    [userId, payload.date, payload.amount]
+  );
+
+  for (const row of transactionRows as any[]) {
+    if (
+      valuesAreSimilar(row.description, payload.description) ||
+      valuesAreSimilar(row.category, payload.category)
+    ) {
+      return Number(row.id);
+    }
+  }
+
+  return null;
 }
 
 async function ensureInvestmentAccountSchema() {
@@ -1682,6 +2396,406 @@ router.delete('/api/expense-subcategories/:id', authenticateToken, async (req: R
   }
 });
 
+// Transaction draft routes
+router.post('/api/transaction-drafts/receipt', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    if (!isReceiptScanningEnabled()) {
+      return res.status(403).json({ error: 'Receipt scanning is currently disabled.' });
+    }
+
+    if (!(await userIsPro(req.user!.id))) {
+      return res.status(403).json({ error: RECEIPT_SCANNING_PRO_MESSAGE });
+    }
+
+    const parsed = await parseReceiptUpload(req, res);
+    if (!parsed) return;
+
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ message: 'receipt image is required' });
+    }
+
+    const imageMime = String(file.mimetype || '').toLowerCase();
+    if (!RECEIPT_IMAGE_MIME_TYPES.has(imageMime)) {
+      return res.status(400).json({ message: 'Receipt must be a JPEG, PNG, or WebP image' });
+    }
+
+    if (!file.buffer || file.buffer.length === 0) {
+      return res.status(400).json({ message: 'Receipt image is empty' });
+    }
+
+    const imageSizeBytes = file.buffer.length;
+    if (imageSizeBytes > RECEIPT_UPLOAD_MAX_BYTES) {
+      return res.status(413).json({ message: 'Receipt image must be 8MB or smaller' });
+    }
+
+    const imageSha256 = crypto.createHash('sha256').update(file.buffer).digest('hex');
+    await ensureTransactionDraftSchema();
+
+    const [result] = await db.query(
+      `INSERT INTO transaction_drafts
+         (user_id, status, image_sha256, image_mime, image_size_bytes)
+       VALUES (?, ?, ?, ?, ?)`,
+      [req.user!.id, 'processing', imageSha256, imageMime, imageSizeBytes]
+    );
+    const draftId = (result as any).insertId;
+
+    try {
+      const extracted = await extractReceiptFromImage({
+        imageBuffer: file.buffer,
+        mimeType: imageMime,
+        userId: req.user!.id,
+      });
+      const warnings = Array.isArray(extracted.warnings) ? extracted.warnings : [];
+      const description = extracted.description || extracted.merchant || null;
+      const currency = extracted.currency || 'MXN';
+
+      await db.query(
+        `UPDATE transaction_drafts
+            SET status = ?,
+                date = ?,
+                description = ?,
+                amount = ?,
+                type = ?,
+                category = ?,
+                payment_method = ?,
+                currency = ?,
+                confidence = ?,
+                extraction_json = ?,
+                warnings_json = ?,
+                error_message = NULL
+          WHERE id = ? AND user_id = ?`,
+        [
+          'ready',
+          extracted.date,
+          description,
+          extracted.total,
+          'expense',
+          extracted.category,
+          extracted.payment_method,
+          currency,
+          extracted.confidence,
+          JSON.stringify(extracted),
+          JSON.stringify(warnings),
+          draftId,
+          req.user!.id,
+        ]
+      );
+
+      return res.status(201).json({
+        draft_id: draftId,
+        status: 'ready',
+        needs_review: true,
+        transaction: {
+          merchant: extracted.merchant,
+          date: extracted.date,
+          description,
+          amount: extracted.total,
+          type: 'expense',
+          category: extracted.category,
+          payment_method: extracted.payment_method,
+          currency,
+          confidence: extracted.confidence,
+          warnings,
+        },
+      });
+    } catch (error) {
+      const clientError = receiptExtractionClientError(error);
+      console.warn('Receipt extraction failed', {
+        user_id: req.user!.id,
+        draft_id: draftId,
+        status: clientError.status,
+        reason: error instanceof Error ? error.name : 'unknown',
+      });
+      await db.query(
+        `UPDATE transaction_drafts
+            SET status = ?,
+                error_message = ?
+          WHERE id = ? AND user_id = ?`,
+        ['failed', clientError.message, draftId, req.user!.id]
+      );
+
+      return res.status(clientError.status).json({
+        draft_id: draftId,
+        status: 'failed',
+        needs_review: true,
+        error: clientError.message,
+      });
+    }
+  } catch (error) {
+    console.error('Receipt draft creation error:', error);
+    res.status(500).json({ message: 'Failed to create receipt draft' });
+  }
+});
+
+router.get('/api/transaction-drafts/:id', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const draftId = parseDraftId(req.params.id);
+    if (!draftId) {
+      return res.status(400).json({ message: 'Invalid draft id' });
+    }
+
+    await ensureTransactionDraftSchema();
+    const draft = await fetchTransactionDraftForUser(req.user!.id, draftId);
+    if (!draft) {
+      return res.status(404).json({ message: 'Draft not found' });
+    }
+
+    res.json(formatTransactionDraft(draft));
+  } catch (error) {
+    console.error('Transaction draft fetch error:', error);
+    res.status(500).json({ message: 'Failed to fetch transaction draft' });
+  }
+});
+
+router.patch('/api/transaction-drafts/:id', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const draftId = parseDraftId(req.params.id);
+    if (!draftId) {
+      return res.status(400).json({ message: 'Invalid draft id' });
+    }
+
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ message: 'Invalid draft update' });
+    }
+
+    await ensureTransactionDraftSchema();
+    const draft = await fetchTransactionDraftForUser(req.user!.id, draftId);
+    if (!draft) {
+      return res.status(404).json({ message: 'Draft not found' });
+    }
+
+    if (draft.status === 'confirmed') {
+      return res.status(409).json({ message: 'Confirmed drafts cannot be edited' });
+    }
+    if (draft.status === 'discarded') {
+      return res.status(409).json({ message: 'Discarded drafts cannot be edited' });
+    }
+
+    const values = await buildDraftMutableValues({
+      userId: req.user!.id,
+      draft,
+      patch: req.body as Record<string, unknown>,
+      requireTransactionFields: false,
+    });
+
+    await db.query(
+      `UPDATE transaction_drafts
+          SET account_id = ?,
+              project_id = ?,
+              date = ?,
+              description = ?,
+              amount = ?,
+              type = ?,
+              category = ?,
+              category_id = ?,
+              subcategory_id = ?,
+              payment_method = ?,
+              currency = ?,
+              notes = ?
+        WHERE id = ? AND user_id = ?`,
+      [
+        values.account_id,
+        values.project_id,
+        values.date,
+        values.description,
+        values.amount,
+        values.type,
+        values.category,
+        values.category_id,
+        values.subcategory_id,
+        values.payment_method,
+        values.currency,
+        values.notes,
+        draftId,
+        req.user!.id,
+      ]
+    );
+
+    const updated = await fetchTransactionDraftForUser(req.user!.id, draftId);
+    res.json(formatTransactionDraft(updated));
+  } catch (error) {
+    if (error instanceof DraftValidationError) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    console.error('Transaction draft update error:', error);
+    res.status(500).json({ message: 'Failed to update transaction draft' });
+  }
+});
+
+router.post('/api/transaction-drafts/:id/discard', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const draftId = parseDraftId(req.params.id);
+    if (!draftId) {
+      return res.status(400).json({ message: 'Invalid draft id' });
+    }
+
+    await ensureTransactionDraftSchema();
+    const draft = await fetchTransactionDraftForUser(req.user!.id, draftId);
+    if (!draft) {
+      return res.status(404).json({ message: 'Draft not found' });
+    }
+    if (draft.status === 'confirmed') {
+      return res.status(409).json({ message: 'Confirmed drafts cannot be discarded' });
+    }
+
+    await db.query(
+      `UPDATE transaction_drafts
+          SET status = ?
+        WHERE id = ? AND user_id = ?`,
+      ['discarded', draftId, req.user!.id]
+    );
+
+    res.json({
+      success: true,
+      draft_id: draftId,
+      status: 'discarded',
+    });
+  } catch (error) {
+    console.error('Transaction draft discard error:', error);
+    res.status(500).json({ message: 'Failed to discard transaction draft' });
+  }
+});
+
+router.post('/api/transaction-drafts/:id/confirm', authenticateToken, async (req: Request, res: Response) => {
+  const uid = req.user!.id;
+  let claimedStatus: string | null = null;
+
+  try {
+    const draftId = parseDraftId(req.params.id);
+    if (!draftId) {
+      return res.status(400).json({ message: 'Invalid draft id' });
+    }
+
+    await ensureTransactionDraftSchema();
+    await ensureInvestmentAccountSchema();
+    await ensureTransactionTransferTypeSchema();
+
+    const draft = await fetchTransactionDraftForUser(uid, draftId);
+    if (!draft) {
+      return res.status(404).json({ message: 'Draft not found' });
+    }
+
+    if (draft.status === 'confirmed') {
+      return res.status(409).json({
+        error: 'This draft has already been confirmed.',
+        duplicate_transaction_id:
+          draft.confirmed_transaction_id == null ? null : Number(draft.confirmed_transaction_id),
+      });
+    }
+
+    if (draft.status !== 'ready' && draft.status !== 'failed') {
+      return res.status(400).json({ message: 'Draft must be ready or failed before confirmation' });
+    }
+
+    const values = await buildDraftMutableValues({
+      userId: uid,
+      draft,
+      requireTransactionFields: true,
+    });
+
+    const transactionAmount = normalizeAmountForTransaction(values.amount!, values.type!);
+    const transactionPayload = {
+      account_id: values.account_id!,
+      project_id: values.project_id,
+      date: values.date!,
+      description: values.description!,
+      amount: transactionAmount,
+      type: values.type!,
+      category: values.category,
+      category_id: values.category_id,
+      subcategory_id: values.subcategory_id,
+    };
+
+    const duplicateTransactionId = await findDuplicateDraftTransaction({
+      userId: uid,
+      draftId,
+      imageSha256: draft.image_sha256 ?? null,
+      payload: {
+        date: transactionPayload.date,
+        amount: transactionPayload.amount,
+        description: transactionPayload.description,
+        category: transactionPayload.category,
+      },
+    });
+    if (duplicateTransactionId) {
+      return res.status(409).json({
+        error: 'This receipt may already be registered.',
+        duplicate_transaction_id: duplicateTransactionId,
+      });
+    }
+
+    claimedStatus = draft.status;
+    const [claimResult] = await db.query(
+      `UPDATE transaction_drafts
+          SET status = ?
+        WHERE id = ?
+          AND user_id = ?
+          AND status IN ('ready', 'failed')`,
+      ['processing', draftId, uid]
+    );
+    if ((claimResult as any).affectedRows !== 1) {
+      const latest = await fetchTransactionDraftForUser(uid, draftId);
+      if (latest?.status === 'confirmed') {
+        return res.status(409).json({
+          error: 'This draft has already been confirmed.',
+          duplicate_transaction_id:
+            latest.confirmed_transaction_id == null ? null : Number(latest.confirmed_transaction_id),
+        });
+      }
+      return res.status(409).json({ message: 'Draft is already being confirmed' });
+    }
+
+    try {
+      const inserted = await createTransactionForUser({
+        userId: uid,
+        payload: transactionPayload,
+        updateBalanceHistory,
+        syncInvestmentContribution,
+        fetchTransactionWithRelations,
+        afterCreate: async (transactionId) => {
+          const [confirmResult] = await db.query(
+            `UPDATE transaction_drafts
+                SET status = ?,
+                    confirmed_transaction_id = ?,
+                    confirmed_at = NOW()
+              WHERE id = ?
+                AND user_id = ?
+                AND status = ?`,
+            ['confirmed', transactionId, draftId, uid, 'processing']
+          );
+          if ((confirmResult as any).affectedRows !== 1) {
+            throw new DraftValidationError('Draft is already being confirmed', 409);
+          }
+        },
+      });
+      res.json(inserted);
+    } catch (error) {
+      if (claimedStatus) {
+        try {
+          await db.query(
+            `UPDATE transaction_drafts
+                SET status = ?
+              WHERE id = ?
+                AND user_id = ?
+                AND status = ?`,
+            [claimedStatus, draftId, uid, 'processing']
+          );
+        } catch (restoreError) {
+          console.warn('Failed to restore draft status after confirmation error:', (restoreError as any)?.message || restoreError);
+        }
+      }
+      throw error;
+    }
+  } catch (error) {
+    if (error instanceof DraftValidationError) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    console.error('Transaction draft confirm error:', error);
+    res.status(500).json({ message: 'Failed to confirm transaction draft' });
+  }
+});
+
 // Transaction routes
 router.get('/api/transactions', authenticateToken, async (req: Request, res: Response) => {
   try {
@@ -1824,60 +2938,24 @@ router.post('/api/transactions', authenticateToken, async (req: Request, res: Re
       categoryLabel = categoryLabel.slice(0, 50);
     }
 
-    await db.query('START TRANSACTION');
-
-    try {
-      const [result] = await db.query(
-        `INSERT INTO transactions (user_id, account_id, project_id, date, description, amount, type, category, category_id, subcategory_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [uid, account_id, project_id || null, date, description, amount, type, categoryLabel, categoryId, subcategoryId]
-      );
-
-      await db.query(
-        'UPDATE accounts SET balance = balance + ? WHERE id = ? AND user_id = ?',
-        [amount, account_id, uid]
-      );
-
-      if (project_id) {
-        const spentAmount =
-          type === 'Expense'
-            ? Math.abs(amount)
-            : type === 'Income'
-            ? -Math.abs(amount)
-            : 0;
-        if (spentAmount !== 0) {
-          await db.query(
-            'UPDATE projects SET spent = spent + ? WHERE id = ? AND user_id = ?',
-            [spentAmount, project_id, uid]
-          );
-        }
-      }
-
-      const transactionDate = new Date(date);
-      const year = transactionDate.getFullYear();
-      const month = transactionDate.getMonth() + 1;
-      await updateBalanceHistory(uid, account_id, year, month);
-
-      const currentDate = new Date();
-      const currentYear = currentDate.getFullYear();
-      const currentMonth = currentDate.getMonth() + 1;
-      for (let y = year; y <= currentYear; y++) {
-        const startMonth = y === year ? month : 1;
-        const endMonth = y === currentYear ? currentMonth : 12;
-        for (let m = startMonth; m <= endMonth; m++) {
-          await updateBalanceHistory(uid, account_id, y, m);
-        }
-      }
-
-      await syncInvestmentContribution(uid, account_id, (result as any).insertId, amount, date);
-      await db.query('COMMIT');
-
-      const inserted = await fetchTransactionWithRelations(uid, (result as any).insertId);
-      res.json(inserted);
-    } catch (error) {
-      await db.query('ROLLBACK');
-      throw error;
-    }
+    const inserted = await createTransactionForUser({
+      userId: uid,
+      payload: {
+        account_id,
+        project_id,
+        date,
+        description,
+        amount,
+        type,
+        category: categoryLabel,
+        category_id: categoryId,
+        subcategory_id: subcategoryId,
+      },
+      updateBalanceHistory,
+      syncInvestmentContribution,
+      fetchTransactionWithRelations,
+    });
+    res.json(inserted);
   } catch (error) {
     console.error('Transaction creation error:', error);
     res.status(500).json({ error: 'Failed to create transaction' });

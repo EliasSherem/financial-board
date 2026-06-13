@@ -9,11 +9,13 @@ import 'package:printing/printing.dart';
 import '../utils/format.dart';
 import '../utils/category_icons.dart';
 import '../widgets/new_transaction_dialog.dart';
+import 'receipt_scan_screen.dart';
 import '../models.dart';
 import '../services/api.dart';
 import '../services/data_service.dart';
 import '../state/auth_store.dart';
 import '../state/refresh_bus.dart';
+import '../widgets/pro_widgets.dart';
 import '../i18n.dart';
 import '../liquid_glass/liquid_glass.dart';
 
@@ -1247,10 +1249,29 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   @override
   Widget build(BuildContext context) {
     final visibleItems = _filtered.take(_visible).toList();
+    final isPro = context.watch<AuthStore>().isProOrExempt;
 
     void openNewTransaction() async {
       final ok = await showNewTransactionDialog(context, _data);
       if (ok == true && mounted) await _load();
+    }
+
+    void openReceiptScan() async {
+      final navigator = Navigator.of(context);
+      final messenger = ScaffoldMessenger.of(context);
+      final proMessage = I18n.tr(context, 'receipt.proRequired');
+      final savedMessage = I18n.tr(context, 'receipt.saved');
+      if (!isPro) {
+        messenger.showSnackBar(SnackBar(content: Text(proMessage)));
+        return;
+      }
+      final ok = await navigator.push<bool>(
+        MaterialPageRoute(builder: (_) => const ReceiptScanScreen()),
+      );
+      if (ok != true || !mounted) return;
+      await _load();
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(savedMessage)));
     }
 
     return Scaffold(
@@ -1282,11 +1303,29 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     ),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: LGButton(
-                        label: I18n.t(context, 'add.newTransaction'),
-                        icon: Icons.add,
-                        size: LGButtonSize.sm,
-                        onPressed: openNewTransaction,
+                      child: Wrap(
+                        spacing: LGSpacing.sm,
+                        runSpacing: LGSpacing.sm,
+                        children: [
+                          LGButton(
+                            label: I18n.t(context, 'add.newTransaction'),
+                            icon: Icons.add,
+                            size: LGButtonSize.sm,
+                            onPressed: openNewTransaction,
+                          ),
+                          LGButton(
+                            label: I18n.t(context, 'add.scanReceipt'),
+                            icon: Icons.receipt_long_outlined,
+                            variant: LGButtonVariant.outline,
+                            size: LGButtonSize.sm,
+                            onPressed: openReceiptScan,
+                          ),
+                          if (!isPro)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8),
+                              child: ProMiniChip(),
+                            ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: LGSpacing.md),

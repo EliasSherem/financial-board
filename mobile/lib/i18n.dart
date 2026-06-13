@@ -63,6 +63,7 @@ class I18n {
       'en': 'New transaction',
       'es': 'Nueva transacci\u00F3n',
     },
+    'add.scanReceipt': {'en': 'Scan receipt', 'es': 'Escanear ticket'},
     'add.newRecurringPayment': {
       'en': 'New recurring payment',
       'es': 'Nuevo pago recurrente',
@@ -368,6 +369,60 @@ class I18n {
     'tx.saveChanges': {'en': 'Save Changes', 'es': 'Guardar cambios'},
     'tx.create': {'en': 'Create Transaction', 'es': 'Crear transacci\u00F3n'},
 
+    // Receipt scanning
+    'receipt.scanTitle': {'en': 'Scan Receipt', 'es': 'Escanear ticket'},
+    'receipt.scanSubtitle': {
+      'en': 'Take or upload a receipt, then review it before saving.',
+      'es': 'Toma o sube un ticket y revisalo antes de guardarlo.',
+    },
+    'receipt.takePhoto': {'en': 'Take photo', 'es': 'Tomar foto'},
+    'receipt.chooseGallery': {
+      'en': 'Choose from gallery',
+      'es': 'Elegir de galeria',
+    },
+    'receipt.reading': {'en': 'Reading receipt...', 'es': 'Leyendo ticket...'},
+    'receipt.uploadFailed': {
+      'en': 'Could not read this receipt.',
+      'es': 'No se pudo leer este ticket.',
+    },
+    'receipt.retry': {'en': 'Retry', 'es': 'Reintentar'},
+    'receipt.reviewTitle': {'en': 'Review receipt', 'es': 'Revisar ticket'},
+    'receipt.reviewSubtitle': {
+      'en':
+          'Check the details carefully. Nothing is saved until you press Save.',
+      'es': 'Revisa los datos con cuidado. Nada se guarda hasta tocar Guardar.',
+    },
+    'receipt.reviewCarefully': {
+      'en': 'Please review carefully. Some fields may be uncertain.',
+      'es': 'Revisa cuidadosamente. Algunos campos pueden ser inciertos.',
+    },
+    'receipt.selectDate': {'en': 'Select date', 'es': 'Selecciona fecha'},
+    'receipt.categoryText': {'en': 'Category text', 'es': 'Texto de categoria'},
+    'receipt.paymentMethod': {'en': 'Payment method', 'es': 'Metodo de pago'},
+    'receipt.currency': {'en': 'Currency', 'es': 'Moneda'},
+    'receipt.notes': {'en': 'Notes', 'es': 'Notas'},
+    'receipt.validationRequired': {
+      'en': 'Choose an account, date, description, and valid amount.',
+      'es': 'Elige cuenta, fecha, descripcion y un monto valido.',
+    },
+    'receipt.saved': {'en': 'Receipt saved', 'es': 'Ticket guardado'},
+    'receipt.duplicate': {
+      'en': 'This receipt may already be registered.',
+      'es': 'Este ticket podr\u00EDa ya estar registrado.',
+    },
+    'receipt.proRequired': {
+      'en': 'Receipt scanning is available with FinSight Pro.',
+      'es': 'El escaneo de tickets est\u00E1 disponible con FinSight Pro.',
+    },
+    'receipt.disabled': {
+      'en': 'Receipt scanning is currently disabled.',
+      'es': 'El escaneo de tickets est\u00E1 deshabilitado por el momento.',
+    },
+    'receipt.discardFailed': {
+      'en': 'Could not discard the draft.',
+      'es': 'No se pudo descartar el borrador.',
+    },
+
     // Home widgets
     'home.recentTransactions': {
       'en': 'Recent Transactions',
@@ -667,10 +722,7 @@ class I18n {
     },
     'invoices.customer': {'en': 'Customer', 'es': 'Cliente'},
     'invoices.markPaid': {'en': 'Mark paid', 'es': 'Marcar pagada'},
-    'invoices.recordPayment': {
-      'en': 'Record payment',
-      'es': 'Registrar pago',
-    },
+    'invoices.recordPayment': {'en': 'Record payment', 'es': 'Registrar pago'},
     'invoices.recordPaymentFor': {
       'en': 'Record payment for',
       'es': 'Registrar pago de',

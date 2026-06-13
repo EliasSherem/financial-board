@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import '../models.dart';
@@ -158,6 +159,38 @@ class DataService {
   Future<Map<String, dynamic>> repairPastTransfers() async {
     final res = await api.post('/api/transactions/repair-transfers', body: {});
     return (res as Map).cast<String, dynamic>();
+  }
+
+  Future<ReceiptUploadResponse> uploadReceiptDraft(File imageFile) async {
+    final res = await api.uploadFile(
+      '/api/transaction-drafts/receipt',
+      file: imageFile,
+      fieldName: 'receipt',
+      allowedErrorStatusCodes: const {422, 503},
+    );
+    return ReceiptUploadResponse.fromJson((res as Map).cast<String, dynamic>());
+  }
+
+  Future<TransactionDraft> getTransactionDraft(int id) async {
+    final res = await api.get('/api/transaction-drafts/$id');
+    return TransactionDraft.fromJson((res as Map).cast<String, dynamic>());
+  }
+
+  Future<TransactionDraft> updateTransactionDraft(
+    int id,
+    Map<String, dynamic> fields,
+  ) async {
+    final res = await api.patch('/api/transaction-drafts/$id', body: fields);
+    return TransactionDraft.fromJson((res as Map).cast<String, dynamic>());
+  }
+
+  Future<TransactionItem> confirmTransactionDraft(int id) async {
+    final res = await api.post('/api/transaction-drafts/$id/confirm', body: {});
+    return TransactionItem.fromJson((res as Map).cast<String, dynamic>());
+  }
+
+  Future<void> discardTransactionDraft(int id) async {
+    await api.post('/api/transaction-drafts/$id/discard', body: {});
   }
 
   Future<List<ExpenseCategory>> getExpenseCategories() async {
