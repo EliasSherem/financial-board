@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { beginCheckout,track } from '../analytics/client';
 
 type Props = {
   open: boolean;
@@ -7,6 +8,8 @@ type Props = {
 
 export default function ProUpgradeMini({ open, onClose }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const flow=useRef(crypto.randomUUID());
+  useEffect(()=>{if(open){flow.current=crypto.randomUUID();track('paywall_viewed','paywall',{flow_id:flow.current});}},[open]);
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -22,13 +25,7 @@ export default function ProUpgradeMini({ open, onClose }: Props) {
     try {
       const token = localStorage.getItem('token');
       if (!token) return (window.location.href = '/login');
-      const API_BASE = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:3001/api';
-      const resp = await fetch(`${API_BASE}/stripe/checkout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.message || 'Failed to create checkout');
+      const data = await beginCheckout(flow.current);
       window.location.href = data.url;
     } catch (e) {
       console.error(e);

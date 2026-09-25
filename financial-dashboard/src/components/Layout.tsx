@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import TopNavbar from './TopNavbar';
 import UpdateProfileModal from './UpdateProfileModal';
+import { ContextualMission } from '../momentum/ui';
 
 export default function Layout() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -22,6 +23,7 @@ export default function Layout() {
         />
         <main className="flex-1 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
           <div className="mx-auto w-full max-w-[1600px]">
+            <ContextualMission />
             <Outlet />
           </div>
         </main>

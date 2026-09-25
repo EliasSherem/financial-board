@@ -1,3 +1,5 @@
+import '../services/analytics_service.dart';
+import '../momentum/widgets.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -80,6 +82,9 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AnalyticsService.instance.screen('investments');
+    });
     _refreshBus = context.read<RefreshBus>();
     _investmentsTick = _refreshBus.investments;
     _refreshBus.addListener(_handleRefresh);
@@ -514,6 +519,7 @@ class _InvestmentsScreenState extends State<InvestmentsScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
           children: [
+            const MomentumContextStrip(feature: 'investments'),
             LGPageHeader(
               title: I18n.t(context, 'title.investments'),
               leading: const _InvestmentsHeaderIcon(),

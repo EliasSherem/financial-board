@@ -1,3 +1,7 @@
+import { clearSession } from './authApi';
+import { beginCheckout,track } from '../analytics/client';
+import { publishFinancialChange } from '../momentum/financialEvents';
+
 function normalizeApiCandidate(input: unknown): string | undefined {
   if (typeof input !== 'string') return undefined;
   const candidate = input.trim();
@@ -31,7 +35,7 @@ function normalizeApiCandidate(input: unknown): string | undefined {
 
 export function resolveApi(): string {
   // Priority: explicit env > stored override (via ?api=...) > production same-origin '/api' > localhost
-  const envUrl = normalizeApiCandidate((import.meta as any)?.env?.VITE_API_URL);
+  const envUrl = normalizeApiCandidate(import.meta.env.VITE_API_URL);
   if (envUrl) return envUrl;
   try {
     const stored = normalizeApiCandidate(localStorage.getItem('api_base'));
@@ -65,8 +69,7 @@ class ApiService {
 
     if (response.status === 401) {
       // Token expired or invalid
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      clearSession();
       window.location.href = '/login';
       throw new Error('Unauthorized');
     }
@@ -85,7 +88,9 @@ class ApiService {
       throw new Error(message);
     }
 
-    return response.json();
+    const result = await response.json();
+    publishFinancialChange(window, url, options?.method, feature => { void track('feature_used', feature, { feature }); });
+    return result as T;
   }
 
   // Auth
@@ -285,7 +290,7 @@ class ApiService {
 
   // Billing
   async createCheckoutSession() {
-    return this.request<{ url: string }>(`/stripe/checkout`, { method: 'POST' });
+    return beginCheckout();
   }
   async createPortalSession() {
     return this.request<{ url: string }>(`/stripe/portal`, { method: 'POST' });
@@ -381,7 +386,3 @@ class ApiService {
 }
 
 export const api = new ApiService();
-
-
-
-

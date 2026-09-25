@@ -1,3 +1,5 @@
+import '../services/analytics_service.dart';
+import '../momentum/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -34,6 +36,9 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AnalyticsService.instance.screen('payments');
+    });
     _refreshBus = context.read<RefreshBus>();
     _paymentsTick = _refreshBus.payments;
     _refreshBus.addListener(_handleRefresh);
@@ -259,6 +264,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 132,
               ),
               children: [
+                const MomentumContextStrip(feature: 'payments'),
                 LGPageHeader(
                   title: I18n.t(context, 'title.recurringPayments'),
                   leading: const _PaymentHeaderIcon(),

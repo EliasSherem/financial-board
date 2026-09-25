@@ -1,3 +1,4 @@
+import '../lang_store.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -9,6 +10,9 @@ import '../i18n.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../state/auth_store.dart';
 import '../liquid_glass/liquid_glass.dart';
+import '../services/api.dart';
+import '../services/auth_service.dart';
+import 'password_recovery_screen.dart';
 
 class UpdateProfileScreen extends StatefulWidget {
   const UpdateProfileScreen({super.key});
@@ -58,9 +62,17 @@ class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
     if (_new.text.isNotEmpty) {
-      if (_new.text.length < 6) {
+      if (_new.text.length < 6 || utf8.encode(_new.text).length > 72) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(I18n.tr(context, 'error.passwordMin6'))),
+          SnackBar(
+            content: Text(
+              recoveryText(
+                context,
+                'Use at least 6 characters, with a maximum of 72 UTF-8 bytes.',
+                'Usa al menos 6 caracteres, con un máximo de 72 bytes UTF-8.',
+              ),
+            ),
+          ),
         );
         return;
       }
@@ -78,11 +90,39 @@ class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
         );
         return;
       }
-      // Optional: call server to change password. Not implemented in API yet.
     }
 
     setState(() => _saving = true);
     try {
+      if (_new.text.isNotEmpty) {
+        final auth = context.read<AuthStore>();
+        final token = auth.token;
+        await AuthService(ApiClient()..setToken(token)).changePassword(
+          currentPassword: _current.text,
+          password: _new.text,
+          confirmation: _confirm.text,
+          language: context.read<LangStore>().lang,
+        );
+        _current.clear();
+        _new.clear();
+        _confirm.clear();
+        if (!mounted) return;
+        await auth.logout(force: true);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              recoveryText(
+                context,
+                'Password changed. Sign in again.',
+                'Contraseña actualizada. Vuelve a iniciar sesión.',
+              ),
+            ),
+          ),
+        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        return;
+      }
       final sp = await SharedPreferences.getInstance();
       Map<String, dynamic> user = {};
       try {
@@ -97,6 +137,20 @@ class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
         SnackBar(content: Text(I18n.tr(context, 'feedback.profileUpdated'))),
       );
       Navigator.pop(context);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              recoveryText(
+                context,
+                'Unable to save. Check your current password and connection.',
+                'No se pudo guardar. Comprueba tu contraseña actual y conexión.',
+              ),
+            ),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

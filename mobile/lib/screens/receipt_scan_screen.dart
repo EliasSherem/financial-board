@@ -1,3 +1,4 @@
+import '../services/analytics_service.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -52,6 +53,9 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AnalyticsService.instance.screen('receipt');
+    });
     _data = DataService(ApiClient()..setToken(context.read<AuthStore>().token));
     _metadataFuture = _loadMetadata();
   }
@@ -108,14 +112,15 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
   }
 
   Future<void> _selectAndUpload(Future<File?> Function() picker) async {
-    if (!context.read<AuthStore>().isProOrExempt) {
+    final auth = context.read<AuthStore>();
+    if (!auth.isProOrExempt) {
       _showError(I18n.tr(context, 'receipt.proRequired'));
       return;
     }
 
     try {
-      final image = await picker();
-      if (image == null) return;
+      final image = await auth.runExternalActivity(picker);
+      if (!mounted || image == null || !auth.isAuthenticated) return;
       await _uploadImage(image);
     } on ReceiptImageException catch (e) {
       _showError(e.message);

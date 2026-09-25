@@ -1,0 +1,12 @@
+import { spawn } from 'node:child_process';
+import { readdir } from 'node:fs/promises';
+import path from 'node:path';
+const requested=process.argv.slice(2);
+const files=requested.length?requested:(await readdir('server',{recursive:true})).filter(f=>f.endsWith('.test.ts')).map(f=>`server/${f}`);
+if(files.some(f=>!/^server\/[a-zA-Z0-9_/-]+\.test\.ts$/.test(f)||f.includes('..')))throw new Error('Only checked-in server test files may be run');
+const database=process.env.FINSIGHT_TEST_DATABASE||'finsight_test';
+if(!/^[a-z0-9_]+_test$/.test(database))throw new Error('Isolated test database name required');
+const env={...process.env,NODE_ENV:'test',RUN_DB_TESTS:'true',MYSQL_HOST:'127.0.0.1',MYSQL_PORT:process.env.FINSIGHT_TEST_PORT||'13306',MYSQL_USER:process.env.FINSIGHT_TEST_USER||'root',MYSQL_PASSWORD:process.env.FINSIGHT_TEST_PASSWORD||'',MYSQL_DATABASE:database,MYSQL_SSL:'false',JWT_SECRET:'finsight-local-test-secret',OPENAI_API_KEY:'',RESEND_API_KEY:''};
+delete env.MYSQL_URL;
+const child=spawn(process.execPath,['--import','tsx','--test',...files],{cwd:path.resolve('.'),env,stdio:'inherit'});
+child.on('exit',code=>process.exitCode=code??1);

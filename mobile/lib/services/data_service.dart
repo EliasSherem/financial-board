@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import '../models.dart';
 import 'api.dart';
 
+const _salaryFieldAbsent = Object();
+
 class DataService {
   DataService(this.api);
   final ApiClient api;
@@ -657,8 +659,18 @@ class DataService {
     return res as Map<String, dynamic>;
   }
 
-  Future<String> aiChat({required List<Map<String, String>> messages}) async {
-    final res = await api.post('/api/ai-chat', body: {'messages': messages});
+  Future<String> aiChat({
+    required List<Map<String, String>> messages,
+    String? requestId,
+  }) async {
+    final res = await api.post(
+      '/api/ai-chat',
+      body: {
+        'messages': messages,
+        if (requestId != null) 'request_id': requestId,
+      },
+      timeout: const Duration(seconds: 70),
+    );
     if (res is Map && res['reply'] != null) {
       return res['reply'] as String? ?? '';
     }
@@ -737,14 +749,20 @@ class DataService {
   }
 
   // Link Play Billing purchase token
-  Future<void> linkPlayPurchase({
+  Future<Map<String, dynamic>> linkPlayPurchase({
     required String productId,
     required String purchaseToken,
+    String? flowId,
   }) async {
-    await api.post(
+    final result = await api.post(
       '/api/play/link',
-      body: {'productId': productId, 'purchaseToken': purchaseToken},
+      body: {
+        'productId': productId,
+        'purchaseToken': purchaseToken,
+        if (flowId != null) 'flow_id': flowId,
+      },
     );
+    return Map<String, dynamic>.from(result as Map);
   }
 
   // Sync Play Billing status for current user
@@ -752,27 +770,42 @@ class DataService {
     await api.post('/api/play/sync', body: {});
   }
 
-  Future<void> linkAppStorePurchase({
+  Future<Map<String, dynamic>> linkAppStorePurchase({
     required String productId,
     required String receiptData,
     String? transactionId,
     String? originalTransactionId,
+    String? flowId,
   }) async {
-    await api.post(
+    final result = await api.post(
       '/api/appstore/link',
       body: {
         'productId': productId,
         'receiptData': receiptData,
+        if (flowId != null) 'flow_id': flowId,
         if (transactionId != null && transactionId.isNotEmpty)
           'transactionId': transactionId,
         if (originalTransactionId != null && originalTransactionId.isNotEmpty)
           'originalTransactionId': originalTransactionId,
       },
     );
+    return Map<String, dynamic>.from(result as Map);
   }
 
   Future<void> syncAppStore() async {
     await api.post('/api/appstore/sync', body: {});
+  }
+
+  Future<Map<String, dynamic>> billingConfig() async {
+    return Map<String, dynamic>.from(
+      await api.get('/api/billing/config') as Map,
+    );
+  }
+
+  Future<Map<String, dynamic>> billingSync() async {
+    return Map<String, dynamic>.from(
+      await api.post('/api/billing/sync', body: {}) as Map,
+    );
   }
 
   Future<void> stripeSync() async {
@@ -789,10 +822,27 @@ class DataService {
     return res as Map<String, dynamic>;
   }
 
+  // Keep one client DTO for settings and calendar while retaining wire fields.
+  static Map<String, dynamic> _salaryRule(Map<String, dynamic> row) {
+    final active =
+        row.containsKey('is_active') ? row['is_active'] : row['isActive'];
+    return {
+      ...row,
+      'isActive':
+          active == null || active == true || active == 1 || active == '1',
+      'accountId':
+          row.containsKey('account_id') ? row['account_id'] : row['accountId'],
+      'accountName': row['account_name'] ?? row['accountName'],
+      'nextDate': row['next_date'] ?? row['nextDate'],
+    };
+  }
+
   // Salary rules (automated income)
   Future<List<Map<String, dynamic>>> getSalaryRules() async {
     final res = await api.get('/api/salaries');
-    return (res as List).cast<Map<String, dynamic>>();
+    return (res as List)
+        .map((row) => _salaryRule(row as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Map<String, dynamic>> createSalaryRule({
@@ -816,7 +866,7 @@ class DataService {
         'is_active': isActive,
       },
     );
-    return res as Map<String, dynamic>;
+    return _salaryRule(res as Map<String, dynamic>);
   }
 
   Future<Map<String, dynamic>> updateSalaryRule({
@@ -824,24 +874,24 @@ class DataService {
     String? name,
     double? amount,
     String? schedule,
-    int? weekday,
-    int? day,
-    int? accountId,
+    Object? weekday = _salaryFieldAbsent,
+    Object? day = _salaryFieldAbsent,
+    Object? accountId = _salaryFieldAbsent,
     bool? isActive,
   }) async {
     final res = await api.put(
       '/api/salaries/$id',
       body: {
-        'name': name,
-        'amount': amount,
-        'schedule': schedule,
-        'weekday': weekday,
-        'day': day,
-        'account_id': accountId,
-        'is_active': isActive,
+        if (name != null) 'name': name,
+        if (amount != null) 'amount': amount,
+        if (schedule != null) 'schedule': schedule,
+        if (!identical(weekday, _salaryFieldAbsent)) 'weekday': weekday,
+        if (!identical(day, _salaryFieldAbsent)) 'day': day,
+        if (!identical(accountId, _salaryFieldAbsent)) 'account_id': accountId,
+        if (isActive != null) 'is_active': isActive,
       },
     );
-    return res as Map<String, dynamic>;
+    return _salaryRule(res as Map<String, dynamic>);
   }
 
   Future<void> deleteSalaryRule(int id) async {

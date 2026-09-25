@@ -27,6 +27,8 @@ const dict: Dict = {
 
   // Sidebar
   'sidebar.dashboard': { en: 'Dashboard', es: 'Panel' },
+  'sidebar.momentum': { en: 'Momentum', es: 'Momentum' },
+  'sidebar.admin': { en: 'Owner dashboard', es: 'Panel del propietario' },
   'sidebar.analytics': { en: 'Analytics', es: 'Analítica' },
   'sidebar.projects': { en: 'Projects', es: 'Proyectos' },
   'sidebar.transactions': { en: 'Transactions', es: 'Transacciones' },
@@ -62,7 +64,7 @@ const dict: Dict = {
   'profile.cancelAlready': { en: 'Your subscription is already cancelled.', es: 'Tu suscripcion ya esta cancelada.' },
   'profile.canceling': { en: 'Cancelling...', es: 'Cancelando...' },
   'profile.err.noMatch': { en: 'New passwords do not match', es: 'Las nuevas contraseñas no coinciden' },
-  'profile.err.tooShort': { en: 'Password must be at least 6 characters', es: 'La contraseña debe tener al menos 6 caracteres' },
+  'profile.err.tooShort': { en: 'Use at least 6 characters and no more than 72 UTF-8 bytes', es: 'Usa al menos 6 caracteres y como máximo 72 bytes UTF-8' },
   'profile.err.currentRequired': { en: 'Current password is required to change password', es: 'Se requiere la contraseña actual para cambiarla' },
 
   // Auth shell
@@ -83,6 +85,7 @@ const dict: Dict = {
   'login.title': { en: 'Sign in to manage your finances', es: 'Inicia sesión para gestionar tus finanzas' },
   'login.username': { en: 'Username', es: 'Nombre de usuario' },
   'login.password': { en: 'Password', es: 'Contraseña' },
+  'login.forgotPassword': { en: 'Forgot password?', es: '¿Olvidaste tu contraseña?' },
   'login.placeholder.username': { en: 'Enter your username', es: 'Ingresa tu nombre de usuario' },
   'login.placeholder.password': { en: 'Enter your password', es: 'Ingresa tu contraseña' },
   'login.signIn': { en: 'Sign In', es: 'Iniciar sesión' },
@@ -112,7 +115,7 @@ const dict: Dict = {
   'signup.alreadyHave': { en: 'Already have an account?', es: '¿Ya tienes una cuenta?' },
   'signup.backToLogin': { en: 'Back to login', es: 'Volver a iniciar sesión' },
   'signup.err.noMatch': { en: 'Passwords do not match', es: 'Las contraseñas no coinciden' },
-  'signup.err.tooShort': { en: 'Password must be at least 6 characters long', es: 'La contraseña debe tener al menos 6 caracteres' },
+  'signup.err.tooShort': { en: 'Use at least 6 characters and no more than 72 UTF-8 bytes', es: 'Usa al menos 6 caracteres y como máximo 72 bytes UTF-8' },
   'signup.err.failed': { en: 'Signup failed', es: 'Error al registrarse' },
   'signup.err.unreachable': { en: 'Unable to connect to server', es: 'No se puede conectar al servidor' },
 
@@ -358,6 +361,7 @@ function langToLocale(lang: Lang): string {
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Lang>(getInitialLang());
+  useEffect(() => { document.documentElement.lang = language; }, [language]);
 
   const setLanguage = (l: Lang) => {
     setLanguageState(l);
@@ -399,4 +403,3 @@ export function useI18n() {
   if (!ctx) throw new Error('useI18n must be used within I18nProvider');
   return ctx;
 }
-

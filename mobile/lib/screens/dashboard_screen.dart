@@ -1,3 +1,5 @@
+import '../momentum/widgets.dart';
+import '../momentum/store.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -93,9 +95,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final bhFuture = data.getBalanceHistory().catchError(
       (_) => <BalanceHistoryItem>[],
     );
-    final investmentsFuture = data.getInvestments().catchError(
-      (_) => <Map<String, dynamic>>[],
-    );
     final categoriesFuture = data.getExpenseCategories().catchError(
       (_) => <ExpenseCategory>[],
     );
@@ -106,7 +105,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       projectsFuture,
       paymentsFuture,
       bhFuture,
-      investmentsFuture,
       categoriesFuture,
     ]);
   }
@@ -120,7 +118,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _insightIndex = _nextInsightIndex();
     });
     final userId = _goalUserId ?? context.read<AuthStore>().userId;
-    await Future.wait([future, _loadSavingsGoal(userId)]);
+    await Future.wait<void>([
+      // FutureBuilder displays financial errors; they must not interrupt Momentum.
+      future.then<void>((_) {}, onError: (Object _) {}),
+      _loadSavingsGoal(userId),
+      context.read<MomentumStore>().refresh(),
+    ]);
   }
 
   void _handleRefresh() {
@@ -170,13 +173,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (context, snap) {
         if (!snap.hasData) {
           if (snap.hasError) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              final auth = context.read<AuthStore>();
-              if (auth.isAuthenticated) {
-                auth.logout(force: true);
-              }
-            });
-            return const Center(child: CircularProgressIndicator());
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(LGSpacing.lg),
+                children: [
+                  const MomentumHomeCard(),
+                  LGEmptyState(
+                    icon: Icons.cloud_off_outlined,
+                    title: momentumText(
+                      context,
+                      'Unable to load your finances',
+                      'No se pudieron cargar tus finanzas',
+                    ),
+                    message: momentumText(
+                      context,
+                      'Check your connection and try again. Your session is preserved.',
+                      'Comprueba tu conexión y vuelve a intentarlo. Tu sesión se conserva.',
+                    ),
+                  ),
+                  LGButton(
+                    label: momentumText(context, 'Retry', 'Reintentar'),
+                    onPressed: _refresh,
+                  ),
+                ],
+              ),
+            );
           }
           return const Center(child: CircularProgressIndicator());
         }
@@ -185,7 +208,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final projects = (snap.data![2] as List<Project>);
         final payments = (snap.data![3] as List<PaymentItem>);
         final bh = (snap.data![4] as List<BalanceHistoryItem>);
-        final categories = (snap.data![6] as List<ExpenseCategory>);
+        final categories = (snap.data![5] as List<ExpenseCategory>);
 
         // Sum account balances (investment accounts already include estimated value)
         final totalBalance = accounts.fold<double>(
@@ -659,6 +682,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         netPositive: currNet >= 0,
                         budgetColor: budgetColor,
                       ),
+                      const SizedBox(height: LGSpacing.md),
+                      const MomentumHomeCard(),
                       const SizedBox(height: LGSpacing.md),
                       if (savingsGoalCard != null) savingsGoalCard,
                       if (savingsGoalCard != null) const SizedBox(height: 12),

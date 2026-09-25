@@ -1,3 +1,6 @@
+import '../momentum/store.dart';
+import '../services/analytics_service.dart';
+import '../momentum/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -56,6 +59,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AnalyticsService.instance.screen('transactions');
+    });
     _refreshBus = context.read<RefreshBus>();
     _transactionsTick = _refreshBus.transactions;
     _accountsTick = _refreshBus.accounts;
@@ -140,18 +146,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      // Load required datasets first
-      final txs = await _data.getTransactions();
-      try {
-        _accounts = await _data.getAccounts();
-      } catch (_) {
-        _accounts = [];
-      }
-      try {
-        _projects = await _data.getProjects();
-      } catch (_) {
-        _projects = [];
-      }
+      final results = await Future.wait<Object>([
+        _data.getTransactions(),
+        _data.getAccounts().catchError((_) => <Account>[]),
+        _data.getProjects().catchError((_) => <Project>[]),
+      ]);
+      final txs = results[0] as List<TransactionItem>;
+      _accounts = results[1] as List<Account>;
+      _projects = results[2] as List<Project>;
 
       // newest first
       txs.sort((a, b) => b.date.compareTo(a.date));
@@ -1143,17 +1145,37 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         );
         return;
       }
+      if (!mounted) return;
+      final momentum = context.read<MomentumStore>();
+      Map<String, dynamic>? evidence;
+      if (momentum.state?.enabled == true) {
+        try {
+          evidence = await momentum.service?.review('report');
+        } catch (_) {
+          /* Export remains available without a reward. */
+        }
+      }
       final reportAccounts = _reportAccounts(config);
       final pdfBytes = await _buildReportPdf(config, txs, reportAccounts);
       if (!mounted) return;
       final filename = _reportFileName(config);
-      try {
-        await Printing.layoutPdf(
-          name: filename,
-          onLayout: (_) async => pdfBytes,
+      final auth = context.read<AuthStore>();
+      final exported = await auth.runExternalActivity(() async {
+        try {
+          return await Printing.layoutPdf(
+            name: filename,
+            onLayout: (_) async => pdfBytes,
+          );
+        } catch (_) {
+          return await Printing.sharePdf(bytes: pdfBytes, filename: filename);
+        }
+      });
+      if (!mounted || !auth.isAuthenticated) return;
+      if (exported && evidence?['snapshot_id'] != null) {
+        await momentum.event(
+          'report_exported',
+          fields: {'snapshot_id': evidence!['snapshot_id']},
         );
-      } catch (_) {
-        await Printing.sharePdf(bytes: pdfBytes, filename: filename);
       }
     } catch (e) {
       if (!mounted) return;
@@ -1297,6 +1319,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     128,
                   ),
                   children: [
+                    const MomentumContextStrip(feature: 'transactions'),
                     LGPageHeader(
                       title: I18n.t(context, 'nav.transactions'),
                       leading: const _TransactionsHeaderIcon(),

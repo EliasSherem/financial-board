@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { I18nProvider } from './contexts/I18nContext';
@@ -24,10 +24,21 @@ import Guide from './pages/Guide';
 import Onboarding from './pages/Onboarding';
 import Categories from './pages/Categories';
 import { AssistantChat } from './components/AssistantChat';
+import { ForgotPassword, ResetPassword } from './pages/PasswordRecovery';
+import { MomentumProvider } from './momentum/store';
+import { AchievementsPage, MomentumPage, ReviewPage } from './momentum/ui';
+import AdminPage from './pages/Admin';
+import { TelemetryLifecycle } from './analytics/TelemetryLifecycle';
+
+function ContextualAssistant() {
+  const { pathname } = useLocation();
+  return (['/reset-password', '/forgot-password'].includes(pathname) || pathname.startsWith('/admin')) ? null : <AssistantChat />;
+}
 
 function App() {
   // On mount, refresh current user info so is_pro stays in sync
   useEffect(() => {
+    if (['/reset-password','/forgot-password'].includes(window.location.pathname)) return;
     const token = localStorage.getItem('token');
     if (!token) return;
     api.getCurrentUser()
@@ -38,9 +49,13 @@ function App() {
     <ThemeProvider>
       <I18nProvider>
         <Router>
+          <TelemetryLifecycle />
           <Routes>
+          <Route path="/admin/*" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/landing" element={<Landing />} />
@@ -49,7 +64,7 @@ function App() {
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/" element={
             <ProtectedRoute>
-              <Layout />
+              <MomentumProvider><Layout /></MomentumProvider>
             </ProtectedRoute>
           }>
             <Route index element={<Dashboard />} />
@@ -62,9 +77,12 @@ function App() {
             <Route path="categories" element={<Categories />} />
             <Route path="accounts" element={<Accounts />} />
             <Route path="investments" element={<Investments />} />
+            <Route path="momentum" element={<MomentumPage />} />
+            <Route path="momentum/achievements" element={<AchievementsPage />} />
+            <Route path="momentum/review/:kind" element={<ReviewPage />} />
           </Route>
           </Routes>
-          <AssistantChat />
+          <ContextualAssistant />
         </Router>
       </I18nProvider>
     </ThemeProvider>

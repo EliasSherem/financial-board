@@ -4,6 +4,7 @@ import { User, LogOut, Settings, Sun, Moon, ChevronDown, Trash2, PanelLeft } fro
 import { useTheme } from '../contexts/ThemeContext';
 import { useI18n } from '../contexts/I18nContext';
 import { ActionButton, cn } from './ui';
+import { clearSession } from '../utils/authApi';
 
 interface TopNavbarProps {
   onUpdateProfile: () => void;
@@ -33,8 +34,7 @@ export default function TopNavbar({ onUpdateProfile, onOpenSidebar }: TopNavbarP
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearSession();
     navigate('/login');
   };
 

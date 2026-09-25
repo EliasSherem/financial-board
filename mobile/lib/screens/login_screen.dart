@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../services/biometric_service.dart';
 import '../state/auth_store.dart';
 import 'signup_screen.dart';
+import 'password_recovery_screen.dart';
 import '../i18n.dart';
 import '../liquid_glass/liquid_glass.dart';
 
@@ -74,7 +75,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_submitting) return;
     final auth = context.read<AuthStore>();
     if (!auth.hasToken) return;
+    final token = auth.token!;
     final availability = await _biometric.availability();
+    if (!mounted) return;
     if (!availability.isSupported) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(I18n.tr(context, 'auth.biometricUnavailable'))),
@@ -93,8 +96,9 @@ class _LoginScreenState extends State<LoginScreen> {
       final ok = await _biometric.authenticate(
         reason: I18n.tr(context, 'auth.biometricReason'),
       );
+      if (!mounted) return;
       if (ok) {
-        await auth.unlock();
+        await auth.unlock(expectedToken: token);
       } else if (mounted) {
         messenger.showSnackBar(
           SnackBar(content: Text(I18n.tr(context, 'auth.biometricFailed'))),
@@ -222,6 +226,30 @@ class _LoginScreenState extends State<LoginScreen> {
                             labelText: I18n.t(context, 'auth.password'),
                             hintText: I18n.t(context, 'auth.enterPassword'),
                             prefixIcon: const Icon(Icons.lock_outline),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed:
+                                _submitting
+                                    ? null
+                                    : () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        settings: const RouteSettings(
+                                          name: '/forgot-password',
+                                        ),
+                                        builder:
+                                            (_) => const ForgotPasswordScreen(),
+                                      ),
+                                    ),
+                            child: Text(
+                              recoveryText(
+                                context,
+                                'Forgot password?',
+                                '¿Olvidaste tu contraseña?',
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(height: LGSpacing.lg),

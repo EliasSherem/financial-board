@@ -44,6 +44,7 @@ class _LockScreenState extends State<LockScreen> {
     if (_submitting) return;
     final auth = context.read<AuthStore>();
     if (!auth.hasToken) return;
+    final token = auth.token!;
     final availability = await _biometric.availability();
     if (!mounted) return;
     if (!availability.isSupported) {
@@ -67,7 +68,7 @@ class _LockScreenState extends State<LockScreen> {
       );
       if (!mounted) return;
       if (ok) {
-        await auth.unlock();
+        await auth.unlock(expectedToken: token);
       } else {
         messenger.showSnackBar(SnackBar(content: Text(failedMessage)));
       }

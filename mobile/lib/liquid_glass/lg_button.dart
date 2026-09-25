@@ -131,10 +131,12 @@ class LGButton extends StatelessWidget {
         return OutlinedButton.styleFrom(
           minimumSize: Size(0, _height),
           padding: EdgeInsets.symmetric(horizontal: _horizontalPadding),
-          foregroundColor: LGColors.primaryBlue,
+          foregroundColor: _foreground(context),
           side: BorderSide(color: LGColors.alpha(LGColors.primaryBlue, 0.38)),
           shape: shape,
-          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          textStyle: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
         );
       case LGButtonVariant.ghost:
         return TextButton.styleFrom(
@@ -142,7 +144,9 @@ class LGButton extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: _horizontalPadding),
           foregroundColor: LGColors.textPrimary(context),
           shape: shape,
-          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          textStyle: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
         );
       case LGButtonVariant.primary:
       case LGButtonVariant.secondary:
@@ -160,7 +164,9 @@ class LGButton extends StatelessWidget {
           disabledBackgroundColor: LGColors.alpha(background, 0.42),
           disabledForegroundColor: LGColors.alpha(foreground, 0.70),
           shape: shape,
-          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          textStyle: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
         );
     }
   }
@@ -206,7 +212,9 @@ class LGButton extends StatelessWidget {
       case LGButtonVariant.warning:
         return LGColors.isDark(context) ? LGColors.deepNavy : Colors.white;
       case LGButtonVariant.outline:
-        return LGColors.primaryBlue;
+        return LGColors.isDark(context)
+            ? LGColors.textPrimaryDark
+            : LGColors.primaryBlue;
       case LGButtonVariant.ghost:
       case LGButtonVariant.glass:
         return LGColors.textPrimary(context);

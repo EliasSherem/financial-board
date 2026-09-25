@@ -1,0 +1,500 @@
+{
+  "version": 1,
+  "viewBox": "0 0 64 64",
+  "badges": [
+    {
+      "key": "clear_view",
+      "name_es": "Primera visión clara",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/clear_view__light.svg",
+        "dark": "assets/badges/clear_view__dark.svg",
+        "locked_light": "assets/badges/clear_view__locked_light.svg",
+        "locked_dark": "assets/badges/clear_view__locked_dark.svg"
+      }
+    },
+    {
+      "key": "account_organizer",
+      "name_es": "Organizador de cuentas",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/account_organizer__light.svg",
+        "dark": "assets/badges/account_organizer__dark.svg",
+        "locked_light": "assets/badges/account_organizer__locked_light.svg",
+        "locked_dark": "assets/badges/account_organizer__locked_dark.svg"
+      }
+    },
+    {
+      "key": "money_mapper",
+      "name_es": "Mapa financiero",
+      "family": "lavender",
+      "files": {
+        "light": "assets/badges/money_mapper__light.svg",
+        "dark": "assets/badges/money_mapper__dark.svg",
+        "locked_light": "assets/badges/money_mapper__locked_light.svg",
+        "locked_dark": "assets/badges/money_mapper__locked_dark.svg"
+      }
+    },
+    {
+      "key": "spending_detective_1",
+      "name_es": "Detective de gastos",
+      "family": "mint",
+      "files": {
+        "light": "assets/badges/spending_detective_1__light.svg",
+        "dark": "assets/badges/spending_detective_1__dark.svg",
+        "locked_light": "assets/badges/spending_detective_1__locked_light.svg",
+        "locked_dark": "assets/badges/spending_detective_1__locked_dark.svg"
+      }
+    },
+    {
+      "key": "spending_detective_2",
+      "name_es": "Observador de detalles",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/spending_detective_2__light.svg",
+        "dark": "assets/badges/spending_detective_2__dark.svg",
+        "locked_light": "assets/badges/spending_detective_2__locked_light.svg",
+        "locked_dark": "assets/badges/spending_detective_2__locked_dark.svg"
+      }
+    },
+    {
+      "key": "spending_detective_3",
+      "name_es": "Experto en categorías",
+      "family": "lavender",
+      "files": {
+        "light": "assets/badges/spending_detective_3__light.svg",
+        "dark": "assets/badges/spending_detective_3__dark.svg",
+        "locked_light": "assets/badges/spending_detective_3__locked_light.svg",
+        "locked_dark": "assets/badges/spending_detective_3__locked_dark.svg"
+      }
+    },
+    {
+      "key": "weekly_rhythm",
+      "name_es": "Ritmo semanal",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/weekly_rhythm__light.svg",
+        "dark": "assets/badges/weekly_rhythm__dark.svg",
+        "locked_light": "assets/badges/weekly_rhythm__locked_light.svg",
+        "locked_dark": "assets/badges/weekly_rhythm__locked_dark.svg"
+      }
+    },
+    {
+      "key": "consistency_builder",
+      "name_es": "Constancia",
+      "family": "mint",
+      "files": {
+        "light": "assets/badges/consistency_builder__light.svg",
+        "dark": "assets/badges/consistency_builder__dark.svg",
+        "locked_light": "assets/badges/consistency_builder__locked_light.svg",
+        "locked_dark": "assets/badges/consistency_builder__locked_dark.svg"
+      }
+    },
+    {
+      "key": "momentum_keeper",
+      "name_es": "Momentum sostenido",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/momentum_keeper__light.svg",
+        "dark": "assets/badges/momentum_keeper__dark.svg",
+        "locked_light": "assets/badges/momentum_keeper__locked_light.svg",
+        "locked_dark": "assets/badges/momentum_keeper__locked_dark.svg"
+      }
+    },
+    {
+      "key": "half_year_clarity",
+      "name_es": "Medio año de claridad",
+      "family": "lavender",
+      "files": {
+        "light": "assets/badges/half_year_clarity__light.svg",
+        "dark": "assets/badges/half_year_clarity__dark.svg",
+        "locked_light": "assets/badges/half_year_clarity__locked_light.svg",
+        "locked_dark": "assets/badges/half_year_clarity__locked_dark.svg"
+      }
+    },
+    {
+      "key": "bill_guardian_1",
+      "name_es": "Guardián de pagos",
+      "family": "amber",
+      "files": {
+        "light": "assets/badges/bill_guardian_1__light.svg",
+        "dark": "assets/badges/bill_guardian_1__dark.svg",
+        "locked_light": "assets/badges/bill_guardian_1__locked_light.svg",
+        "locked_dark": "assets/badges/bill_guardian_1__locked_dark.svg"
+      }
+    },
+    {
+      "key": "bill_guardian_2",
+      "name_es": "Planificador de pagos",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/bill_guardian_2__light.svg",
+        "dark": "assets/badges/bill_guardian_2__dark.svg",
+        "locked_light": "assets/badges/bill_guardian_2__locked_light.svg",
+        "locked_dark": "assets/badges/bill_guardian_2__locked_dark.svg"
+      }
+    },
+    {
+      "key": "bill_guardian_3",
+      "name_es": "Experto en compromisos",
+      "family": "lavender",
+      "files": {
+        "light": "assets/badges/bill_guardian_3__light.svg",
+        "dark": "assets/badges/bill_guardian_3__dark.svg",
+        "locked_light": "assets/badges/bill_guardian_3__locked_light.svg",
+        "locked_dark": "assets/badges/bill_guardian_3__locked_dark.svg"
+      }
+    },
+    {
+      "key": "subscription_sleuth",
+      "name_es": "Detective de suscripciones",
+      "family": "mint",
+      "files": {
+        "light": "assets/badges/subscription_sleuth__light.svg",
+        "dark": "assets/badges/subscription_sleuth__dark.svg",
+        "locked_light": "assets/badges/subscription_sleuth__locked_light.svg",
+        "locked_dark": "assets/badges/subscription_sleuth__locked_dark.svg"
+      }
+    },
+    {
+      "key": "analytics_explorer",
+      "name_es": "Explorador de análisis",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/analytics_explorer__light.svg",
+        "dark": "assets/badges/analytics_explorer__dark.svg",
+        "locked_light": "assets/badges/analytics_explorer__locked_light.svg",
+        "locked_dark": "assets/badges/analytics_explorer__locked_dark.svg"
+      }
+    },
+    {
+      "key": "monthly_master_1",
+      "name_es": "Revisión mensual",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/monthly_master_1__light.svg",
+        "dark": "assets/badges/monthly_master_1__dark.svg",
+        "locked_light": "assets/badges/monthly_master_1__locked_light.svg",
+        "locked_dark": "assets/badges/monthly_master_1__locked_dark.svg"
+      }
+    },
+    {
+      "key": "monthly_master_2",
+      "name_es": "Claridad trimestral",
+      "family": "mint",
+      "files": {
+        "light": "assets/badges/monthly_master_2__light.svg",
+        "dark": "assets/badges/monthly_master_2__dark.svg",
+        "locked_light": "assets/badges/monthly_master_2__locked_light.svg",
+        "locked_dark": "assets/badges/monthly_master_2__locked_dark.svg"
+      }
+    },
+    {
+      "key": "monthly_master_3",
+      "name_es": "Un año en foco",
+      "family": "lavender",
+      "files": {
+        "light": "assets/badges/monthly_master_3__light.svg",
+        "dark": "assets/badges/monthly_master_3__dark.svg",
+        "locked_light": "assets/badges/monthly_master_3__locked_light.svg",
+        "locked_dark": "assets/badges/monthly_master_3__locked_dark.svg"
+      }
+    },
+    {
+      "key": "project_planner",
+      "name_es": "Planificador de proyectos",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/project_planner__light.svg",
+        "dark": "assets/badges/project_planner__dark.svg",
+        "locked_light": "assets/badges/project_planner__locked_light.svg",
+        "locked_dark": "assets/badges/project_planner__locked_dark.svg"
+      }
+    },
+    {
+      "key": "goal_builder_1",
+      "name_es": "Primer avance",
+      "family": "mint",
+      "files": {
+        "light": "assets/badges/goal_builder_1__light.svg",
+        "dark": "assets/badges/goal_builder_1__dark.svg",
+        "locked_light": "assets/badges/goal_builder_1__locked_light.svg",
+        "locked_dark": "assets/badges/goal_builder_1__locked_dark.svg"
+      }
+    },
+    {
+      "key": "goal_builder_2",
+      "name_es": "A mitad de camino",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/goal_builder_2__light.svg",
+        "dark": "assets/badges/goal_builder_2__dark.svg",
+        "locked_light": "assets/badges/goal_builder_2__locked_light.svg",
+        "locked_dark": "assets/badges/goal_builder_2__locked_dark.svg"
+      }
+    },
+    {
+      "key": "goal_builder_3",
+      "name_es": "Casi completo",
+      "family": "amber",
+      "files": {
+        "light": "assets/badges/goal_builder_3__light.svg",
+        "dark": "assets/badges/goal_builder_3__dark.svg",
+        "locked_light": "assets/badges/goal_builder_3__locked_light.svg",
+        "locked_dark": "assets/badges/goal_builder_3__locked_dark.svg"
+      }
+    },
+    {
+      "key": "goal_builder_4",
+      "name_es": "Proyecto completo",
+      "family": "lavender",
+      "files": {
+        "light": "assets/badges/goal_builder_4__light.svg",
+        "dark": "assets/badges/goal_builder_4__dark.svg",
+        "locked_light": "assets/badges/goal_builder_4__locked_light.svg",
+        "locked_dark": "assets/badges/goal_builder_4__locked_dark.svg"
+      }
+    },
+    {
+      "key": "invoice_ready",
+      "name_es": "Listo para facturar",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/invoice_ready__light.svg",
+        "dark": "assets/badges/invoice_ready__dark.svg",
+        "locked_light": "assets/badges/invoice_ready__locked_light.svg",
+        "locked_dark": "assets/badges/invoice_ready__locked_dark.svg"
+      }
+    },
+    {
+      "key": "invoice_keeper",
+      "name_es": "Facturas al día",
+      "family": "mint",
+      "files": {
+        "light": "assets/badges/invoice_keeper__light.svg",
+        "dark": "assets/badges/invoice_keeper__dark.svg",
+        "locked_light": "assets/badges/invoice_keeper__locked_light.svg",
+        "locked_dark": "assets/badges/invoice_keeper__locked_dark.svg"
+      }
+    },
+    {
+      "key": "cashflow_ready",
+      "name_es": "Flujo bajo control",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/cashflow_ready__light.svg",
+        "dark": "assets/badges/cashflow_ready__dark.svg",
+        "locked_light": "assets/badges/cashflow_ready__locked_light.svg",
+        "locked_dark": "assets/badges/cashflow_ready__locked_dark.svg"
+      }
+    },
+    {
+      "key": "investment_observer",
+      "name_es": "Observador de inversiones",
+      "family": "lavender",
+      "files": {
+        "light": "assets/badges/investment_observer__light.svg",
+        "dark": "assets/badges/investment_observer__dark.svg",
+        "locked_light": "assets/badges/investment_observer__locked_light.svg",
+        "locked_dark": "assets/badges/investment_observer__locked_dark.svg"
+      }
+    },
+    {
+      "key": "receipt_ready_1",
+      "name_es": "Primer comprobante",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/receipt_ready_1__light.svg",
+        "dark": "assets/badges/receipt_ready_1__dark.svg",
+        "locked_light": "assets/badges/receipt_ready_1__locked_light.svg",
+        "locked_dark": "assets/badges/receipt_ready_1__locked_dark.svg"
+      }
+    },
+    {
+      "key": "receipt_ready_2",
+      "name_es": "Organizador de comprobantes",
+      "family": "mint",
+      "files": {
+        "light": "assets/badges/receipt_ready_2__light.svg",
+        "dark": "assets/badges/receipt_ready_2__dark.svg",
+        "locked_light": "assets/badges/receipt_ready_2__locked_light.svg",
+        "locked_dark": "assets/badges/receipt_ready_2__locked_dark.svg"
+      }
+    },
+    {
+      "key": "receipt_ready_3",
+      "name_es": "Experto en comprobantes",
+      "family": "lavender",
+      "files": {
+        "light": "assets/badges/receipt_ready_3__light.svg",
+        "dark": "assets/badges/receipt_ready_3__dark.svg",
+        "locked_light": "assets/badges/receipt_ready_3__locked_light.svg",
+        "locked_dark": "assets/badges/receipt_ready_3__locked_dark.svg"
+      }
+    },
+    {
+      "key": "category_curator",
+      "name_es": "Curador de categorías",
+      "family": "mint",
+      "files": {
+        "light": "assets/badges/category_curator__light.svg",
+        "dark": "assets/badges/category_curator__dark.svg",
+        "locked_light": "assets/badges/category_curator__locked_light.svg",
+        "locked_dark": "assets/badges/category_curator__locked_dark.svg"
+      }
+    },
+    {
+      "key": "report_ready",
+      "name_es": "Primer reporte",
+      "family": "blue",
+      "files": {
+        "light": "assets/badges/report_ready__light.svg",
+        "dark": "assets/badges/report_ready__dark.svg",
+        "locked_light": "assets/badges/report_ready__locked_light.svg",
+        "locked_dark": "assets/badges/report_ready__locked_dark.svg"
+      }
+    },
+    {
+      "key": "ai_explorer",
+      "name_es": "Explorador de IA",
+      "family": "lavender",
+      "files": {
+        "light": "assets/badges/ai_explorer__light.svg",
+        "dark": "assets/badges/ai_explorer__dark.svg",
+        "locked_light": "assets/badges/ai_explorer__locked_light.svg",
+        "locked_dark": "assets/badges/ai_explorer__locked_dark.svg"
+      }
+    },
+    {
+      "key": "comeback_strong",
+      "name_es": "Retoma tu claridad",
+      "family": "amber",
+      "files": {
+        "light": "assets/badges/comeback_strong__light.svg",
+        "dark": "assets/badges/comeback_strong__dark.svg",
+        "locked_light": "assets/badges/comeback_strong__locked_light.svg",
+        "locked_dark": "assets/badges/comeback_strong__locked_dark.svg"
+      }
+    }
+  ],
+  "levels": [
+    {
+      "key": "explorer",
+      "name_es": "Explorador",
+      "files": {
+        "light": "assets/levels/explorer__light.svg",
+        "dark": "assets/levels/explorer__dark.svg"
+      }
+    },
+    {
+      "key": "organizer",
+      "name_es": "Organizador",
+      "files": {
+        "light": "assets/levels/organizer__light.svg",
+        "dark": "assets/levels/organizer__dark.svg"
+      }
+    },
+    {
+      "key": "planner",
+      "name_es": "Planificador",
+      "files": {
+        "light": "assets/levels/planner__light.svg",
+        "dark": "assets/levels/planner__dark.svg"
+      }
+    },
+    {
+      "key": "strategist",
+      "name_es": "Estratega",
+      "files": {
+        "light": "assets/levels/strategist__light.svg",
+        "dark": "assets/levels/strategist__dark.svg"
+      }
+    }
+  ],
+  "ui": [
+    {
+      "key": "momentum_mark",
+      "files": {
+        "light": "assets/ui/momentum_mark__light.svg",
+        "dark": "assets/ui/momentum_mark__dark.svg"
+      }
+    },
+    {
+      "key": "xp",
+      "files": {
+        "light": "assets/ui/xp__light.svg",
+        "dark": "assets/ui/xp__dark.svg"
+      }
+    },
+    {
+      "key": "weekly_review",
+      "files": {
+        "light": "assets/ui/weekly_review__light.svg",
+        "dark": "assets/ui/weekly_review__dark.svg"
+      }
+    },
+    {
+      "key": "monthly_review",
+      "files": {
+        "light": "assets/ui/monthly_review__light.svg",
+        "dark": "assets/ui/monthly_review__dark.svg"
+      }
+    },
+    {
+      "key": "mission_review",
+      "files": {
+        "light": "assets/ui/mission_review__light.svg",
+        "dark": "assets/ui/mission_review__dark.svg"
+      }
+    },
+    {
+      "key": "mission_maintenance",
+      "files": {
+        "light": "assets/ui/mission_maintenance__light.svg",
+        "dark": "assets/ui/mission_maintenance__dark.svg"
+      }
+    },
+    {
+      "key": "mission_goal",
+      "files": {
+        "light": "assets/ui/mission_goal__light.svg",
+        "dark": "assets/ui/mission_goal__dark.svg"
+      }
+    },
+    {
+      "key": "week_complete",
+      "files": {
+        "light": "assets/ui/week_complete__light.svg",
+        "dark": "assets/ui/week_complete__dark.svg"
+      }
+    },
+    {
+      "key": "ai_credit",
+      "files": {
+        "light": "assets/ui/ai_credit__light.svg",
+        "dark": "assets/ui/ai_credit__dark.svg"
+      }
+    },
+    {
+      "key": "comeback",
+      "files": {
+        "light": "assets/ui/comeback__light.svg",
+        "dark": "assets/ui/comeback__dark.svg"
+      }
+    },
+    {
+      "key": "empty_missions",
+      "files": {
+        "light": "assets/ui/empty_missions__light.svg",
+        "dark": "assets/ui/empty_missions__dark.svg"
+      }
+    },
+    {
+      "key": "all_achievements",
+      "files": {
+        "light": "assets/ui/all_achievements__light.svg",
+        "dark": "assets/ui/all_achievements__dark.svg"
+      }
+    }
+  ]
+}

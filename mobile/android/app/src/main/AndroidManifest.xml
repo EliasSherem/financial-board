@@ -40,6 +40,13 @@
                 <action android:name="FLUTTER_NOTIFICATION_CLICK"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
+            <!-- Existing app-owned scheme. HTTPS email recovery always falls back to the web. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="financialboard" android:host="reset-password" />
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

@@ -1,26 +1,18 @@
-FROM node:20-bookworm-slim
+FROM node:22-bookworm-slim
 
-# Create app directory
-WORKDIR /app
-
-# Install dependencies first (leverages Docker layer cache)
-COPY financial-dashboard/package*.json ./financial-dashboard/
-RUN cd financial-dashboard \
-    && npm ci
-
-# Copy the rest of the repo (includes server code and database schemas)
-COPY . .
-
-# Environment
-ENV NODE_ENV=production
-ENV PORT=8080
-
-# Set working dir to the app
 WORKDIR /app/financial-dashboard
 
-# Cloud Run will send traffic to $PORT; expose for local runs
+# This Dockerfile uses the repository root as its build context.
+COPY financial-dashboard/package.json financial-dashboard/package-lock.json ./
+# The API runs TypeScript directly; tsx is a required runtime devDependency.
+RUN npm ci --include=dev
+
+COPY financial-dashboard/tsconfig.server.json ./
+COPY financial-dashboard/server ./server
+COPY financial-dashboard/scripts ./scripts
+COPY financial-dashboard/public/momentum ./public/momentum
+
+ENV NODE_ENV=production PORT=8080
 EXPOSE 8080
 
-# Run the server using tsx (installed via devDependencies)
-CMD ["npm", "run", "server"]
-
+CMD ["node", "--import", "tsx", "server/index.ts"]

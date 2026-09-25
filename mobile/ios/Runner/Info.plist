@@ -19,12 +19,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>$(FLUTTER_BUILD_NAME)</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
-	<!-- Production AdMob app ID. -->
-	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-6230562819068631~5157896867</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -35,15 +32,17 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-6230562819068631~5157896867</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Use Face ID to sign in to FinSight.</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>FinSight needs camera access to scan your receipt.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use Face ID to sign in to FinSight.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>FinSight needs photo access so you can upload a receipt.</string>
 	<key>UIApplicationSceneManifest</key>

@@ -39,6 +39,7 @@ export default function Login() {
         // Store token in localStorage
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        window.dispatchEvent(new Event('finsight:session-changed'));
         
         // Navigate to onboarding if not completed for this user
         const uid = data?.user?.id;
@@ -60,38 +61,48 @@ export default function Login() {
 
   // Load Google Identity Services and render button
   useEffect(() => {
-    const clientId = (import.meta as any)?.env?.VITE_GOOGLE_CLIENT_ID ||
-      document.querySelector('meta[name="google-signin-client_id"]')?.getAttribute('content') || '';
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ||
+      document.querySelector('meta[name="google-signin-client_id"]')?.getAttribute('content')?.trim() || '';
     if (!clientId || /YOUR_WEB_CLIENT_ID/i.test(clientId)) {
       console.warn('Google Client ID is missing or placeholder. Set VITE_GOOGLE_CLIENT_ID at build time or add <meta name="google-signin-client_id" content="YOUR_WEB_CLIENT_ID.apps.googleusercontent.com" /> to index.html');
       return;
     }
-    if (!clientId) return;
+    // GIS needs the public origin; restore the stricter policy when leaving login.
+    const referrerMeta = document.querySelector<HTMLMetaElement>('meta[name="referrer"]');
+    const previousReferrer = referrerMeta?.getAttribute('content') ?? null;
+    referrerMeta?.setAttribute('content', 'strict-origin-when-cross-origin');
+    let active = true;
+    let initialized = false;
     function init() {
+      if (!active || initialized) return;
       // @ts-ignore
       if (window.google && window.google.accounts && window.google.accounts.id) {
+        initialized = true;
         // @ts-ignore
         window.google.accounts.id.initialize({
           client_id: clientId,
           ux_mode: 'popup',
           callback: async (response: any) => {
+            if (!active) return;
             try {
               const API_BASE = resolveApi();
               const resp = await fetch(`${API_BASE}/login/google`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_token: response.credential }),
+                body: JSON.stringify({ id_token: response.credential, client_platform: 'web' }),
               });
               const data = await resp.json();
+              if (!active) return;
               if (resp.ok && data.success) {
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
+        window.dispatchEvent(new Event('finsight:session-changed'));
                 navigate('/');
               } else {
                 alert(data.message || 'Google login failed');
               }
             } catch (err) {
-              alert('Google login failed');
+              if (active) alert('Google login failed');
             }
           },
         });
@@ -103,17 +114,24 @@ export default function Login() {
       }
     }
     const src = 'https://accounts.google.com/gsi/client';
-    const existing = document.querySelector(`script[src="${src}"]`);
-    if (existing) {
-      init();
-    } else {
-      const s = document.createElement('script');
-      s.src = src;
-      s.async = true;
-      s.defer = true;
-      s.onload = init;
-      document.head.appendChild(s);
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+    const script = existing ?? document.createElement('script');
+    script.addEventListener('load', init);
+    if (!existing) {
+      script.src = src;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
     }
+    init();
+    return () => {
+      active = false;
+      script.removeEventListener('load', init);
+      if (referrerMeta) {
+        if (previousReferrer === null) referrerMeta.removeAttribute('content');
+        else referrerMeta.setAttribute('content', previousReferrer);
+      }
+    };
   }, [navigate]);
 
   return (
@@ -166,6 +184,7 @@ export default function Login() {
             />
           </div>
 
+          <Link to="/forgot-password" className="block text-right text-sm font-semibold text-blue-600 underline underline-offset-4">{t('login.forgotPassword')}</Link>
           {error && (
             <div role="alert" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               {error}

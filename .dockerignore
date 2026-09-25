@@ -1,15 +1,14 @@
-# Exclude VCS and IDE files
-.git
-.gitignore
-.vscode
-.claude
-TMP_*
-
-# Dependencies and build artifacts
-**/node_modules
-financial-dashboard/dist
-
-# OS files
-*.log
-**/.DS_Store
-
+# Root API image context: explicitly include only the application sources.
+**
+!Dockerfile
+!financial-dashboard/
+!financial-dashboard/package.json
+!financial-dashboard/package-lock.json
+!financial-dashboard/tsconfig.server.json
+!financial-dashboard/server/
+!financial-dashboard/server/**
+!financial-dashboard/scripts/
+!financial-dashboard/scripts/**
+!financial-dashboard/public/
+!financial-dashboard/public/momentum/
+!financial-dashboard/public/momentum/**

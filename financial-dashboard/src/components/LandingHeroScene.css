@@ -1,0 +1,18 @@
+.finsight-story-scene{position:absolute;inset:0;overflow:hidden;isolation:isolate;pointer-events:auto;background:#070e1a}
+.finsight-story-light{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 48% 40%,rgba(85,118,177,.22),rgba(42,54,92,.08) 48%,transparent 75%),radial-gradient(ellipse at 80% 80%,rgba(119,91,151,.065),transparent 55%)}
+.finsight-story-canvas{position:absolute;inset:0 0 26px;pointer-events:none}
+.finsight-story-canvas canvas{display:block}
+.finsight-story-demo{position:absolute;top:29px;left:24px;color:#8fa3bf;font-size:12px;line-height:1.4;pointer-events:none}
+.finsight-story-steps{position:absolute;bottom:22px;left:24px;right:24px;display:flex;justify-content:center;align-items:center;gap:28px;color:#8192ad;font-size:13px;line-height:1.4;letter-spacing:-.12px;pointer-events:none}
+.finsight-story-steps>span{display:flex;align-items:center;gap:8px;transition:color .5s ease}
+.finsight-story-steps>span>span{font-size:10px;letter-spacing:.04em;color:#697c99;transition:color .5s ease}
+.finsight-story-steps>span[data-current=true]{color:#e2ecfb}
+.finsight-story-steps>span[data-current=true]>span{color:#a7c5f5}
+.finsight-story-pause{position:absolute;right:18px;top:18px;display:grid;place-items:center;width:40px;height:40px;border:1px solid rgba(191,211,246,.18);border-radius:50%;color:#bed0e8;background:rgba(38,55,83,.42);cursor:pointer;transition:background .2s,border-color .2s}
+.finsight-story-pause:hover{background:rgba(57,76,108,.7);border-color:rgba(191,211,246,.36)}
+.finsight-story-pause:focus-visible{outline:2px solid #bdd6ff;outline-offset:4px}
+.finsight-story-fallback{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;color:#e2ecfb}
+.finsight-story-fallback strong{font-size:22px;font-weight:500;letter-spacing:-.5px}
+.finsight-story-fallback span{font-size:14px;color:#a7bad6}
+@media(max-width:639px){.finsight-story-steps{bottom:18px;left:12px;right:12px;gap:16px;font-size:12px}.finsight-story-steps>span{gap:5px}.finsight-story-pause{top:12px;right:12px}.finsight-story-demo{top:25px;left:18px}.finsight-story-canvas{inset:0 0 26px}}
+@media(prefers-reduced-motion:reduce){.finsight-story-scene *{transition:none!important}}

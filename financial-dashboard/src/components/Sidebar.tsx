@@ -11,6 +11,8 @@ import {
   TrendingUp,
   Tags,
   Crown,
+  Award,
+  Shield,
   X
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -18,6 +20,7 @@ import FinSightLogo from './FinSightLogo';
 import ProUpgradeMini from './ProUpgradeMini';
 import { useI18n } from '../contexts/I18nContext';
 import { cn } from './ui';
+import { platformRequest } from '../momentum/service';
 
 type NavigationItem = {
   key: string;
@@ -37,6 +40,7 @@ const navigation: NavigationItem[] = [
   { key: 'sidebar.categories', href: '/categories', icon: Tags },
   { key: 'sidebar.accounts', href: '/accounts', icon: Wallet },
   { key: 'sidebar.investments', href: '/investments', icon: TrendingUp, proRequired: true },
+  { key: 'sidebar.momentum', href: '/momentum', icon: Award },
 ];
 
 interface SidebarProps {
@@ -46,6 +50,8 @@ interface SidebarProps {
 
 export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [owner,setOwner] = useState(false);
+  useEffect(()=>{let active=true;platformRequest<{allowed:boolean}>('/admin/access').then(value=>{if(active)setOwner(value.allowed);}).catch(()=>{});return()=>{active=false;};},[]);
   const { t } = useI18n();
   const user = (() => {
     try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
@@ -87,7 +93,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
         </div>
         
         <nav className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1" aria-label="Main navigation">
-          {navigation.map((item) => (
+          {[...navigation,...(owner?[{key:'sidebar.admin',href:'/admin',icon:Shield}]:[])].map((item) => (
             <NavLink
               key={item.key}
               to={item.href}

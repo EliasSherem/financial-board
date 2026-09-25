@@ -1,3 +1,7 @@
+import '../momentum/store.dart';
+import '../momentum/widgets.dart';
+import '../services/client_context.dart';
+import '../services/analytics_service.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -25,12 +29,20 @@ class _AiChatScreenState extends State<AiChatScreen> {
   String? _activeSessionId;
   bool _loading = false;
   bool _loaded = false;
+  String? _requestId;
+  String? _requestSession;
+  List<Map<String, String>>? _requestMessages;
+  int? _sessionUser;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_loaded) return;
     _loaded = true;
+    _sessionUser = context.read<AuthStore>().userId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AnalyticsService.instance.screen('ai');
+    });
     _loadSessions();
   }
 
@@ -47,7 +59,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
   String _activeSessionKey(int? userId) => 'ai_chat_active_${userId ?? 'anon'}';
 
   Future<void> _loadSessions() async {
-    final userId = context.read<AuthStore>().userId;
+    final userId = _sessionUser;
     final sp = await SharedPreferences.getInstance();
     final raw = sp.getString(_sessionsKey(userId));
     final storedActiveId = sp.getString(_activeSessionKey(userId));
@@ -116,7 +128,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 
   Future<void> _saveSessions() async {
-    final userId = context.read<AuthStore>().userId;
+    final userId = _sessionUser;
     final sp = await SharedPreferences.getInstance();
     final payload = jsonEncode(_sessions.map((s) => s.toJson()).toList());
     await sp.setString(_sessionsKey(userId), payload);
@@ -167,68 +179,107 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 
   Future<void> _send() async {
-    if (_loading) return;
+    if (_loading || _requestId != null) return;
     final text = _inputCtrl.text.trim();
     if (text.isEmpty) return;
-
     final session = _ensureActiveSession();
-    final sessionId = session.id;
-
     setState(() {
       session.messages.add(_ChatMessage(role: 'user', content: text));
-      if (session.messages.length == 1) {
-        session.title = _truncateTitle(text);
-      }
+      if (session.messages.length == 1) session.title = _truncateTitle(text);
       session.updatedAt = DateTime.now();
-      _loading = true;
+      _requestId = clientEventId();
+      _requestSession = session.id;
+      final payload = session.messages.map((m) => m.toJson()).toList();
+      _requestMessages =
+          payload.length > 20 ? payload.sublist(payload.length - 20) : payload;
     });
     _inputCtrl.clear();
     await _saveSessions();
-    if (_activeSessionId == sessionId) {
-      _scrollToBottom();
-    }
+    if (mounted) await _performRequest();
+  }
 
+  Future<void> _performRequest() async {
+    if (_loading || _requestId == null || _requestMessages == null) return;
     final auth = context.read<AuthStore>();
-    final api = ApiClient()..setToken(auth.token);
-    final data = DataService(api);
-    final payload =
-        session.messages
-            .map((m) => m.toJson())
-            .toList()
-            .cast<Map<String, String>>();
-    final trimmed =
-        payload.length > 20 ? payload.sublist(payload.length - 20) : payload;
-
+    if (auth.userId != _sessionUser || !auth.isAuthenticated) return;
+    final token = auth.token;
+    final sessionId = _requestSession;
+    setState(() => _loading = true);
+    _scrollToBottom();
     try {
-      final reply = await data.aiChat(messages: trimmed);
-      if (mounted) {
+      final reply = await DataService(
+        ApiClient()..setToken(token),
+      ).aiChat(messages: _requestMessages!, requestId: _requestId);
+      if (!mounted || auth.token != token) return;
+      setState(() {
+        final target = _findSession(sessionId ?? '');
+        if (target != null) {
+          target.messages.add(
+            _ChatMessage(
+              role: 'assistant',
+              content: reply.isEmpty ? I18n.t(context, 'aiChat.empty') : reply,
+            ),
+          );
+          target.updatedAt = DateTime.now();
+        }
+        _requestId = null;
+        _requestMessages = null;
+        _requestSession = null;
+      });
+      AnalyticsService.instance.event('feature_used', feature: 'ai');
+      await context.read<MomentumStore>().refresh();
+    } on ApiException catch (e) {
+      if (!mounted || auth.token != token) return;
+      final terminal =
+          e.statusCode == 403 ||
+          const {
+            'AI_REQUEST_FINISHED',
+            'AI_RETRY_CACHE_EXPIRED',
+            'REQUEST_ID_UNAVAILABLE',
+          }.contains(e.code);
+      if (terminal) {
         setState(() {
-          final target = _findSession(sessionId);
-          if (target != null) {
-            target.messages.add(
-              _ChatMessage(
-                role: 'assistant',
-                content:
-                    reply.isEmpty ? I18n.t(context, 'aiChat.empty') : reply,
-              ),
-            );
-            target.updatedAt = DateTime.now();
-          }
+          _requestId = null;
+          _requestMessages = null;
+          _requestSession = null;
         });
+        await context.read<MomentumStore>().refresh();
       }
-    } catch (e) {
-      if (mounted) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            momentumText(
+              context,
+              terminal
+                  ? 'This request is no longer available. Check your access and question balance before starting a new one.'
+                  : 'The response is not confirmed yet. Retry the same request shortly.',
+              terminal
+                  ? 'Esta solicitud ya no está disponible. Comprueba tu acceso y saldo de preguntas antes de iniciar otra.'
+                  : 'La respuesta todavía no está confirmada. Reintenta la misma solicitud en unos momentos.',
+            ),
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted && auth.token == token) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${I18n.t(context, 'label.failed')}: $e')),
+          SnackBar(
+            content: Text(
+              momentumText(
+                context,
+                'No response confirmed. Retry the same question without using a second credit.',
+                'No se confirmó respuesta. Reintenta la misma pregunta sin consumir un segundo crédito.',
+              ),
+            ),
+          ),
         );
       }
     } finally {
-      if (mounted) {
+      if (mounted && auth.token == token) {
         setState(() => _loading = false);
         await _saveSessions();
-        if (_activeSessionId == sessionId) {
-          _scrollToBottom();
-        }
+        if (_activeSessionId == sessionId) _scrollToBottom();
       }
     }
   }
@@ -454,7 +505,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
             tooltip: I18n.t(context, 'aiChat.newChat'),
             icon: Icons.add_comment,
             color: Theme.of(context).colorScheme.primary,
-            onPressed: _loading ? null : _createNewChat,
+            onPressed: _loading || _requestId != null ? null : _createNewChat,
           ),
         ],
       ),
@@ -464,7 +515,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthStore>();
-    if (!auth.isProOrExempt) {
+    final momentum = context.watch<MomentumStore>().state;
+    if (!auth.isProOrExempt &&
+        !(momentum?.canUseCredits ?? false) &&
+        _requestId == null) {
       return Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.transparent,
@@ -496,6 +550,25 @@ class _AiChatScreenState extends State<AiChatScreen> {
       ),
       body: Column(
         children: [
+          if (!auth.isProOrExempt)
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(
+                '${momentum?.creditBalance ?? 0} ${momentumText(context, 'AI questions available', 'preguntas IA disponibles')}',
+              ),
+            ),
+          if (_requestId != null && !_loading)
+            TextButton.icon(
+              onPressed: _performRequest,
+              icon: const Icon(Icons.refresh),
+              label: Text(
+                momentumText(
+                  context,
+                  'Retry the same question',
+                  'Reintentar la misma pregunta',
+                ),
+              ),
+            ),
           Expanded(
             child:
                 messages.isEmpty
@@ -574,6 +647,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                         textInputAction: TextInputAction.send,
                         minLines: 1,
                         maxLines: 4,
+                        enabled: _requestId == null,
                         onSubmitted: (_) => _send(),
                         decoration: InputDecoration(
                           hintText: I18n.t(context, 'aiChat.placeholder'),

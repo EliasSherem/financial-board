@@ -37,23 +37,17 @@ InputDecoration _quickFieldDecoration(
 Future<bool?> showQuickNewPaymentDialog(BuildContext context) async {
   NonProInterstitialAdController.preloadIfEligible(context);
   final data = await _svc(context);
-  List<Account> accounts = [];
-  List<Project> projects = [];
-  List<ExpenseCategory> categories = [];
-  try {
-    accounts = await data.getAccounts();
-  } catch (_) {}
-  try {
-    projects = await data.getProjects();
-  } catch (_) {}
-  try {
-    categories = await data.getExpenseCategories();
-    categories.sort(
-      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-    );
-  } catch (_) {
-    categories = [];
-  }
+  final results = await Future.wait<Object>([
+    data.getAccounts().catchError((_) => <Account>[]),
+    data.getProjects().catchError((_) => <Project>[]),
+    data.getExpenseCategories().catchError((_) => <ExpenseCategory>[]),
+  ]);
+  final accounts = results[0] as List<Account>;
+  final projects = results[1] as List<Project>;
+  var categories = results[2] as List<ExpenseCategory>;
+  categories.sort(
+    (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+  );
 
   ExpenseCategory? findCategoryById(int id) {
     for (final cat in categories) {
@@ -847,14 +841,12 @@ Future<bool?> showQuickNewProjectDialog(BuildContext context) async {
 Future<bool?> showQuickNewInvoiceDialog(BuildContext context) async {
   NonProInterstitialAdController.preloadIfEligible(context);
   final data = await _svc(context);
-  List<Customer> customers = [];
-  List<Project> projects = [];
-  try {
-    customers = await data.getCustomers();
-  } catch (_) {}
-  try {
-    projects = await data.getProjects();
-  } catch (_) {}
+  final results = await Future.wait<Object>([
+    data.getCustomers().catchError((_) => <Customer>[]),
+    data.getProjects().catchError((_) => <Project>[]),
+  ]);
+  final customers = results[0] as List<Customer>;
+  final projects = results[1] as List<Project>;
   int? customerId = customers.isNotEmpty ? customers.first.id : null;
   int? projectId;
   final issueCtrl = TextEditingController(text: formatDate(DateTime.now()));

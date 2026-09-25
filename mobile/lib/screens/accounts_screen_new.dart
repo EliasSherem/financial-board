@@ -1,3 +1,5 @@
+import '../momentum/widgets.dart';
+import '../services/analytics_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -90,6 +92,9 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AnalyticsService.instance.screen('accounts');
+    });
     _refreshBus = context.read<RefreshBus>();
     _accountsTick = _refreshBus.accounts;
     _transactionsTick = _refreshBus.transactions;
@@ -152,10 +157,6 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
       );
     }
     if (_loadError != null && accounts.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final auth = context.read<AuthStore>();
-        if (auth.isAuthenticated) auth.logout(force: true);
-      });
       return WillPopScope(
         onWillPop: () async => !widget.forceCreate,
         child: Scaffold(
@@ -167,7 +168,23 @@ class _AccountsScreenNewState extends State<AccountsScreenNew> {
                 title: I18n.t(context, 'title.accounts'),
                 leading: const _AccountsHeaderIcon(),
               ),
-              const Center(child: LGLoadingState()),
+              LGEmptyState(
+                icon: Icons.cloud_off_outlined,
+                title: momentumText(
+                  context,
+                  'Accounts unavailable',
+                  'Cuentas no disponibles',
+                ),
+                message: momentumText(
+                  context,
+                  'Check your connection and retry.',
+                  'Comprueba tu conexión y reintenta.',
+                ),
+              ),
+              LGButton(
+                label: momentumText(context, 'Retry', 'Reintentar'),
+                onPressed: _load,
+              ),
             ],
           ),
         ),

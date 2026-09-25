@@ -1,3 +1,7 @@
+import '../momentum/widgets.dart';
+import '../momentum/screens.dart';
+import '../momentum/store.dart';
+import '../services/analytics_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
@@ -38,6 +42,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        AnalyticsService.instance.screen('settings');
+        AnalyticsService.instance.refreshPreferences().then((_) {
+          if (mounted) setState(() {});
+        });
+      }
+    });
     _loadSavingsGoal();
     _checkBiometric();
   }
@@ -260,6 +272,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
             120,
           ),
           children: [
+            if (context.watch<MomentumStore>().state?.enabled == true) ...[
+              ListTile(
+                title: const Text('Momentum'),
+                leading: const MomentumAsset(
+                  assetKey: 'momentum_mark',
+                  size: 24,
+                ),
+                onTap: () => openMomentum(context),
+              ),
+              ListTile(
+                title: Text(momentumText(context, 'Achievements', 'Logros')),
+                leading: const Icon(Icons.workspace_premium_outlined),
+                onTap:
+                    () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const AchievementsScreen(),
+                      ),
+                    ),
+              ),
+            ],
+            SwitchListTile.adaptive(
+              title: Text(
+                momentumText(context, 'Usage analytics', 'Analítica de uso'),
+              ),
+              subtitle: Text(
+                momentumText(
+                  context,
+                  AnalyticsService.instance.preferencePending
+                      ? 'Saved on this device. Your privacy preference will sync when connected.'
+                      : 'Help improve features. No financial amounts or message content.',
+                  AnalyticsService.instance.preferencePending
+                      ? 'Guardado en este dispositivo. Tu preferencia de privacidad se sincronizará al conectar.'
+                      : 'Ayuda a mejorar funciones. Sin importes financieros ni contenido de mensajes.',
+                ),
+              ),
+              value: AnalyticsService.instance.enabled,
+              onChanged: (value) async {
+                final update = AnalyticsService.instance.setEnabled(value);
+                setState(() {});
+                await update;
+                if (mounted) setState(() {});
+              },
+            ),
+
             LGPageHeader(
               title: L('Settings', 'Ajustes'),
               subtitle: L(
@@ -477,6 +533,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 return;
                               }
                               if (!canEnableBiometric) return;
+                              final token = auth.token;
                               final ok = await _biometric.authenticate(
                                 reason: L(
                                   'Confirm biometrics to enable login',
@@ -498,7 +555,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 }
                                 return;
                               }
-                              await auth.setBiometricEnabled(true);
+                              if (context.mounted &&
+                                  auth.isAuthenticated &&
+                                  auth.token == token) {
+                                await auth.setBiometricEnabled(true);
+                              }
                             }
                             : null,
                   ),
@@ -525,7 +586,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'Schedule recurring salary deposits',
                     'Programa depósitos de salario recurrentes',
                   ),
-                  onTap: () => _openSalaryAutomation(context),
+                  onTap: () => showSalaryAutomation(context),
                 ),
                 _SettingsRow(
                   icon: Icons.sync_problem_outlined,
@@ -648,7 +709,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: L('Logout', 'Cerrar sesión'),
                   danger: true,
                   onTap: () async {
-                    await context.read<AuthStore>().logout();
+                    await context.read<AuthStore>().logout(force: true);
                     if (context.mounted) Navigator.of(context).pop();
                   },
                 ),
@@ -873,7 +934,10 @@ class _SettingsIconBox extends StatelessWidget {
   }
 }
 
-Future<void> _openSalaryAutomation(BuildContext context) async {
+Future<void> showSalaryAutomation(
+  BuildContext context, {
+  DataService? data,
+}) async {
   String L(String en, String es) =>
       context.read<LangStore>().lang == 'es' ? es : en;
   await showModalBottomSheet(
@@ -885,13 +949,14 @@ Future<void> _openSalaryAutomation(BuildContext context) async {
         (ctx) => LGBottomSheetShell(
           scrollable: false,
           maxHeightFactor: 0.92,
-          child: _SalaryAutomationSheet(L: L),
+          child: _SalaryAutomationSheet(L: L, data: data),
         ),
   );
 }
 
 class _SalaryAutomationSheet extends StatefulWidget {
-  const _SalaryAutomationSheet({required this.L});
+  const _SalaryAutomationSheet({required this.L, this.data});
+  final DataService? data;
   final String Function(String en, String es) L;
   @override
   State<_SalaryAutomationSheet> createState() => _SalaryAutomationSheetState();
@@ -900,6 +965,9 @@ class _SalaryAutomationSheet extends StatefulWidget {
 class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
   List<Map<String, dynamic>> _rules = [];
   List<Account> _accounts = [];
+  DataService get _data =>
+      widget.data ??
+      DataService(ApiClient()..setToken(context.read<AuthStore>().token));
 
   @override
   void initState() {
@@ -910,9 +978,7 @@ class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
 
   Future<void> _load() async {
     try {
-      final api = ApiClient()..setToken(context.read<AuthStore>().token);
-      final data = DataService(api);
-      final rows = await data.getSalaryRules();
+      final rows = await _data.getSalaryRules();
       if (mounted) setState(() => _rules = rows);
     } catch (_) {
       if (mounted) setState(() => _rules = []);
@@ -921,14 +987,12 @@ class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
 
   Future<void> _loadAccounts() async {
     try {
-      final api = ApiClient()..setToken(context.read<AuthStore>().token);
-      final data = DataService(api);
-      final accs = await data.getAccounts();
+      final accs = await _data.getAccounts();
       if (mounted) setState(() => _accounts = accs);
     } catch (_) {}
   }
 
-  void _addOrEdit({Map<String, dynamic>? initial, int? index}) async {
+  void _addOrEdit({Map<String, dynamic>? initial}) async {
     final nameCtrl = TextEditingController(text: initial?['name'] ?? 'Salary');
     final amountCtrl = TextEditingController(
       text: (initial?['amount']?.toString() ?? '0'),
@@ -941,216 +1005,296 @@ class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
             ? true
             : ((initial?['isActive'] == 1) || (initial?['isActive'] == true));
     int? accountId =
-        (initial?['accountId'] as int?) ??
-        (_accounts.isNotEmpty ? _accounts.first.id : null);
+        initial != null
+            ? (initial['accountId'] as num?)?.toInt()
+            : (_accounts.isNotEmpty ? _accounts.first.id : null);
+    final dayCtrl = TextEditingController(text: day.toString());
+    final ruleId = (initial?['id'] as num?)?.toInt();
+    bool saving = false;
+    String? saveError;
 
-    await showDialog<void>(
+    final dialog = DialogRoute<void>(
       context: context,
       builder:
           (_) => StatefulBuilder(
             builder:
-                (dctx, setLocal) => AlertDialog(
-                  title: Text(widget.L('Salary rule', 'Regla de salario')),
-                  content: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextField(
-                          controller: nameCtrl,
-                          decoration: InputDecoration(
-                            labelText: widget.L('Name', 'Nombre'),
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: amountCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: widget.L('Amount', 'Monto'),
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<int>(
-                          initialValue: accountId,
-                          items:
-                              _accounts.map((a) {
-                                final isInvestment =
-                                    (a.type ?? '').toLowerCase() ==
-                                    'investment';
-                                final baseName =
-                                    a.name.trim().isEmpty
-                                        ? widget.L('Account', 'Cuenta')
-                                        : a.name;
-                                final label =
-                                    isInvestment
-                                        ? '$baseName (${widget.L('Investment', 'Inversión')})'
-                                        : baseName;
-                                return DropdownMenuItem<int>(
-                                  value: a.id,
-                                  child: Text(label),
-                                );
-                              }).toList(),
-                          onChanged: (v) => setLocal(() => accountId = v),
-                          decoration: InputDecoration(
-                            labelText: widget.L(
-                              'Deposit account',
-                              'Cuenta de depósito',
-                            ),
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          initialValue: schedule,
-                          items: [
-                            DropdownMenuItem(
-                              value: 'SemiMonthly',
-                              child: Text(
-                                widget.L(
-                                  'Semi-monthly (15 & 30)',
-                                  'Quincenal (15 y 30)',
-                                ),
+                (dctx, setLocal) => PopScope(
+                  canPop: !saving,
+                  child: AlertDialog(
+                    title: Text(widget.L('Salary rule', 'Regla de salario')),
+                    content: SingleChildScrollView(
+                      child: AbsorbPointer(
+                        absorbing: saving,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: nameCtrl,
+                              decoration: InputDecoration(
+                                labelText: widget.L('Name', 'Nombre'),
+                                border: const OutlineInputBorder(),
                               ),
                             ),
-                            DropdownMenuItem(
-                              value: 'Monthly',
-                              child: Text(
-                                widget.L(
-                                  'Monthly (day of month)',
-                                  'Mensual (día del mes)',
-                                ),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: amountCtrl,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                labelText: widget.L('Amount', 'Monto'),
+                                border: const OutlineInputBorder(),
                               ),
                             ),
-                            DropdownMenuItem(
-                              value: 'Weekly',
-                              child: Text(widget.L('Weekly', 'Semanal')),
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<int>(
+                              initialValue: accountId,
+                              items: [
+                                if (accountId != null &&
+                                    !_accounts.any((a) => a.id == accountId))
+                                  DropdownMenuItem<int>(
+                                    value: accountId,
+                                    child: Text(
+                                      initial?['accountName'] ??
+                                          widget.L('Account', 'Cuenta'),
+                                    ),
+                                  ),
+                                ..._accounts.map((a) {
+                                  final isInvestment =
+                                      (a.type ?? '').toLowerCase() ==
+                                      'investment';
+                                  final baseName =
+                                      a.name.trim().isEmpty
+                                          ? widget.L('Account', 'Cuenta')
+                                          : a.name;
+                                  final label =
+                                      isInvestment
+                                          ? '$baseName (${widget.L('Investment', 'Inversión')})'
+                                          : baseName;
+                                  return DropdownMenuItem<int>(
+                                    value: a.id,
+                                    child: Text(label),
+                                  );
+                                }),
+                              ],
+                              onChanged: (v) => setLocal(() => accountId = v),
+                              decoration: InputDecoration(
+                                labelText: widget.L(
+                                  'Deposit account',
+                                  'Cuenta de depósito',
+                                ),
+                                border: const OutlineInputBorder(),
+                              ),
                             ),
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<String>(
+                              initialValue: schedule,
+                              items: [
+                                DropdownMenuItem(
+                                  value: 'SemiMonthly',
+                                  child: Text(
+                                    widget.L(
+                                      'Semi-monthly (15 & 30)',
+                                      'Quincenal (15 y 30)',
+                                    ),
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Monthly',
+                                  child: Text(
+                                    widget.L(
+                                      'Monthly (day of month)',
+                                      'Mensual (día del mes)',
+                                    ),
+                                  ),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Weekly',
+                                  child: Text(widget.L('Weekly', 'Semanal')),
+                                ),
+                              ],
+                              onChanged:
+                                  (v) => setLocal(
+                                    () => schedule = v ?? 'SemiMonthly',
+                                  ),
+                              decoration: const InputDecoration(
+                                labelText: 'Schedule',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            if (schedule == 'Monthly')
+                              TextField(
+                                controller: dayCtrl,
+                                keyboardType: TextInputType.number,
+                                onChanged: (v) => day = int.tryParse(v) ?? day,
+                                decoration: InputDecoration(
+                                  labelText: widget.L(
+                                    'Day of month (1-31)',
+                                    'Día del mes (1-31)',
+                                  ),
+                                  border: const OutlineInputBorder(),
+                                ),
+                              ),
+                            if (schedule == 'Weekly')
+                              DropdownButtonFormField<int>(
+                                initialValue: weekday,
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 7,
+                                    child: Text('Sun'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 1,
+                                    child: Text('Mon'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 2,
+                                    child: Text('Tue'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 3,
+                                    child: Text('Wed'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 4,
+                                    child: Text('Thu'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 5,
+                                    child: Text('Fri'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 6,
+                                    child: Text('Sat'),
+                                  ),
+                                ],
+                                onChanged:
+                                    (v) => setLocal(() => weekday = v ?? 1),
+                                decoration: InputDecoration(
+                                  labelText: widget.L(
+                                    'Weekday',
+                                    'Día de la semana',
+                                  ),
+                                  border: const OutlineInputBorder(),
+                                ),
+                              ),
+                            const SizedBox(height: 8),
+                            SwitchListTile(
+                              value: isActive,
+                              onChanged: (v) => setLocal(() => isActive = v),
+                              title: Text(widget.L('Active', 'Activa')),
+                            ),
+                            if (saveError != null)
+                              Text(
+                                saveError!,
+                                key: const ValueKey('salary-save-error'),
+                                style: TextStyle(
+                                  color: Theme.of(dctx).colorScheme.error,
+                                ),
+                              ),
                           ],
-                          onChanged:
-                              (v) =>
-                                  setLocal(() => schedule = v ?? 'SemiMonthly'),
-                          decoration: const InputDecoration(
-                            labelText: 'Schedule',
-                            border: OutlineInputBorder(),
-                          ),
                         ),
-                        const SizedBox(height: 8),
-                        if (schedule == 'Monthly')
-                          TextField(
-                            controller: TextEditingController(
-                              text: day.toString(),
-                            ),
-                            keyboardType: TextInputType.number,
-                            onChanged: (v) => day = int.tryParse(v) ?? day,
-                            decoration: InputDecoration(
-                              labelText: widget.L(
-                                'Day of month (1-31)',
-                                'Día del mes (1-31)',
-                              ),
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        if (schedule == 'Weekly')
-                          DropdownButtonFormField<int>(
-                            initialValue: weekday,
-                            items: const [
-                              DropdownMenuItem(value: 7, child: Text('Sun')),
-                              DropdownMenuItem(value: 1, child: Text('Mon')),
-                              DropdownMenuItem(value: 2, child: Text('Tue')),
-                              DropdownMenuItem(value: 3, child: Text('Wed')),
-                              DropdownMenuItem(value: 4, child: Text('Thu')),
-                              DropdownMenuItem(value: 5, child: Text('Fri')),
-                              DropdownMenuItem(value: 6, child: Text('Sat')),
-                            ],
-                            onChanged: (v) => setLocal(() => weekday = v ?? 1),
-                            decoration: InputDecoration(
-                              labelText: widget.L(
-                                'Weekday',
-                                'Día de la semana',
-                              ),
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        const SizedBox(height: 8),
-                        SwitchListTile(
-                          value: isActive,
-                          onChanged: (v) => setLocal(() => isActive = v),
-                          title: Text(widget.L('Active', 'Activa')),
-                        ),
-                      ],
+                      ),
                     ),
+                    actions: [
+                      TextButton(
+                        onPressed: saving ? null : () => Navigator.pop(dctx),
+                        child: Text(widget.L('Cancel', 'Cancelar')),
+                      ),
+                      FilledButton(
+                        key: const ValueKey('salary-save'),
+                        onPressed:
+                            saving
+                                ? null
+                                : () async {
+                                  if (saving) return;
+                                  setLocal(() {
+                                    saving = true;
+                                    saveError = null;
+                                  });
+                                  final selectedName =
+                                      (_accounts
+                                              .where((a) => a.id == accountId)
+                                              .isNotEmpty)
+                                          ? _accounts
+                                              .firstWhere(
+                                                (a) => a.id == accountId,
+                                              )
+                                              .name
+                                          : 'Account';
+                                  final rule = {
+                                    'name':
+                                        nameCtrl.text.trim().isEmpty
+                                            ? 'Salary'
+                                            : nameCtrl.text.trim(),
+                                    'amount':
+                                        double.tryParse(
+                                          amountCtrl.text.replaceAll(',', ''),
+                                        ) ??
+                                        0,
+                                    'schedule': schedule,
+                                    if (schedule == 'Weekly')
+                                      'weekday': weekday,
+                                    if (schedule == 'Monthly') 'day': day,
+                                    'isActive': isActive,
+                                    'accountId': accountId,
+                                    'accountName': selectedName,
+                                  };
+                                  try {
+                                    final data = _data;
+                                    if (ruleId != null) {
+                                      await data.updateSalaryRule(
+                                        id: ruleId,
+                                        name: rule['name'] as String,
+                                        amount: rule['amount'] as double,
+                                        schedule: rule['schedule'] as String,
+                                        weekday: rule['weekday'] as int?,
+                                        day: rule['day'] as int?,
+                                        accountId: rule['accountId'] as int?,
+                                        isActive: rule['isActive'] as bool,
+                                      );
+                                    } else {
+                                      await data.createSalaryRule(
+                                        name: rule['name'] as String,
+                                        amount: rule['amount'] as double,
+                                        schedule: rule['schedule'] as String,
+                                        weekday: rule['weekday'] as int?,
+                                        day: rule['day'] as int?,
+                                        accountId: rule['accountId'] as int?,
+                                        isActive: rule['isActive'] as bool,
+                                      );
+                                    }
+                                    if (!dctx.mounted) return;
+                                    setLocal(() => saving = false);
+                                    Navigator.pop(dctx);
+                                    await _load();
+                                  } catch (_) {
+                                    if (dctx.mounted) {
+                                      setLocal(() {
+                                        saving = false;
+                                        saveError = widget.L(
+                                          'Could not confirm saving. Check your rules before trying again.',
+                                          'No se pudo confirmar el guardado. Revisa tus reglas antes de intentarlo de nuevo.',
+                                        );
+                                      });
+                                    }
+                                  }
+                                },
+                        child: Text(
+                          saving
+                              ? widget.L('Saving…', 'Guardando…')
+                              : widget.L('Save', 'Guardar'),
+                        ),
+                      ),
+                    ],
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(widget.L('Cancel', 'Cancelar')),
-                    ),
-                    FilledButton(
-                      onPressed: () async {
-                        final selectedName =
-                            (_accounts
-                                    .where((a) => a.id == accountId)
-                                    .isNotEmpty)
-                                ? _accounts
-                                    .firstWhere((a) => a.id == accountId)
-                                    .name
-                                : 'Account';
-                        final rule = {
-                          'name':
-                              nameCtrl.text.trim().isEmpty
-                                  ? 'Salary'
-                                  : nameCtrl.text.trim(),
-                          'amount':
-                              double.tryParse(
-                                amountCtrl.text.replaceAll(',', ''),
-                              ) ??
-                              0,
-                          'schedule': schedule,
-                          if (schedule == 'Weekly') 'weekday': weekday,
-                          if (schedule == 'Monthly') 'day': day,
-                          'isActive': isActive,
-                          'accountId': accountId,
-                          'accountName': selectedName,
-                        };
-                        try {
-                          final api =
-                              ApiClient()
-                                ..setToken(context.read<AuthStore>().token);
-                          final data = DataService(api);
-                          if (index != null && (_rules[index]['id'] != null)) {
-                            await data.updateSalaryRule(
-                              id: (_rules[index]['id'] as num).toInt(),
-                              name: rule['name'] as String,
-                              amount: rule['amount'] as double,
-                              schedule: rule['schedule'] as String,
-                              weekday: rule['weekday'] as int?,
-                              day: rule['day'] as int?,
-                              accountId: rule['accountId'] as int?,
-                              isActive: rule['isActive'] as bool,
-                            );
-                          } else {
-                            await data.createSalaryRule(
-                              name: rule['name'] as String,
-                              amount: rule['amount'] as double,
-                              schedule: rule['schedule'] as String,
-                              weekday: rule['weekday'] as int?,
-                              day: rule['day'] as int?,
-                              accountId: rule['accountId'] as int?,
-                              isActive: rule['isActive'] as bool,
-                            );
-                          }
-                          await _load();
-                        } catch (_) {}
-                        if (dctx.mounted) Navigator.pop(dctx);
-                      },
-                      child: Text(widget.L('Save', 'Guardar')),
-                    ),
-                  ],
                 ),
           ),
     );
+    await Navigator.of(context, rootNavigator: true).push(dialog);
+    await dialog.completed;
+    nameCtrl.dispose();
+    amountCtrl.dispose();
+    dayCtrl.dispose();
   }
 
   @override
@@ -1234,11 +1378,7 @@ class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
                           onChanged: (v) async {
                             try {
                               if (r['id'] != null) {
-                                final api =
-                                    ApiClient()..setToken(
-                                      context.read<AuthStore>().token,
-                                    );
-                                final data = DataService(api);
+                                final data = _data;
                                 await data.updateSalaryRule(
                                   id: (r['id'] as num).toInt(),
                                   isActive: v,
@@ -1250,7 +1390,7 @@ class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.edit_outlined),
-                          onPressed: () => _addOrEdit(initial: r, index: i),
+                          onPressed: () => _addOrEdit(initial: r),
                         ),
                         IconButton(
                           icon: const Icon(
@@ -1260,11 +1400,7 @@ class _SalaryAutomationSheetState extends State<_SalaryAutomationSheet> {
                           onPressed: () async {
                             try {
                               if (r['id'] != null) {
-                                final api =
-                                    ApiClient()..setToken(
-                                      context.read<AuthStore>().token,
-                                    );
-                                final data = DataService(api);
+                                final data = _data;
                                 await data.deleteSalaryRule(
                                   (r['id'] as num).toInt(),
                                 );

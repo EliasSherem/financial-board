@@ -75,27 +75,25 @@ class _TransactionFormState extends State<_TransactionForm> {
 
   Future<void> _load() async {
     try {
-      // Fetch required data first
-      accounts = await widget.data.getAccounts();
-      // Projects may be gated in trial accounts; ignore failures gracefully
-      try {
-        projects = await widget.data.getProjects();
-      } catch (_) {
-        projects = [];
-      }
+      // Accounts are required; optional datasets retain their trial fallbacks.
+      final results = await Future.wait<Object>([
+        widget.data.getAccounts(),
+        widget.data.getProjects().catchError((_) => <Project>[]),
+        widget.data.getExpenseCategories().catchError(
+          (_) => <ExpenseCategory>[],
+        ),
+      ]);
+      accounts = results[0] as List<Account>;
+      projects = results[1] as List<Project>;
       final prevCategoryId = selectedCategory?.id;
       final prevSubcategoryId = selectedSubcategory?.id;
       selectedCategory = null;
       selectedSubcategory = null;
 
-      try {
-        categories = await widget.data.getExpenseCategories();
-        categories.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-        );
-      } catch (_) {
-        categories = [];
-      }
+      categories = results[2] as List<ExpenseCategory>;
+      categories.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
       if (widget.initial != null) {
         final it = widget.initial!;
         date = it.date;

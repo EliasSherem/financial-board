@@ -4,18 +4,12 @@ description: "A new Flutter project."
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-# The following defines the version and build number for your application.
-# A version number is three numbers separated by dots, like 1.2.43
-# followed by an optional build number separated by a +.
-# Both the version and the builder number may be overridden in flutter
-# build by specifying --build-name and --build-number, respectively.
-# In Android, build-name is used as versionName while build-number used as versionCode.
-# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
-# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
-# Read more about iOS versioning at
-# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-# In Windows, build-name is used as the major, minor, and patch parts
-# of the product and file versions while build-number is used as the build suffix.
+# Android versionName comes from this version (or --build-name).
+# Android versionCode is managed separately in android/app/build.gradle.kts (52).
+# iOS versions are independent: update MARKETING_VERSION and CURRENT_PROJECT_VERSION
+# for Runner and FinancialBoardWidgetExtension in ios/Runner.xcodeproj.
+# Runner and widget Info.plist files read those native Xcode settings; Flutter's
+# --build-name/--build-number do not override the iOS bundle version.
 version: 1.0.8+9
 
 environment:
@@ -42,7 +36,8 @@ dependencies:
   flutter_svg: ^2.0.9
   fl_chart: ^1.1.1
   url_launcher: ^6.3.0
-  in_app_purchase: ^3.1.11
+  in_app_purchase: 3.3.1
+  in_app_purchase_android: 0.5.0
   in_app_purchase_storekit: ^0.4.8+1
   flutter_localizations:
     sdk: flutter
@@ -80,6 +75,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
+    - assets/momentum/assets/manifest.json
+    - assets/momentum/assets/badges/
+    - assets/momentum/assets/levels/
+    - assets/momentum/assets/ui/
     - assets/finsight-icon.svg
     - assets/finsight-icon.png
     - assets/fonts/NotoSans-Regular.ttf

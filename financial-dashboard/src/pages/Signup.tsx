@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, ArrowLeft } from 'lucide-react';
 import { useI18n } from '../contexts/I18nContext';
 import AuthShell, { authVisualIcons } from '../components/auth/AuthShell';
+import { passwordIsValid } from '../utils/authApi';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ export default function Signup() {
     }
 
     // Validate password strength
-    if (formData.password.length < 6) {
+    if (!passwordIsValid(formData.password)) {
       setError(t('signup.err.tooShort'));
       return;
     }
@@ -35,7 +36,7 @@ export default function Signup() {
     setLoading(true);
 
     try {
-    const API_BASE = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:3001/api';
+    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
     const response = await fetch(`${API_BASE}/signup`, {
         method: 'POST',
         headers: {
@@ -44,7 +45,8 @@ export default function Signup() {
         body: JSON.stringify({
           username: formData.username,
           email: formData.email,
-          password: formData.password
+          password: formData.password,
+          client_platform: 'web'
         }),
       });
 
@@ -54,6 +56,7 @@ export default function Signup() {
         // Store token and user info
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        window.dispatchEvent(new Event('finsight:session-changed'));
         
         // New accounts go to onboarding
         navigate('/onboarding');

@@ -30,3 +30,21 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
+
+// home_widget 0.8.1 targets Java 8 while its resolved WorkManager requires 11.
+// Align this plugin with the app toolchain; do not override Play Billing dependencies.
+subprojects {
+    if (name == "home_widget") {
+        afterEvaluate {
+            extensions.configure<com.android.build.gradle.LibraryExtension> {
+                compileOptions {
+                    sourceCompatibility = JavaVersion.VERSION_11
+                    targetCompatibility = JavaVersion.VERSION_11
+                }
+            }
+            tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+                kotlinOptions.jvmTarget = "11"
+            }
+        }
+    }
+}

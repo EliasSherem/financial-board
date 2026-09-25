@@ -1,3 +1,5 @@
+import '../services/analytics_service.dart';
+import '../momentum/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models.dart';
@@ -44,6 +46,9 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AnalyticsService.instance.screen('projects');
+    });
     _refreshBus = context.read<RefreshBus>();
     _projectsTick = _refreshBus.projects;
     _refreshBus.addListener(_handleRefresh);
@@ -151,6 +156,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
               children: [
+                const MomentumContextStrip(feature: 'projects'),
                 LGPageHeader(
                   title: I18n.t(context, 'title.projects'),
                   subtitle: I18n.t(context, 'projects.subtitle'),

@@ -1,3 +1,5 @@
+import '../services/analytics_service.dart';
+import '../momentum/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -40,6 +42,9 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
     super.didChangeDependencies();
     if (_initialized) return;
     _initialized = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AnalyticsService.instance.screen('categories');
+    });
     final token = context.read<AuthStore>().token;
     _data = DataService(ApiClient()..setToken(token));
     _load();
@@ -895,7 +900,15 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
         child: const Icon(Icons.add),
       ),
       body: Stack(
-        children: [content, if (widget.forceCreate) _buildOnboardingCoach()],
+        children: [
+          Column(
+            children: [
+              const MomentumContextStrip(feature: 'categories'),
+              Expanded(child: content),
+            ],
+          ),
+          if (widget.forceCreate) _buildOnboardingCoach(),
+        ],
       ),
     );
   }

@@ -87,6 +87,10 @@ class RefreshBus extends ChangeNotifier {
   }
 
   bool _shouldIgnore(String path) {
+    if (path.startsWith('/api/engagement')) return true;
+    if (path.startsWith('/api/analytics')) return true;
+    if (path.startsWith('/api/auth')) return true;
+    if (path.startsWith('/api/billing')) return true;
     if (path.startsWith('/api/ai-chat')) return true;
     if (path.startsWith('/api/device-tokens')) return true;
     return false;

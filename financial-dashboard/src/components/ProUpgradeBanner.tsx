@@ -1,4 +1,6 @@
 // No React import needed with modern JSX runtime
+import { useEffect,useRef } from 'react';
+import { beginCheckout,track } from '../analytics/client';
 
 type ProUpgradeBannerProps = {
   featureLabel?: string;
@@ -6,6 +8,9 @@ type ProUpgradeBannerProps = {
 };
 
 export default function ProUpgradeBanner({ featureLabel = 'this feature', variant = 'page' }: ProUpgradeBannerProps) {
+  const flow=useRef(crypto.randomUUID());
+  const exposed=useRef(false);
+  useEffect(()=>{if(!exposed.current){exposed.current=true;void track('paywall_viewed','paywall',{flow_id:flow.current});}},[]);
   const onUpgrade = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -13,13 +18,7 @@ export default function ProUpgradeBanner({ featureLabel = 'this feature', varian
         window.location.href = '/login';
         return;
       }
-      const API_BASE = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:3001/api';
-      const resp = await fetch(`${API_BASE}/stripe/checkout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.message || 'Failed to create checkout');
+      const data = await beginCheckout(flow.current);
       window.location.href = data.url;
     } catch (e) {
       console.error(e);

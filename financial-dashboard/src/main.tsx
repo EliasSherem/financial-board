@@ -4,7 +4,7 @@ import './index.css'
 import App from './App.tsx'
 
 // Rewrite API calls from localhost to deployed API URL at runtime
-const VITE_API_URL = (import.meta as any)?.env?.VITE_API_URL as string | undefined;
+const VITE_API_URL = import.meta.env.VITE_API_URL as string | undefined;
 if (typeof window !== 'undefined' && VITE_API_URL) {
   try {
     const fromBase = 'http://localhost:3001';

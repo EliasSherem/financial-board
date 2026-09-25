@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
+import { clearSession } from '../utils/authApi';
 
 export default function DeleteAccount() {
   const navigate = useNavigate();
@@ -18,8 +19,7 @@ export default function DeleteAccount() {
       // Public endpoint – works even when not logged in
       await api.deleteMyAccountPublic(username.trim(), password);
       // Clear local auth and redirect to landing
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      clearSession();
       navigate('/landing');
     } catch (err: any) {
       setError(err?.message || 'Failed to delete account');

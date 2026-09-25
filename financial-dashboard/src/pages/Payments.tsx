@@ -61,10 +61,10 @@ export default function Payments() {
       const token = localStorage.getItem('token');
       if (token) {
         // Try to sync subscription from Stripe (fallback if webhook didn't run yet)
-        fetch(`${(import.meta as any)?.env?.VITE_API_URL || 'http://localhost:3001/api'}/stripe/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } })
+        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/stripe/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } })
           .catch(() => undefined)
           .finally(() => {
-            fetch(`${(import.meta as any)?.env?.VITE_API_URL || 'http://localhost:3001/api'}/me`, { headers: { Authorization: `Bearer ${token}` } })
+            fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/me`, { headers: { Authorization: `Bearer ${token}` } })
               .then(r => r.json())
               .then(u => {
                 if (u && u.id) {

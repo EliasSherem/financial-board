@@ -1,8 +1,10 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { X, User, Mail, Lock, Save, AlertTriangle } from 'lucide-react';
 import { useI18n } from '../contexts/I18nContext';
 import { api } from '../utils/api';
 import { ActionButton } from './ui';
+import { authRequest, clearSession, passwordIsValid } from '../utils/authApi';
+import { PrivacyPreference } from '../analytics/PrivacyPreference';
 
 interface UpdateProfileModalProps {
   isOpen: boolean;
@@ -64,7 +66,7 @@ export default function UpdateProfileModal({ isOpen, onClose }: UpdateProfileMod
         setError(t('profile.err.noMatch'));
         return;
       }
-      if (formData.newPassword.length < 6) {
+      if (!passwordIsValid(formData.newPassword)) {
         setError(t('profile.err.tooShort'));
         return;
       }
@@ -76,6 +78,17 @@ export default function UpdateProfileModal({ isOpen, onClose }: UpdateProfileMod
 
     setLoading(true);
     try {
+      if (formData.newPassword) {
+        await authRequest('change-password', {
+          current_password: formData.currentPassword,
+          password: formData.newPassword,
+          confirm_password: formData.confirmPassword,
+          language,
+        }, true);
+        clearSession();
+        window.location.assign('/login');
+        return;
+      }
       const updatedUser = {
         ...parsedUser,
         username: formData.username,
@@ -91,7 +104,9 @@ export default function UpdateProfileModal({ isOpen, onClose }: UpdateProfileMod
         window.location.reload();
       }, 1500);
     } catch {
-      setError(t('profile.failedUpdate'));
+      setError(formData.newPassword
+        ? (language === 'es' ? 'No se pudo cambiar la contraseña. Revisa tu contraseña actual. Si usas Google, administra tu acceso desde Google.' : 'Could not change your password. Check your current password. If you use Google, manage your access through Google.')
+        : t('profile.failedUpdate'));
     } finally {
       setLoading(false);
     }
@@ -166,6 +181,7 @@ export default function UpdateProfileModal({ isOpen, onClose }: UpdateProfileMod
             </div>
           )}
 
+          <div className="mb-4"><PrivacyPreference onNavigate={onClose} /></div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className={sectionClassName}>
               <div className="grid gap-4">

@@ -1,647 +1,225 @@
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  ArrowRight,
-  BarChart3,
-  Building2,
-  Calendar,
-  CheckCircle2,
-  CreditCard,
-  FileSpreadsheet,
-  Headphones,
-  LockKeyhole,
-  Shield,
-  Sparkles,
-  Zap,
-} from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Check, ChevronRight, Menu, X, WalletCards, Target, ChartNoAxesCombined } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import AppCarousel from '../components/AppCarousel';
-import { lazy, Suspense, useEffect } from 'react';
 import { useI18n } from '../contexts/I18nContext';
+import './landing.css';
 
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.finsight.finsight&pcampaignid=web_share';
 const APP_STORE_URL = 'https://apps.apple.com/mx/app/finsight/id6761848896';
 const LandingHeroScene = lazy(() => import('../components/LandingHeroScene'));
-
-function PlayStoreIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-      <path d="M3 2.5v19l10.5-9.5L3 2.5Z" fill="#00C853" />
-      <path d="M13.5 12 18 7.9 7.2 2 13.5 12Z" fill="#00B0FF" />
-      <path d="M13.5 12 7.2 22 18 16.1 13.5 12Z" fill="#FFAB00" />
-      <path d="M18 7.9 13.5 12 18 16.1 21.5 14c1-.6 1-1.5 0-2.1L18 7.9Z" fill="#FF5252" />
-    </svg>
-  );
-}
-
-function AppStoreIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-      <path
-        fill="currentColor"
-        d="M16.1 2.2c.1 1-.3 2-1 2.8-.7.8-1.8 1.4-2.8 1.3-.1-1 .3-2 1-2.7.7-.8 1.9-1.4 2.8-1.4Zm3.4 15.5c-.5 1.1-.8 1.6-1.5 2.6-1 1.4-2.4 3.1-4.1 3.1-1.5 0-1.9-1-3.9-1s-2.5 1-3.9 1c-1.7 0-3-1.5-4.1-3-2.8-4-3.1-8.7-1.4-11.1 1.2-1.7 3-2.7 4.8-2.7 1.8 0 3 1 4.5 1 1.4 0 2.3-1 4.4-1 1.6 0 3.3.9 4.5 2.4-4 2.2-3.3 7.9.7 8.7Z"
-      />
-    </svg>
-  );
-}
+const EASE = [0.22, 1, 0.36, 1] as const;
 
 export default function Landing() {
   const { language, setLanguage } = useI18n();
-  const shouldReduceMotion = useReducedMotion();
-  const L = (key: keyof typeof STR, vars?: Record<string, string>) => {
-    const s = STR[key][language] as unknown as string;
-    if (!vars) return s;
-    return Object.entries(vars).reduce((acc, [k, v]) => (acc as string).replace(`{${k}}`, v), s);
-  };
+  const reduced = Boolean(useReducedMotion());
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('overview');
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const L = (en: string, es: string) => language === 'es' ? es : en;
+  const navigation = [
+    { id: 'overview', title: L('Overview', 'Vista general') },
+    { id: 'features', title: L('Features', 'Funciones') },
+    { id: 'momentum', title: 'Momentum' },
+    { id: 'pricing', title: L('Plans', 'Planes') },
+  ];
+  const reveal = (delay = 0) => ({
+    initial: reduced ? false as const : { opacity: 0, y: 32 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true, amount: 0.12 },
+    transition: { duration: reduced ? 0 : 0.9, ease: EASE, delay: reduced ? 0 : delay },
+  });
 
-  // Force light theme while on the landing page
   useEffect(() => {
-    const hadDark = document.documentElement.classList.contains('dark');
-    document.documentElement.classList.remove('dark');
+    document.documentElement.classList.add('finsight-landing-scroll');
+    const anchor = window.location.hash.slice(1);
+    const frame = requestAnimationFrame(() => {
+      if (['overview', 'momentum', 'features', 'pricing', 'about', 'demo'].includes(anchor)) {
+        document.getElementById(anchor)?.scrollIntoView({ behavior: 'instant', block: 'start' });
+      }
+    });
+    let observer: IntersectionObserver;
+    const observeSections = () => {
+      observer?.disconnect();
+      const top = Math.min(100, window.innerHeight * 0.2);
+      const bottom = Math.max(0, window.innerHeight - top - 160);
+      observer = new IntersectionObserver(entries => {
+        for (const entry of entries) if (entry.isIntersecting) setActiveSection(entry.target.id);
+      }, { rootMargin: `-${top}px 0px -${bottom}px 0px` });
+      ['overview', 'features', 'momentum', 'pricing'].forEach(id => {
+        const section = document.getElementById(id);
+        if (section) observer.observe(section);
+      });
+    };
+    observeSections();
+    window.addEventListener('resize', observeSections);
     return () => {
-      const saved = localStorage.getItem('theme');
-      if (saved === 'dark' || hadDark) document.documentElement.classList.add('dark');
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener('resize', observeSections);
+      document.documentElement.classList.remove('finsight-landing-scroll');
     };
   }, []);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        menuButton.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [menuOpen]);
+
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950">
-      {/* Header */}
-      <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <img src="/finsight-icon.svg" alt="FinSight" className="w-8 h-8" />
-            <span className="text-xl font-bold text-gray-900 dark:text-gray-100">FinSight</span>
-          </div>
-          <nav className="hidden md:flex items-center space-x-6">
-            <a href="#features" className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors">{L('nav_features')}</a>
-            <a href="#pricing" className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors">{L('nav_pricing')}</a>
-            <a href="#about" className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors">{L('nav_about')}</a>
-            <div className="flex items-center gap-1 mr-2">
-              <button onClick={() => setLanguage('en')} className={`px-2 py-1 text-xs rounded ${language==='en'?'bg-gray-200 text-gray-900':'text-gray-600 hover:bg-gray-100'}`}>EN</button>
-              <button onClick={() => setLanguage('es')} className={`px-2 py-1 text-xs rounded ${language==='es'?'bg-gray-200 text-gray-900':'text-gray-600 hover:bg-gray-100'}`}>ES</button>
-            </div>
-            <Link to="/login" className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800">{L('nav_signin')}</Link>
-            <Link to="/signup" className="inline-flex items-center rounded-md bg-blue-600 hover:bg-blue-700 px-3 py-1.5 text-sm text-white">{L('nav_getStarted')}</Link>
+    <div className="landing-page">
+      <a href="#overview" className="landing-skip">{L('Skip to content', 'Ir al contenido')}</a>
+      <header className="landing-nav">
+        <div className="landing-nav-inner">
+          <a href="#overview" onClick={() => setMenuOpen(false)} className="landing-brand" aria-label={L('FinSight overview', 'Vista general de FinSight')}>
+            <img src="/finsight-icon.svg" alt="" width={25} height={25} />
+            <span>FinSight</span>
+          </a>
+          <nav className="landing-nav-desktop" aria-label={L('Main navigation', 'Navegación principal')}>
+            {navigation.map(item => <a key={item.id} href={`#${item.id}`} aria-current={activeSection === item.id ? 'location' : undefined}>{item.title}</a>)}
           </nav>
+          <div className="landing-nav-actions">
+            <button className="landing-language" type="button" onClick={() => setLanguage(language === 'es' ? 'en' : 'es')} aria-label={L('Cambiar a español', 'Switch to English')}>{language === 'es' ? 'EN' : 'ES'}</button>
+            <Link className="landing-signin" to="/login">{L('Sign in', 'Iniciar sesión')}</Link>
+            <Link className="landing-button landing-button-small" to="/signup">{L('Get started', 'Comenzar')}</Link>
+            <button className="landing-menu-button" ref={menuButton} onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen} aria-controls="landing-mobile-menu" aria-label={menuOpen ? L('Close menu', 'Cerrar menú') : L('Open menu', 'Abrir menú')}>
+              {menuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
+        <nav id="landing-mobile-menu" className="landing-mobile-menu" hidden={!menuOpen} aria-label={L('Mobile navigation', 'Navegación móvil')}>
+          {navigation.map(item => <a key={item.id} href={`#${item.id}`} onClick={() => setMenuOpen(false)} aria-current={activeSection === item.id ? 'location' : undefined}>{item.title}<ChevronRight size={17} aria-hidden="true" /></a>)}
+          <div className="landing-mobile-menu-bottom">
+            <Link to="/login">{L('Sign in', 'Iniciar sesión')}</Link>
+            <button type="button" onClick={() => setLanguage(language === 'es' ? 'en' : 'es')}>{L('Español', 'English')}</button>
+          </div>
+        </nav>
       </header>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-slate-950 px-4 py-16 sm:py-20 lg:min-h-[720px] lg:py-0">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_35%,rgba(59,130,246,0.3),transparent_34%),radial-gradient(circle_at_24%_20%,rgba(16,185,129,0.14),transparent_28%),linear-gradient(180deg,#020617_0%,#08111f_58%,#020617_100%)]" />
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-full bg-gradient-to-r from-slate-950 via-slate-950/90 to-slate-950/10 lg:w-[62%] lg:to-transparent" />
-        <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-10 lg:min-h-[720px] lg:grid-cols-[minmax(0,0.9fr)_minmax(460px,1.1fr)] lg:gap-8">
-          <div className="max-w-[600px] text-left">
-            <div
-              className="mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-800 transition-colors hover:bg-green-100"
-            >
-              <span className="shrink-0 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                {L('news_label')}
-              </span>
-              <span className="min-w-0">{L('news_androidRelease')}</span>
-            </div>
-            <span className="mb-5 inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-slate-200 ring-1 ring-white/15">
-              <Zap className="w-3 h-3" /> {L('hero_badge')}
-            </span>
-            <h1 className="mb-6 text-4xl font-bold text-white sm:text-5xl lg:text-6xl">
-              {L('hero_title_1')} <span className="text-sky-300">{L('hero_title_2')}</span>
+      <main>
+        <section id="overview" className="landing-overview" aria-labelledby="landing-title">
+          <div className="landing-hero-copy">
+            <motion.a {...reveal()} href="#momentum" className="landing-announcement">{L('Meet FinSight Momentum', 'Conoce FinSight Momentum')}<ChevronRight size={16} aria-hidden="true" /></motion.a>
+            <h1 id="landing-title" className="landing-hero-title">
+              {[L('Your money.', 'Tu dinero.'), L('A clearer picture.', 'Todo en perspectiva.')].map((line, index) => <span className="landing-title-mask" key={line}>
+                <motion.span initial={reduced ? false : { y: '105%' }} animate={{ y: 0 }} transition={{ duration: reduced ? 0 : 1.05, delay: reduced ? 0 : 0.12 + index * 0.12, ease: EASE }}>{line}</motion.span>
+              </span>)}
             </h1>
-            <p className="mb-8 max-w-xl text-lg leading-8 text-slate-200 sm:text-xl">{L('hero_subtitle')}</p>
-            <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap">
-              <Link to="/signup" className="inline-flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-lg px-8 py-3">{L('cta_getStarted')}</Link>
-              <a
-                href={PLAY_STORE_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/70 bg-white/95 px-8 py-3 text-lg font-medium text-gray-900 hover:bg-white"
-              >
-                <PlayStoreIcon />
-                {L('cta_downloadAndroid')}
-              </a>
-              <a
-                href={APP_STORE_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/70 bg-white/95 px-8 py-3 text-lg font-medium text-gray-900 hover:bg-white"
-              >
-                <AppStoreIcon />
-                {L('cta_downloadIos')}
-              </a>
-            </div>
+            <motion.p {...reveal(0.16)} className="landing-hero-description">{L('Accounts, spending, and goals. Finally, together.', 'Cuentas, gastos y metas. Juntos, por fin.')}</motion.p>
+            <motion.div {...reveal(0.24)} className="landing-hero-actions">
+              <Link to="/signup" className="landing-button">{L('Start free', 'Empieza gratis')}</Link>
+              <a href="#features" className="landing-text-link">{L('Explore FinSight', 'Explora FinSight')}<ChevronRight size={17} aria-hidden="true" /></a>
+            </motion.div>
           </div>
-          <div className="relative h-[300px] min-h-[300px] sm:h-[380px] lg:h-[620px] lg:min-h-[620px]">
-            <Suspense fallback={<div className="pointer-events-none absolute inset-0 bg-slate-950" />}>
+          <motion.div className="landing-cinema" initial={reduced ? false : { opacity: 0, y: 60, scale: 0.96 }} whileInView={{ opacity: 1, y: 0, scale: 1 }} viewport={{ once: true, amount: 0.1 }} transition={{ duration: reduced ? 0 : 1.25, ease: EASE }}>
+            <Suspense fallback={<div className="landing-scene-loading"><span>FinSight</span><span>{L('Your financial overview', 'Tu panorama financiero')}</span></div>}>
               <LandingHeroScene variant="side-hero" />
             </Suspense>
-          </div>
-        </div>
-      </section>
-
-      {/* Dashboard Preview (Carousel) */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-50 px-4 py-20 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.14),transparent_55%)]" />
-        <div className="relative mx-auto max-w-7xl">
-          <div className="mx-auto mb-12 max-w-3xl text-center sm:mb-14" id="demo">
-            <h2 className="mb-4 text-3xl font-bold text-gray-900 dark:text-gray-100 md:text-4xl">{L('preview_title')}</h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300">{L('preview_sub')}</p>
-          </div>
-          <AppCarousel />
-        </div>
-      </section>
-
-      {/* Why FinSight */}
-      <section id="about" className="relative overflow-hidden bg-gradient-to-b from-white via-slate-50 to-white px-4 py-20 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_18%_12%,rgba(59,130,246,0.14),transparent_36%),radial-gradient(circle_at_82%_26%,rgba(14,165,233,0.12),transparent_34%)]" />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,1fr)]">
-          <motion.div
-            initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.25 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.6 }}
-          >
-            <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
-              <Sparkles className="h-3.5 w-3.5" />
-              {L('about_eyebrow')}
-            </span>
-            <h2 className="mt-5 max-w-2xl text-3xl font-bold tracking-tight text-gray-950 dark:text-gray-100 md:text-5xl">
-              {L('about_title')}
-            </h2>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-gray-600 dark:text-gray-300">
-              {L('about_body')}
-            </p>
-            <div className="mt-7 grid max-w-2xl gap-3 text-sm text-gray-700 dark:text-gray-300 sm:grid-cols-2">
-              {[
-                L('about_point_accounts'),
-                L('about_point_decisions'),
-                L('about_point_spreadsheets'),
-                L('about_point_upgrade'),
-              ].map((point) => (
-                <div key={point} className="flex items-start gap-2">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
-                  <span>{point}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <a href="#pricing" className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-3 font-medium text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700">{L('btn_pricing')}</a>
-              <a href="#features" className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3 font-medium text-gray-800 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800">{L('btn_learnMore')}</a>
-              <Link to="/guide" className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3 font-medium text-gray-800 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800">{L('btn_guide')}</Link>
-            </div>
           </motion.div>
+          <p className="landing-platform-note">{L('On the web. On iPhone. On Android.', 'En la web. En iPhone. En Android.')}</p>
+        </section>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {[
-              {
-                icon: <Zap className="h-5 w-5" />,
-                value: '99.9%',
-                label: L('trust_uptime'),
-                body: L('trust_uptime_body'),
-              },
-              {
-                icon: <Headphones className="h-5 w-5" />,
-                value: '24/7',
-                label: L('trust_support'),
-                body: L('trust_support_body'),
-              },
-              {
-                icon: <LockKeyhole className="h-5 w-5" />,
-                label: L('trust_secure_title'),
-                body: L('trust_secure_body'),
-              },
-              {
-                icon: <Building2 className="h-5 w-5" />,
-                label: L('trust_growth_title'),
-                body: L('trust_growth_body'),
-              },
-              {
-                icon: <FileSpreadsheet className="h-5 w-5" />,
-                label: L('trust_spreadsheets_title'),
-                body: L('trust_spreadsheets_body'),
-              },
-              {
-                icon: <BarChart3 className="h-5 w-5" />,
-                label: L('trust_visibility_title'),
-                body: L('trust_visibility_body'),
-              },
-            ].map((card, index) => (
-              <motion.div
-                key={card.label}
-                className="rounded-2xl border border-slate-200/80 bg-white/85 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur dark:border-white/10 dark:bg-gray-900/80"
-                initial={shouldReduceMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 20, scale: 0.98 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                viewport={{ once: true, amount: 0.25 }}
-                transition={{ duration: shouldReduceMotion ? 0 : 0.5, delay: shouldReduceMotion ? 0 : index * 0.05 }}
-              >
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/10 text-blue-600">
-                  {card.icon}
-                </div>
-                {'value' in card && (
-                  <div className="mb-2 text-3xl font-bold tracking-tight text-gray-950 dark:text-white">{card.value}</div>
-                )}
-                <h3 className="text-base font-semibold text-gray-950 dark:text-gray-100">{card.label}</h3>
-                <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">{card.body}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Workflow */}
-      <section id="features" className="relative overflow-hidden bg-gradient-to-br from-white via-blue-50/50 to-slate-50 px-4 py-20 dark:from-gray-950 dark:via-gray-900 dark:to-slate-950">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent" />
-        <div className="pointer-events-none absolute bottom-0 right-0 h-96 w-96 translate-x-1/3 rounded-full bg-blue-200/30 blur-3xl dark:bg-blue-900/20" />
-        <div className="relative mx-auto grid max-w-6xl items-start gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(480px,1.1fr)]">
-          <motion.div
-            initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.6 }}
-          >
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-sm dark:border-white/10 dark:bg-gray-900 dark:text-slate-300">
-              <ArrowRight className="h-3.5 w-3.5 text-blue-600" />
-              {L('features_eyebrow')}
-            </span>
-            <h2 className="mt-5 max-w-2xl text-3xl font-bold tracking-tight text-gray-950 dark:text-gray-100 md:text-5xl">
-              {L('features_title')}
-            </h2>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-gray-600 dark:text-gray-300">
-              {L('features_sub')}
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link to="/signup" className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-3 font-medium text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700">
-                {L('workflow_cta_primary')}
-              </Link>
-              <a href="#pricing" className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3 font-medium text-gray-800 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800">
-                {L('btn_pricing')}
-              </a>
-            </div>
-
-            <motion.div
-              className="mt-10 overflow-hidden rounded-2xl border border-slate-200 bg-white/85 shadow-[0_24px_70px_rgba(15,23,42,0.09)] backdrop-blur dark:border-white/10 dark:bg-gray-900/80"
-              initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.4 }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.55, delay: shouldReduceMotion ? 0 : 0.15 }}
-            >
-              <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3 dark:border-white/10">
-                <div className="text-sm font-semibold text-gray-950 dark:text-gray-100">{L('workflow_preview_title')}</div>
-                <div className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">{L('workflow_preview_status')}</div>
-              </div>
-              <div className="space-y-3 p-4">
-                {[
-                  { icon: <CreditCard className="h-4 w-4" />, label: L('workflow_preview_raw'), value: '-$128.40' },
-                  { icon: <FileSpreadsheet className="h-4 w-4" />, label: L('workflow_preview_category'), value: L('workflow_preview_operations') },
-                  { icon: <Calendar className="h-4 w-4" />, label: L('workflow_preview_budget'), value: '72%' },
-                  { icon: <BarChart3 className="h-4 w-4" />, label: L('workflow_preview_insight'), value: '+18%' },
-                ].map((item, index) => (
-                  <motion.div
-                    key={item.label}
-                    className="flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-white/5"
-                    initial={shouldReduceMotion ? { opacity: 1, x: 0 } : { opacity: 0, x: -12 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true, amount: 0.5 }}
-                    transition={{ duration: shouldReduceMotion ? 0 : 0.4, delay: shouldReduceMotion ? 0 : 0.22 + index * 0.06 }}
-                  >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600/10 text-blue-600">{item.icon}</span>
-                    <span className="min-w-0 flex-1 text-sm text-gray-600 dark:text-gray-300">{item.label}</span>
-                    <span className="shrink-0 text-sm font-semibold text-gray-950 dark:text-white">{item.value}</span>
-                  </motion.div>
-                ))}
-              </div>
+        <section id="features" className="landing-section landing-section-muted" aria-labelledby="features-title">
+          <div className="landing-container">
+            <motion.div className="landing-section-heading" {...reveal()}>
+              <p className="landing-eyebrow">{L('Your everyday, in focus', 'Tu día a día, más claro')}</p>
+              <h2 id="features-title">{L('Everything connects.', 'Todo encaja.')}<br /><span>{L('It all makes sense.', 'Todo se entiende.')}</span></h2>
+              <p>{L('See what comes in, where it goes, and what comes next. Explore a few of the things you can do with FinSight.', 'Mira lo que entra, en qué se va y qué viene después. Explora lo que puedes hacer con FinSight.')}</p>
             </motion.div>
-          </motion.div>
-
-          <div className="relative">
-            <div className="absolute left-5 top-6 hidden h-[calc(100%-3rem)] w-px overflow-hidden sm:block">
-              <motion.div
-                className="h-full w-px bg-gradient-to-b from-blue-200 via-blue-500/40 to-transparent dark:from-blue-400/30 dark:via-blue-400/20"
-                initial={shouldReduceMotion ? { scaleY: 1 } : { scaleY: 0 }}
-                whileInView={{ scaleY: 1 }}
-                viewport={{ once: true, amount: 0.35 }}
-                transition={{ duration: shouldReduceMotion ? 0 : 0.9, ease: 'easeOut' }}
-                style={{ transformOrigin: 'top' }}
-              />
-            </div>
-            <ol className="space-y-5">
-              {[
-                { title: L('workflow_step1_title'), desc: L('workflow_step1_desc') },
-                { title: L('workflow_step2_title'), desc: L('workflow_step2_desc') },
-                { title: L('workflow_step3_title'), desc: L('workflow_step3_desc') },
-                { title: L('workflow_step4_title'), desc: L('workflow_step4_desc') },
-              ].map((step, index) => (
-                <motion.li
-                  key={step.title}
-                  className="group relative flex gap-4 sm:gap-5"
-                  initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 22 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  whileHover={shouldReduceMotion ? undefined : { y: -2 }}
-                  viewport={{ once: true, amount: 0.35 }}
-                  transition={{ duration: shouldReduceMotion ? 0 : 0.5, delay: shouldReduceMotion ? 0 : index * 0.08, ease: 'easeOut' }}
-                >
-                  <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-blue-200 bg-white text-sm font-bold text-blue-700 shadow-sm dark:border-blue-400/30 dark:bg-gray-900 dark:text-blue-300">
-                    {index + 1}
-                  </div>
-                  <div className="min-w-0 rounded-2xl border border-white/80 bg-white/75 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.07)] backdrop-blur transition-colors duration-300 group-hover:border-blue-200 group-hover:bg-white dark:border-white/10 dark:bg-gray-900/70 dark:group-hover:border-blue-400/30">
-                    <h3 className="text-lg font-semibold text-gray-950 dark:text-gray-100">{step.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">{step.desc}</p>
-                  </div>
-                </motion.li>
-              ))}
-            </ol>
+            <div id="demo" className="landing-demo"><AppCarousel /></div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="py-20 px-4">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            className="text-center mb-10"
-            initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.35 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.55, ease: 'easeOut' }}
-          >
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{L('pricing_title')}</h2>
-            <p className="text-gray-600 dark:text-gray-300">{L('pricing_sub')}</p>
-          </motion.div>
-          <div className="grid sm:grid-cols-2 gap-6">
-            <motion.div
-              className="rounded-2xl bg-white p-6 ring-1 ring-black/5 shadow-sm transition-shadow duration-300 hover:shadow-[0_24px_70px_rgba(15,23,42,0.10)] dark:bg-gray-900 dark:ring-white/10"
-              initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              whileHover={shouldReduceMotion ? undefined : { y: -3 }}
-              viewport={{ once: true, amount: 0.35 }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.5, ease: 'easeOut' }}
-            >
-              <div className="text-xs font-semibold text-gray-500">{L('plan_free')}</div>
-              <div className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-white">$0</div>
-              <ul className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                {[L('free_core'), L('free_accounts'), L('free_secure')].map((feature, index) => (
-                  <motion.li
-                    key={feature}
-                    className="flex items-start gap-2"
-                    initial={shouldReduceMotion ? { opacity: 1, x: 0 } : { opacity: 0, x: -8 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true, amount: 0.5 }}
-                    transition={{ duration: shouldReduceMotion ? 0 : 0.35, delay: shouldReduceMotion ? 0 : 0.12 + index * 0.05 }}
-                  >
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
-                    <span>{feature}</span>
-                  </motion.li>
-                ))}
-              </ul>
-              <motion.div whileHover={shouldReduceMotion ? undefined : { y: -1 }} whileTap={shouldReduceMotion ? undefined : { y: 0 }} className="inline-flex">
-                <Link to="/signup" className="mt-5 inline-flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-800 dark:bg-gray-700">{L('btn_createFree')}</Link>
-              </motion.div>
+        <section id="momentum" className="landing-section landing-momentum" aria-labelledby="momentum-title">
+          <div className="landing-container landing-momentum-grid">
+            <motion.div className="landing-momentum-copy" {...reveal()}>
+              <div className="landing-momentum-label"><img src="/momentum/assets/ui/momentum_mark__light.svg" alt="" width={30} height={30} loading="lazy" /><span>FinSight Momentum</span></div>
+              <h2 id="momentum-title">{L('Small steps.', 'Pequeños pasos.')}<br /><span>{L('Progress you can see.', 'Logros que se ven.')}</span></h2>
+              <p>{L('Organize an account. Review your week. Build a habit. Every step becomes part of your story.', 'Organiza una cuenta. Revisa tu semana. Crea un hábito. Cada paso forma parte de tu historia.')}</p>
+              <p className="landing-momentum-detail">{L('Discover your level and collect the badges you earn, all in your profile.', 'Descubre tu nivel y reúne las insignias que ganas, todo en tu perfil.')}</p>
+              <Link to="/signup" className="landing-text-link">{L('Start your collection', 'Empieza tu colección')}<ChevronRight size={17} aria-hidden="true" /></Link>
             </motion.div>
-            <motion.div
-              className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-blue-500 to-indigo-600 p-[1px] shadow-[0_24px_70px_rgba(37,99,235,0.16)]"
-              initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              whileHover={shouldReduceMotion ? undefined : { y: -3 }}
-              viewport={{ once: true, amount: 0.35 }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.5, delay: shouldReduceMotion ? 0 : 0.08, ease: 'easeOut' }}
-            >
-              <motion.div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(110deg,transparent,rgba(255,255,255,0.45),transparent)]"
-                initial={{ opacity: 0, x: '-80%' }}
-                whileInView={shouldReduceMotion ? { opacity: 0, x: '-80%' } : { opacity: [0, 0.55, 0], x: ['-80%', '0%', '80%'] }}
-                viewport={{ once: true, amount: 0.45 }}
-                transition={{ duration: shouldReduceMotion ? 0 : 1.1, delay: shouldReduceMotion ? 0 : 0.32, ease: 'easeOut' }}
-              />
-              <div className="relative rounded-2xl bg-white p-6 dark:bg-gray-900">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">{L('plan_pro')}</div>
-                  <div className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-700">Popular</div>
+            <motion.figure className="landing-achievement" initial={reduced ? false : 'hidden'} whileInView="visible" viewport={{ once: true, amount: 0.25 }} variants={{ hidden: { opacity: 0, y: 48, rotateX: 14 }, visible: { opacity: 1, y: 0, rotateX: 0, transition: { duration: reduced ? 0 : 1.1, ease: EASE, staggerChildren: reduced ? 0 : 0.16, delayChildren: reduced ? 0 : 0.22 } } }}>
+              <div className="landing-profile-card">
+                <div className="landing-profile-top"><span>Momentum</span><span>{L('Preview', 'Vista previa')}</span></div>
+                <div className="landing-profile-level">
+                  <motion.img variants={{ hidden: { scale: 0.65, rotate: -15 }, visible: { scale: 1, rotate: 0, transition: { duration: reduced ? 0 : 1, ease: EASE } } }} src="/momentum/assets/levels/organizer__light.svg" alt="" width={100} height={100} loading="lazy" />
+                  <div><p>{L('Your level', 'Tu nivel')}</p><h3>{L('Organizer', 'Organizador')}</h3><span>{L('One habit at a time.', 'Un hábito a la vez.')}</span></div>
                 </div>
-                <div className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-white">{L('price_pro')} <span className="text-sm font-medium text-gray-500">/{L('per_month')}</span></div>
-                <div className="mt-2 space-y-1 text-xs text-gray-500 dark:text-gray-400">
-                  <div>{L('price_web')}</div>
-                  <div>{L('price_googlePlay')}</div>
-                  <div>{L('price_appStore')}</div>
-                </div>
-                <ul className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                  {[L('pro_unlimited'), L('pro_analytics'), L('pro_projects'), L('pro_ai'), L('pro_support')].map((feature, index) => (
-                    <motion.li
-                      key={feature}
-                      className="flex items-start gap-2"
-                      initial={shouldReduceMotion ? { opacity: 1, x: 0 } : { opacity: 0, x: -8 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      viewport={{ once: true, amount: 0.5 }}
-                      transition={{ duration: shouldReduceMotion ? 0 : 0.35, delay: shouldReduceMotion ? 0 : 0.18 + index * 0.05 }}
-                    >
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
-                      <span>{feature}</span>
-                    </motion.li>
-                  ))}
+                <p className="landing-collection-title">{L('A collection of small wins', 'Una colección de pequeños logros')}</p>
+                <ul className="landing-badges">
+                  {[
+                    { asset: 'account_organizer', title: L('Account Organizer', 'Organizador de cuentas') },
+                    { asset: 'money_mapper', title: L('Money Mapper', 'Mapa financiero') },
+                    { asset: 'weekly_rhythm', title: L('Weekly Rhythm', 'Ritmo semanal') },
+                  ].map(badge => <motion.li key={badge.asset} variants={{ hidden: { opacity: 0, y: 36, scale: 0.78, rotate: -6 }, visible: { opacity: 1, y: 0, scale: 1, rotate: 0, transition: { duration: reduced ? 0 : 0.85, ease: EASE } } }}>
+                    <img src={`/momentum/assets/badges/${badge.asset}__light.svg`} alt="" width={80} height={80} loading="lazy" /><span>{badge.title}</span>
+                  </motion.li>)}
                 </ul>
-                <motion.div whileHover={shouldReduceMotion ? undefined : { y: -1 }} whileTap={shouldReduceMotion ? undefined : { y: 0 }} className="inline-flex">
-                  <Link to="/signup" className="mt-5 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white shadow-sm shadow-blue-600/20 transition-colors hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">{L('btn_upgrade')}</Link>
-                </motion.div>
               </div>
-            </motion.div>
+              <figcaption>{L('An example of the profile you build with Momentum.', 'Una muestra del perfil que construyes con Momentum.')}</figcaption>
+            </motion.figure>
           </div>
-          <div className="mt-6 text-xs text-gray-500 flex items-center justify-center gap-2">
-            <Shield className="h-4 w-4" /> {L('pricing_note')}
-          </div>
-        </div>
-      </section>
+        </section>
 
-      {/* CTA Section */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-white via-slate-50 to-slate-950 px-4 py-20">
-        <motion.div
-          className="relative mx-auto max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950 px-6 py-12 text-center shadow-[0_36px_110px_rgba(2,6,23,0.32)] sm:px-10 sm:py-16"
-          initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.65, ease: 'easeOut' }}
-        >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_20%,rgba(59,130,246,0.32),transparent_34%),radial-gradient(circle_at_78%_18%,rgba(14,165,233,0.22),transparent_30%),linear-gradient(180deg,rgba(15,23,42,0)_0%,rgba(15,23,42,0.8)_100%)]" />
-          <motion.div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:44px_44px]"
-            initial={shouldReduceMotion ? { opacity: 0.16 } : { opacity: 0 }}
-            whileInView={{ opacity: 0.16 }}
-            viewport={{ once: true, amount: 0.4 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.9, delay: shouldReduceMotion ? 0 : 0.1 }}
-          />
-          <div className="pointer-events-none absolute left-10 top-10 h-1.5 w-1.5 rounded-full bg-sky-300/70" />
-          <div className="pointer-events-none absolute right-16 top-24 h-2 w-2 rounded-full bg-blue-200/60" />
-          <div className="pointer-events-none absolute bottom-12 left-1/4 h-1 w-1 rounded-full bg-white/60" />
-
-          <div className="relative mx-auto max-w-3xl">
-            <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-100">
-              <Shield className="h-3.5 w-3.5" />
-              FinSight
-            </span>
-            <h2 className="text-3xl font-bold tracking-tight text-white md:text-5xl">{L('cta_title')}</h2>
-            <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-200">{L('cta_sub')}</p>
-            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap">
-              <motion.div whileHover={shouldReduceMotion ? undefined : { y: -2 }} whileTap={shouldReduceMotion ? undefined : { y: 0 }} className="flex">
-                <Link to="/signup" className="inline-flex w-full items-center justify-center rounded-xl bg-white px-7 py-3 text-base font-semibold text-slate-950 shadow-lg shadow-blue-950/20 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto">{L('cta_getStarted')}</Link>
-              </motion.div>
-              <motion.div whileHover={shouldReduceMotion ? undefined : { y: -2 }} whileTap={shouldReduceMotion ? undefined : { y: 0 }} className="flex">
-                <a
-                  href={PLAY_STORE_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-7 py-3 text-base font-medium text-white shadow-sm transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto"
-                >
-                  <PlayStoreIcon />
-                  {L('cta_downloadAndroid')}
-                </a>
-              </motion.div>
-              <motion.div whileHover={shouldReduceMotion ? undefined : { y: -2 }} whileTap={shouldReduceMotion ? undefined : { y: 0 }} className="flex">
-                <a
-                  href={APP_STORE_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-7 py-3 text-base font-medium text-white shadow-sm transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto"
-                >
-                  <AppStoreIcon />
-                  {L('cta_downloadIos')}
-                </a>
-              </motion.div>
+        <section id="about" className="landing-section landing-section-muted" aria-labelledby="everyday-title">
+          <div className="landing-container">
+            <motion.div className="landing-section-heading landing-heading-wide" {...reveal()}><p className="landing-eyebrow">{L('A little more perspective', 'Un poco más de perspectiva')}</p><h2 id="everyday-title">{L('Made for real life.', 'Hecho para la vida real.')}</h2></motion.div>
+            <div className="landing-benefits">
+              {[
+                { icon: <WalletCards size={30} strokeWidth={1.5} />, title: L('A place for every account.', 'Un lugar para cada cuenta.'), copy: L('Your balances and transactions, together in one view.', 'Tus saldos y movimientos, juntos en una sola vista.') },
+                { icon: <ChartNoAxesCombined size={30} strokeWidth={1.5} />, title: L('Clarity for your next move.', 'Claridad para decidir.'), copy: L('Understand your spending with categories, budgets, and charts.', 'Entiende tus gastos con categorías, presupuestos y gráficos.') },
+                { icon: <Target size={30} strokeWidth={1.5} />, title: L('Space for what matters.', 'Espacio para lo que importa.'), copy: L('Plan your goals and keep upcoming payments in view.', 'Planea tus metas y ten a la vista tus próximos pagos.') },
+              ].map((item, index) => <motion.article key={item.title} className="landing-benefit" {...reveal(index * 0.12)}><span>{item.icon}</span><h3>{item.title}</h3><p>{item.copy}</p></motion.article>)}
             </div>
-            <p className="mt-5 text-sm text-slate-300">{L('cta_note')}</p>
+            <Link className="landing-text-link landing-guide-link" to="/guide">{L('Discover how it works', 'Descubre cómo funciona')}<ChevronRight size={17} aria-hidden="true" /></Link>
           </div>
-        </motion.div>
-      </section>
+        </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/10 bg-slate-950 px-4 py-12">
-        <div className="mx-auto max-w-6xl">
-          <div className="flex flex-col items-center justify-between gap-8 md:flex-row">
-            <div className="flex flex-col items-center gap-3 text-center md:items-start md:text-left">
-              <div className="flex items-center space-x-2">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white ring-1 ring-white/20">
-                  <img src="/finsight-icon.svg" alt="FinSight" className="h-7 w-7" />
-                </span>
-                <span className="text-xl font-bold text-white">FinSight</span>
-              </div>
-              <p className="max-w-sm text-sm leading-6 text-slate-400">{L('footer_tagline')}</p>
+        <section id="pricing" className="landing-section" aria-labelledby="plans-title">
+          <div className="landing-container">
+            <motion.div className="landing-section-heading landing-centered" {...reveal()}><p className="landing-eyebrow">{L('Your FinSight', 'Tu FinSight')}</p><h2 id="plans-title">{L('Choose your starting point.', 'Elige tu punto de partida.')}</h2><p>{L('Start free. Make room for more when you need it.', 'Empieza gratis. Da el siguiente paso cuando lo necesites.')}</p></motion.div>
+            <div className="landing-plans">
+              <motion.article className="landing-plan" {...reveal()}>
+                <p className="landing-plan-label">FinSight</p><h3>{L('Free', 'Gratis')}</h3><p className="landing-plan-description">{L('A clearer view of your everyday.', 'Tu día a día, mucho más claro.')}</p>
+                <p className="landing-plan-price">$0<span> MXN</span></p><p className="landing-plan-period">{L('No subscription required', 'Sin suscripción')}</p>
+                <Link to="/signup" className="landing-button">{L('Start free', 'Empieza gratis')}</Link>
+                <ul>{[L('Up to 3 accounts', 'Hasta 3 cuentas'), L('Core budgeting tools', 'Herramientas básicas de presupuesto'), L('Your finances, in one place', 'Tus finanzas, en un solo lugar')].map(text => <li key={text}><Check size={16} aria-hidden="true" />{text}</li>)}</ul>
+              </motion.article>
+              <motion.article className="landing-plan landing-plan-pro" {...reveal(0.12)}>
+                <p className="landing-plan-label">FinSight</p><h3>Pro</h3><p className="landing-plan-description">{L('More room for your plans.', 'Más espacio para tus planes.')}</p>
+                <p className="landing-plan-price">$200<span> MXN</span></p><p className="landing-plan-period">{L('+ tax / month on the web', '+ impuestos / mes en la web')}</p>
+                <Link to="/signup" className="landing-button">{L('Choose Pro', 'Elige Pro')}</Link>
+                <ul>{[L('Unlimited accounts', 'Cuentas ilimitadas'), L('Analytics and charts', 'Analíticas y gráficos'), L('Projects and invoices', 'Proyectos y facturas'), L('AI financial consultant', 'Consultor financiero con IA'), L('Priority support', 'Soporte prioritario')].map(text => <li key={text}><Check size={16} aria-hidden="true" />{text}</li>)}</ul>
+                <p className="landing-store-prices">Google Play: $235 MXN/{L('month', 'mes')}<br />App Store: $249 MXN/{L('month', 'mes')}</p>
+              </motion.article>
             </div>
-            <nav aria-label="Footer" className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-slate-400">
-              <Link to="/privacy" className="transition-colors hover:text-white">Privacy</Link>
-              <Link to="/terms" className="transition-colors hover:text-white">Terms</Link>
-              <Link to="/guide" className="transition-colors hover:text-white">User Guide</Link>
-              <a href="mailto:sheremelias@gmail.com" className="transition-colors hover:text-white">Contact</a>
-            </nav>
+            <p className="landing-pricing-note">{L('Cancel anytime. Web payments processed by Stripe.', 'Cancela cuando quieras. Pagos web procesados por Stripe.')}</p>
           </div>
-          <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-center text-sm text-slate-500 md:flex-row md:text-left">
-            <span>© {new Date().getFullYear()} FinSight. All rights reserved.</span>
-            <span>{L('footer_note')}</span>
-          </div>
-        </div>
-      </footer>
+        </section>
+
+        <section className="landing-section landing-download" aria-labelledby="download-title">
+          <motion.div className="landing-container landing-centered" {...reveal()}>
+            <img src="/finsight-icon.svg" alt="" width={64} height={64} className="landing-app-icon" loading="lazy" />
+            <h2 id="download-title">{L('A fresh look at your money.', 'Mira tu dinero con otros ojos.')}</h2>
+            <p>{L('Wherever life takes you.', 'Donde sea que estés.')}</p>
+            <Link to="/signup" className="landing-button">{L('Open FinSight', 'Abre FinSight')}<ArrowRight size={17} aria-hidden="true" /></Link>
+            <div className="landing-download-links"><a href={APP_STORE_URL} target="_blank" rel="noreferrer">App Store<ArrowUpRight size={15} aria-hidden="true" /></a><a href={PLAY_STORE_URL} target="_blank" rel="noreferrer">Google Play<ArrowUpRight size={15} aria-hidden="true" /></a></div>
+          </motion.div>
+        </section>
+      </main>
+      <footer className="landing-footer"><div className="landing-container">
+        <div className="landing-footer-top"><span className="landing-brand">FinSight</span><span>{L('A clearer perspective on your finances.', 'Una perspectiva más clara de tus finanzas.')}</span></div>
+        <div className="landing-footer-bottom"><span>© {new Date().getFullYear()} FinSight.</span><nav aria-label={L('Footer', 'Pie de página')}><Link to="/privacy">{L('Privacy', 'Privacidad')}</Link><Link to="/terms">{L('Terms', 'Términos')}</Link><Link to="/guide">{L('Guide', 'Guía')}</Link><a href="mailto:sheremelias@gmail.com">{L('Contact', 'Contacto')}</a></nav><button type="button" onClick={() => setLanguage(language === 'es' ? 'en' : 'es')}>{language === 'es' ? 'English' : 'Español'}</button></div>
+      </div></footer>
     </div>
   );
 }
-
-const STR = {
-  nav_features: { en: 'Features', es: 'Funciones' },
-  nav_pricing: { en: 'Pricing', es: 'Precios' },
-  nav_about: { en: 'About', es: 'Acerca de' },
-  nav_signin: { en: 'Sign In', es: 'Iniciar sesión' },
-  nav_getStarted: { en: 'Get Started', es: 'Comenzar' },
-  news_label: { en: 'New', es: 'Nuevo' },
-  news_androidRelease: { en: 'FinSight is now available on the App Store and Google Play.', es: 'FinSight ya está disponible en App Store y Google Play.' },
-  hero_badge: { en: 'Financial Intelligence Platform', es: 'Plataforma de inteligencia financiera' },
-  hero_title_1: { en: 'Master Your Financial', es: 'Domina tu' },
-  hero_title_2: { en: 'Overview', es: 'Panorama financiero' },
-  hero_subtitle: {
-    en: 'Get complete visibility into your finances with real-time analytics, intelligent insights, and powerful dashboard tools designed for modern financial management.',
-    es: 'Obtén visibilidad completa de tus finanzas con analíticas en tiempo real, insights inteligentes y potentes tableros para la gestión moderna.'
-  },
-  cta_getStarted: { en: 'Get Started Now', es: 'Comenzar ahora' },
-  cta_downloadAndroid: { en: 'Download on Google Play', es: 'Descargar en Google Play' },
-  cta_downloadIos: { en: 'Download on the App Store', es: 'Descargar en App Store' },
-  preview_title: { en: "Explore FinSight's Powerful Features", es: 'Explora las funciones de FinSight' },
-  preview_sub: { en: 'See how FinSight transforms your financial management experience', es: 'Mira cómo FinSight transforma la gestión de tus finanzas' },
-  about_eyebrow: { en: 'Why FinSight', es: 'Por qué FinSight' },
-  about_title: { en: 'Financial clarity for real business decisions', es: 'Claridad financiera para decisiones reales' },
-  about_body: {
-    en: 'FinSight brings your accounts, transactions, budgets, projects, invoices, and subscriptions into one clean dashboard so freelancers, entrepreneurs, and microbusinesses can understand cash flow, control expenses, and make better decisions without relying on spreadsheets.',
-    es: 'FinSight reúne tus cuentas, transacciones, presupuestos, proyectos, facturas y suscripciones en un tablero claro para que freelancers, emprendedores y microempresas entiendan su flujo de efectivo, controlen gastos y tomen mejores decisiones sin depender de hojas de cálculo.'
-  },
-  about_point_accounts: { en: 'Organize accounts, expenses, projects, budgets, invoices, and subscriptions.', es: 'Organiza cuentas, gastos, proyectos, presupuestos, facturas y suscripciones.' },
-  about_point_decisions: { en: 'See where your money goes with clear visual insights.', es: 'Ve a dónde va tu dinero con insights visuales claros.' },
-  about_point_spreadsheets: { en: 'Move beyond spreadsheet-only financial management.', es: 'Gestiona tus finanzas sin depender solo de hojas de cálculo.' },
-  about_point_upgrade: { en: 'Start simple and upgrade to Pro when your business needs more.', es: 'Empieza simple y mejora a Pro cuando tu negocio necesite más.' },
-  trust_uptime: { en: 'Uptime', es: 'Disponibilidad' },
-  trust_uptime_body: { en: 'Dependable access for the moments when cash flow decisions cannot wait.', es: 'Acceso confiable para los momentos en que las decisiones de flujo no pueden esperar.' },
-  trust_support: { en: 'Support', es: 'Soporte' },
-  trust_support_body: { en: 'Help is available when your financial workflow needs a clear next step.', es: 'Ayuda disponible cuando tu flujo financiero necesita un siguiente paso claro.' },
-  trust_secure_title: { en: 'Secure by design', es: 'Seguro por diseño' },
-  trust_secure_body: { en: 'Built with protected access patterns and Stripe-secured payments for Pro.', es: 'Construido con acceso protegido y pagos Pro seguros mediante Stripe.' },
-  trust_growth_title: { en: 'Built for growing businesses', es: 'Hecho para negocios en crecimiento' },
-  trust_growth_body: { en: 'Fits solo operators today and scales toward teams, projects, and advisors.', es: 'Funciona para trabajo individual y escala hacia equipos, proyectos y asesores.' },
-  trust_spreadsheets_title: { en: 'No spreadsheets required', es: 'Sin depender de hojas de calculo' },
-  trust_spreadsheets_body: { en: 'Replace scattered files with one organized financial workspace.', es: 'Reemplaza archivos dispersos con un espacio financiero organizado.' },
-  trust_visibility_title: { en: 'Real-time financial visibility', es: 'Visibilidad financiera en tiempo real' },
-  trust_visibility_body: { en: 'Turn daily activity into cash flow, budget, and subscription signals.', es: 'Convierte la actividad diaria en señales de flujo, presupuestos y suscripciones.' },
-  btn_pricing: { en: 'See Pricing', es: 'Ver precios' },
-  btn_learnMore: { en: 'Learn More', es: 'Conocer más' },
-  btn_guide: { en: 'User Guide', es: 'Guía de uso' },
-  features_eyebrow: { en: 'How it works', es: 'Cómo funciona' },
-  features_title: { en: 'From scattered finances to clear decisions', es: 'De finanzas dispersas a decisiones claras' },
-  features_sub: {
-    en: 'FinSight helps you organize your financial workflow step by step, so you can understand cash flow, control expenses, and act with confidence.',
-    es: 'FinSight te ayuda a ordenar tu flujo financiero paso a paso para entender tu efectivo, controlar gastos y actuar con confianza.'
-  },
-  workflow_cta_primary: { en: 'Get Started', es: 'Comenzar' },
-  workflow_preview_title: { en: 'Workflow preview', es: 'Vista del flujo' },
-  workflow_preview_status: { en: 'Updated', es: 'Actualizado' },
-  workflow_preview_raw: { en: 'New transaction imported', es: 'Nueva transacción importada' },
-  workflow_preview_category: { en: 'Category assigned', es: 'Categoría asignada' },
-  workflow_preview_operations: { en: 'Operations', es: 'Operaciones' },
-  workflow_preview_budget: { en: 'Budget updated', es: 'Presupuesto actualizado' },
-  workflow_preview_insight: { en: 'Insight generated', es: 'Insight generado' },
-  workflow_step1_title: { en: 'Add your financial data', es: 'Agrega tu información financiera' },
-  workflow_step1_desc: {
-    en: 'Bring accounts, transactions, projects, invoices, and subscriptions into one clean workspace.',
-    es: 'Reúne cuentas, transacciones, proyectos, facturas y suscripciones en un espacio limpio.'
-  },
-  workflow_step2_title: { en: 'Organize your money', es: 'Organiza tu dinero' },
-  workflow_step2_desc: {
-    en: 'Categorize spending, track budgets, monitor projects, and keep important dates visible.',
-    es: 'Categoriza gastos, da seguimiento a presupuestos, monitorea proyectos y mantén fechas importantes a la vista.'
-  },
-  workflow_step3_title: { en: 'Understand what changed', es: 'Entiende qué cambió' },
-  workflow_step3_desc: {
-    en: 'Use dashboards and visual insights to spot trends, expense changes, and recurring costs.',
-    es: 'Usa tableros e insights visuales para detectar tendencias, cambios de gasto y costos recurrentes.'
-  },
-  workflow_step4_title: { en: 'Make better decisions', es: 'Toma mejores decisiones' },
-  workflow_step4_desc: {
-    en: 'Move from scattered spreadsheets to clear financial actions for your business.',
-    es: 'Pasa de hojas de cálculo dispersas a acciones financieras claras para tu negocio.'
-  },
-  pricing_title: { en: 'Simple pricing', es: 'Precios simples' },
-  pricing_sub: { en: 'Start free. Upgrade anytime.', es: 'Comienza gratis. Mejora cuando quieras.' },
-  price_pro: { en: '200 MXN + tax', es: '200 MXN + impuestos' },
-  price_web: { en: 'Web: 200 MXN + tax/month', es: 'Web: 200 MXN + impuestos/mes' },
-  price_googlePlay: { en: 'Google Play: 235 MXN/month', es: 'Google Play: 235 MXN/mes' },
-  price_appStore: { en: 'App Store: 249 MXN/month', es: 'App Store: 249 MXN/mes' },
-  per_month: { en: 'month', es: 'mes' },
-  plan_free: { en: 'Free', es: 'Gratis' },
-  plan_pro: { en: 'Pro', es: 'Pro' },
-  free_core: { en: 'Core budgeting tools', es: 'Herramientas básicas de presupuesto' },
-  free_accounts: { en: 'Up to 3 accounts', es: 'Hasta 3 cuentas' },
-  free_secure: { en: 'Secure by design', es: 'Seguro por diseño' },
-  btn_createFree: { en: 'Create free account', es: 'Crear cuenta gratis' },
-  pro_unlimited: { en: 'Unlimited accounts', es: 'Cuentas ilimitadas' },
-  pro_analytics: { en: 'Analytics & charts', es: 'Analíticas y gráficos' },
-  pro_projects: { en: 'Projects & invoices', es: 'Proyectos y facturas' },
-  pro_ai: { en: 'AI financial consultant', es: 'Consultor financiero con IA' },
-  pro_support: { en: 'Priority support', es: 'Soporte prioritario' },
-  btn_upgrade: { en: 'Upgrade to Pro', es: 'Mejorar a Pro' },
-  pricing_note: { en: 'Cancel anytime. Stripe-secured payments.', es: 'Cancela cuando quieras. Pagos seguros con Stripe.' },
-  cta_title: { en: 'Ready to take control of your financial workflow?', es: '¿Listo para tomar control de tu flujo financiero?' },
-  cta_sub: { en: 'Start with a clean overview of your money, expenses, budgets, and decisions - all in one place.', es: 'Empieza con una vista clara de tu dinero, gastos, presupuestos y decisiones - todo en un solo lugar.' },
-  cta_note: { en: 'Free and Pro plans available. Cancel anytime.', es: 'Planes Free y Pro disponibles. Cancela cuando quieras.' },
-  footer_tagline: { en: 'Financial clarity for freelancers, entrepreneurs, and growing businesses.', es: 'Claridad financiera para freelancers, emprendedores y negocios en crecimiento.' },
-  footer_note: { en: 'Built for clear financial decisions.', es: 'Creado para tomar decisiones financieras claras.' },
-} as const;

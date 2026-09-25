@@ -1,3 +1,5 @@
+import '../services/analytics_service.dart';
+import '../momentum/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../widgets/pro_widgets.dart';
@@ -57,6 +59,9 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AnalyticsService.instance.screen('invoices');
+    });
     _refreshBus = context.read<RefreshBus>();
     _invoicesTick = _refreshBus.invoices;
     _customersTick = _refreshBus.customers;
@@ -178,6 +183,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
           132,
         ),
         children: [
+          const MomentumContextStrip(feature: 'invoices'),
           _InvoiceSummaryPanel(
             invoiceCount: _invoices.length,
             paidCount: paidCount,

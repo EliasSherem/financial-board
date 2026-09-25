@@ -9,9 +9,18 @@
     "dev:full": "concurrently \"npm run server\" \"npm run dev\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:server": "NODE_ENV=test node --import tsx --test server/**/*.test.ts",
+    "test:db": "node scripts/test-db.mjs",
+    "migrate:check": "node --import tsx scripts/migrate.ts",
+    "migrate:local": "node --import tsx scripts/migrate.ts --apply",
+    "assets:check": "node scripts/sync-momentum-assets.mjs --check",
+    "check:server": "tsc -p tsconfig.server.json",
+    "doctor:server": "tsx scripts/doctor-server.ts",
+    "doctor:push": "tsx scripts/doctor-push.ts"
   },
   "dependencies": {
+    "@apple/app-store-server-library": "^3.1.0",
     "@react-three/fiber": "^9.6.1",
     "@types/react-router-dom": "^5.3.3",
     "autoprefixer": "^10.4.21",

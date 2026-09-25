@@ -5,6 +5,11 @@ import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'theme.dart';
+import 'momentum/store.dart';
+import 'momentum/widgets.dart';
+import 'momentum/screens.dart';
+import 'services/analytics_service.dart';
+import 'services/session_lifecycle.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/accounts_screen_new.dart';
 import 'screens/invoices_screen.dart';
@@ -20,6 +25,7 @@ import 'screens/manage_categories_screen.dart';
 import 'screens/ai_chat_screen.dart';
 import 'screens/receipt_scan_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/password_recovery_screen.dart';
 import 'screens/lock_screen.dart';
 import 'services/api.dart';
 import 'services/data_service.dart';
@@ -94,8 +100,9 @@ class FinancialBoardRoot extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LangStore()..load()),
         ChangeNotifierProvider(create: (_) => ThemeModeStore()..load()),
         ChangeNotifierProvider(create: (_) => RefreshBus()),
+        ChangeNotifierProvider(create: (_) => MomentumStore()),
       ],
-      child: const FinancialBoardApp(),
+      child: const SessionLifecycle(child: FinancialBoardApp()),
     );
   }
 }
@@ -106,6 +113,8 @@ class FinancialBoardApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: sessionNavigatorKey,
+      navigatorObservers: [sessionRouteObserver],
       title: 'Financial Board',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
@@ -117,7 +126,36 @@ class FinancialBoardApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: const AppGate(),
+      // A custom initial stack cannot be combined with MaterialApp.home.
+      routes: {'/': (_) => const AppGate()},
+      onGenerateInitialRoutes: (name) {
+        final uri = Uri.tryParse(name);
+        return [
+          MaterialPageRoute<void>(
+            settings: const RouteSettings(name: '/'),
+            builder: (_) => const AppGate(),
+          ),
+          if (uri != null &&
+              (uri.path == '/reset-password' || uri.host == 'reset-password'))
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: '/reset-password'),
+              builder:
+                  (_) => ResetPasswordScreen(token: recoveryTokenFromUri(uri)),
+            ),
+        ];
+      },
+      onGenerateRoute: (settings) {
+        final uri = Uri.tryParse(settings.name ?? '');
+        if (uri != null &&
+            (uri.path == '/reset-password' || uri.host == 'reset-password')) {
+          return MaterialPageRoute<void>(
+            settings: const RouteSettings(name: '/reset-password'),
+            builder:
+                (_) => ResetPasswordScreen(token: recoveryTokenFromUri(uri)),
+          );
+        }
+        return null;
+      },
     );
   }
 }
@@ -128,12 +166,35 @@ class AppGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthStore>();
+    if (!auth.isInitialized) {
+      final es = context.watch<LangStore>().lang == 'es';
+      return Scaffold(
+        body: Center(
+          child:
+              auth.loadError == null
+                  ? const CircularProgressIndicator()
+                  : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        es
+                            ? 'No se pudo recuperar tu sesión.'
+                            : 'Your session could not be restored.',
+                      ),
+                      TextButton(
+                        onPressed: auth.isRestoring ? null : () => auth.load(),
+                        child: Text(es ? 'Reintentar' : 'Retry'),
+                      ),
+                    ],
+                  ),
+        ),
+      );
+    }
     if (!auth.hasToken) {
       return const LoginScreen();
     }
-    return Stack(
-      children: [const HomeShell(), if (auth.isLocked) const LockScreen()],
-    );
+    if (auth.isLocked) return const LockScreen();
+    return HomeShell(key: ValueKey(auth.userId));
   }
 }
 
@@ -144,7 +205,7 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   // Center Home like the design
   int _currentIndex = 2; // Stats, Transfers, Home, Payments, Account
   final GlobalKey<NavigatorState> _contentNavKey = GlobalKey<NavigatorState>();
@@ -158,6 +219,51 @@ class _HomeShellState extends State<HomeShell> {
   bool _adEntitlementStateKnown = false;
   final GlobalKey<PopupMenuButtonState<String>> _profileMenuKey =
       GlobalKey<PopupMenuButtonState<String>>();
+
+  MomentumStore? _momentumStore;
+  bool _autoPresented = false;
+  bool _isForeground = true;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final store = context.read<MomentumStore>();
+    if (identical(store, _momentumStore)) return;
+    _momentumStore?.removeListener(_showNewAchievement);
+    _momentumStore = store;
+    store.addListener(_showNewAchievement);
+  }
+
+  void _showNewAchievement() {
+    if (_autoPresented || !mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !_isForeground ||
+          _autoPresented ||
+          _currentIndex != 2 ||
+          _currentRouteName != '/root' ||
+          ModalRoute.of(context)?.isCurrent != true ||
+          !context.read<AuthStore>().isAuthenticated) {
+        return;
+      }
+      final store = _momentumStore!;
+      if (store.state?.enabled != true ||
+          store.state?.backfill['unseen'] == true ||
+          store.presentationOpen) {
+        return;
+      }
+      final achievement =
+          store.state?.achievements
+              .where(
+                (a) =>
+                    a.completed && !a.seen && !store.presented.contains(a.key),
+              )
+              .firstOrNull;
+      if (achievement != null) {
+        _autoPresented = true;
+        unawaited(showAchievement(context, achievement));
+      }
+    });
+  }
 
   // Order (bottom nav): Stats, Transfers, Home, Payments, Account
   // Projects and Invoices moved to side drawer
@@ -180,6 +286,15 @@ class _HomeShellState extends State<HomeShell> {
 
   void _setTab(int index) {
     setState(() => _currentIndex = index);
+    AnalyticsService.instance.screen(
+      const [
+        'analytics',
+        'transactions',
+        'dashboard',
+        'payments',
+        'accounts',
+      ][index],
+    );
     final Widget page = _buildTab(index);
     // Replace nested content with the exact target page to avoid stale index issues
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -201,34 +316,12 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     NonProInterstitialAdController.clearEntitlementState();
-    // One-time Play Billing sync after first frame
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        final authStore = context.read<AuthStore>();
-        await PurchaseService().initialize(context);
-        final api = ApiClient()..setToken(authStore.token);
-        final data = DataService(api);
-        await data.syncPlay();
-        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-          await data.syncAppStore();
-        }
-        // Sync Stripe entitlements too (web upgrades)
-        try {
-          await data.stripeSync();
-        } catch (_) {}
-        // Also refresh Pro flag from server in case user upgraded on Web (Stripe)
-        try {
-          final me = await data.getMe();
-          final pro = (me['is_pro'] == true) || (me['is_pro'] == 1);
-          if (!mounted) return;
-          authStore.setServerPro(pro);
-          if (!pro) await authStore.setLocalPro(false);
-          NonProInterstitialAdController.markEntitlementKnownForUser(
-            authStore.userId,
-          );
-          if (mounted) setState(() => _adEntitlementStateKnown = true);
-        } catch (_) {}
-      } catch (_) {}
+      if (!mounted) return;
+      await PurchaseService().initialize(context);
+      await _syncEntitlement();
+      AnalyticsService.instance.screen('dashboard');
     });
     _widgetSubscription = NativeWidgetBridge.widgetEvents.listen(
       _handleWidgetUri,
@@ -251,10 +344,45 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _momentumStore?.removeListener(_showNewAchievement);
     _widgetSubscription?.cancel();
     _pushSubscription?.cancel();
     NonProInterstitialAdController.clearEntitlementState();
     super.dispose();
+  }
+
+  bool _syncingEntitlement = false;
+  Future<void> _syncEntitlement() async {
+    if (!mounted || _syncingEntitlement) return;
+    final auth = context.read<AuthStore>();
+    if (!auth.isAuthenticated) return;
+    final token = auth.token;
+    _syncingEntitlement = true;
+    final data = DataService(ApiClient()..setToken(token));
+    try {
+      try {
+        await data.billingSync();
+      } catch (_) {
+        /* Keep verified cached state until /me answers. */
+      }
+      final me = await data.getMe();
+      if (!mounted || auth.token != token) return;
+      auth.setServerPro(me['is_pro'] == true || me['is_pro'] == 1);
+      unawaited(context.read<MomentumStore>().refresh());
+      NonProInterstitialAdController.markEntitlementKnownForUser(auth.userId);
+      setState(() => _adEntitlementStateKnown = true);
+    } catch (_) {
+      /* A network failure cannot revoke verified access. */
+    } finally {
+      _syncingEntitlement = false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isForeground = state == AppLifecycleState.resumed;
+    if (_isForeground) unawaited(_syncEntitlement());
   }
 
   void _handleRouteChanged(String? name) {
@@ -320,6 +448,16 @@ class _HomeShellState extends State<HomeShell> {
       ),
       onSelected: (value) async {
         switch (value) {
+          case 'momentum':
+            await openMomentum(context);
+            break;
+          case 'achievements':
+            await Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const AchievementsScreen(),
+              ),
+            );
+            break;
           case 'guide':
             Navigator.of(
               context,
@@ -340,7 +478,7 @@ class _HomeShellState extends State<HomeShell> {
             await _openUrl('https://finsight.com.mx/terms');
             break;
           case 'logout':
-            await context.read<AuthStore>().logout();
+            await context.read<AuthStore>().logout(force: true);
             break;
         }
       },
@@ -348,6 +486,13 @@ class _HomeShellState extends State<HomeShell> {
       // listening from the popup overlay context (Provider error).
       itemBuilder:
           (menuCtx) => [
+            if (context.read<MomentumStore>().state?.enabled == true) ...[
+              const PopupMenuItem(value: 'momentum', child: Text('Momentum')),
+              PopupMenuItem(
+                value: 'achievements',
+                child: Text(momentumText(context, 'Achievements', 'Logros')),
+              ),
+            ],
             PopupMenuItem(
               value: 'guide',
               child: Row(
@@ -892,6 +1037,11 @@ class _HomeShellState extends State<HomeShell> {
   void _handlePushAction(PushAction action) {
     if (!mounted) return;
     switch (action.targetType) {
+      case 'momentum':
+        if (context.read<AuthStore>().isAuthenticated) {
+          unawaited(openMomentum(context));
+        }
+        break;
       case 'payment':
         _openPaymentFromNotification(action.targetId);
         break;

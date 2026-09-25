@@ -1,3 +1,5 @@
+import '../momentum/widgets.dart';
+import '../services/analytics_service.dart';
 import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
@@ -53,6 +55,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AnalyticsService.instance.screen('analytics');
+    });
     _refreshBus = context.read<RefreshBus>();
     _accountsTick = _refreshBus.accounts;
     _transactionsTick = _refreshBus.transactions;
@@ -246,6 +251,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 128),
             children: [
+              const MomentumContextStrip(feature: 'analytics'),
               LGPageHeader(
                 title: I18n.t(context, 'title.analytics'),
                 leading: const _HeaderIcon(icon: Icons.analytics_outlined),

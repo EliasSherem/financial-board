@@ -4,6 +4,7 @@ import { CreditCard, TrendingUp, DollarSign, Activity, Plus, ChevronRight, Calen
 import { api } from '../utils/api';
 import { useI18n } from '../contexts/I18nContext';
 import { formatDate } from '../utils/date';
+import { MomentumCard } from '../momentum/ui';
 import {
   ActionButton,
   AppCard,
@@ -231,6 +232,7 @@ export default function Dashboard() {
         />
       </div>
 
+      <MomentumCard />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <AppCard variant="elevated" className="min-w-0">
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

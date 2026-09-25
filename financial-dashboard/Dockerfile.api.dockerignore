@@ -1,0 +1,25 @@
+# API build context: financial-dashboard/. Cloud source uploads need their own filter.
+**
+!Dockerfile.api
+!Dockerfile.api.dockerignore
+!package.json
+!package-lock.json
+!tsconfig.server.json
+!server/
+!server/**
+!scripts/
+!scripts/**
+!public/
+!public/momentum/
+!public/momentum/**
+# Credentials are injected or mounted at runtime, never copied into the image.
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p8
+**/*.p12
+**/*.jks
+**/*.keystore
+**/.DS_Store
+**/node_modules
