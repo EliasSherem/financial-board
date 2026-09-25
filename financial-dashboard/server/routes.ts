@@ -1,30 +1,30 @@
-﻿import { Router, Request, Response } from 'express';
+import { reserveAi, finishAi } from './momentum/credits.js';
+import { HttpError, limit as platformRateLimit, UUID } from './platform/http.js';
+import { BillingError, safeError as safeBillingError } from './billing/types.js';
+import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import { db } from './db.js';
-import { isFcmConfigured, sendFcmNotification } from './fcm.js';
+import { db, databaseScope } from './db.js';
+import { isFcmConfigured, sendFcmDetailed } from './fcm.js';
+import { registerDeviceToken, unregisterDeviceToken, validDeviceToken } from './notifications/deviceTokens.js';
 import { isEmailConfigured, sendResendEmail } from './email.js';
 import { authenticateToken, login, generateToken, verifyPassword } from './auth.js';
+import { normalizeEmail, validPassword } from './recovery/core.js';
+import { recordSignup } from './analytics/repository.js';
 import { createCheckoutSession, createPortalSession, syncUserSubscription, cancelUserSubscription } from './stripe.js';
-import { google } from 'googleapis';
+import { readEntitlement, refreshEntitlement } from './billing/repository.js';
 import crypto from 'crypto';
 import OpenAI from 'openai';
 import { extractReceiptFromImage } from './receiptExtraction.js';
 import { createTransactionForUser } from './transactionWriter.js';
+import { processSalaryRules, withSalaryLock } from './financial/salary.js';
+import { computeFirstSalaryDate, formatDateOnly, salaryScheduleReference, startOfDay } from './financial/salarySchedule.js';
+import { ACCOUNTS_READ_SQL, INVESTMENTS_READ_SQL, ensureMissingBalanceHistory } from './financial/readModels.js';
 
 const router = Router();
-const APPLE_VERIFY_RECEIPT_PRODUCTION_URL = 'https://buy.itunes.apple.com/verifyReceipt';
-const APPLE_VERIFY_RECEIPT_SANDBOX_URL = 'https://sandbox.itunes.apple.com/verifyReceipt';
+router.use(databaseScope);
 const RECEIPT_UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
 const RECEIPT_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const RECEIPT_SCANNING_PRO_MESSAGE = 'Receipt scanning is available with FinSight Pro.';
-
-type NormalizedAppleVerification = {
-  status: number;
-  environment: string;
-  latestReceipt: string;
-  latestReceiptInfo: any[];
-  pendingRenewalInfo: any[];
-};
 
 let openaiClient: OpenAI | null = null;
 
@@ -160,212 +160,6 @@ function invoiceLabel(invoiceId: number, numberValue: string | null | undefined)
   const raw = String(numberValue || '').trim();
   if (!raw || raw === '#') return `#${invoiceId}`;
   return raw.startsWith('#') ? raw : `#${raw}`;
-}
-
-function getAppleSharedSecret() {
-  return (
-    process.env.APPLE_SHARED_SECRET?.trim() ||
-    process.env.APPLE_APP_SHARED_SECRET?.trim() ||
-    process.env.APPLE_IAP_SHARED_SECRET?.trim() ||
-    ''
-  );
-}
-
-function getAppleReceiptVerificationMode() {
-  const mode = String(
-    process.env.APPLE_RECEIPT_VERIFICATION_MODE ||
-      process.env.APPLE_VERIFY_RECEIPT_MODE ||
-      'auto'
-  )
-    .trim()
-    .toLowerCase();
-  return mode === 'sandbox' || mode === 'production' ? mode : 'auto';
-}
-
-function parseAppleDateMs(value: unknown): Date | null {
-  if (value == null) return null;
-  const asNumber = Number(value);
-  if (!Number.isFinite(asNumber) || asNumber <= 0) return null;
-  return new Date(asNumber);
-}
-
-function decodeBase64UrlJson(value: string): any | null {
-  try {
-    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(
-      normalized.length + ((4 - (normalized.length % 4)) % 4),
-      '='
-    );
-    return JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
-  } catch {
-    return null;
-  }
-}
-
-function normalizeStoreKit2Transaction(
-  signedTransaction: string
-): NormalizedAppleVerification | null {
-  const parts = signedTransaction.split('.');
-  if (parts.length !== 3) return null;
-  const payload = decodeBase64UrlJson(parts[1]);
-  if (!payload || typeof payload !== 'object') return null;
-
-  const productId = String(payload.productId || '').trim();
-  const originalTransactionId = String(payload.originalTransactionId || '').trim();
-  const transactionId = String(payload.transactionId || '').trim();
-  if (!productId || (!originalTransactionId && !transactionId)) return null;
-
-  const entry = {
-    product_id: productId,
-    original_transaction_id: originalTransactionId || transactionId,
-    transaction_id: transactionId || originalTransactionId,
-    expires_date_ms: payload.expiresDate != null ? String(payload.expiresDate) : undefined,
-    cancellation_date_ms: payload.revocationDate != null ? String(payload.revocationDate) : undefined,
-    cancellation_date: payload.revocationDate != null ? String(payload.revocationDate) : undefined,
-  };
-
-  const renewalInfo =
-    payload.autoRenewStatus != null
-      ? [
-          {
-            original_transaction_id: originalTransactionId || transactionId,
-            product_id: productId,
-            auto_renew_status:
-              payload.autoRenewStatus === true || payload.autoRenewStatus === 1 ? '1' : '0',
-          },
-        ]
-      : [];
-
-  return {
-    status: 0,
-    environment: String(payload.environment || 'Production'),
-    latestReceipt: signedTransaction,
-    latestReceiptInfo: [entry],
-    pendingRenewalInfo: renewalInfo,
-  };
-}
-
-async function verifyReceiptWithApple(
-  url: string,
-  receiptData: string,
-  sharedSecret: string
-) {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      'receipt-data': receiptData,
-      password: sharedSecret,
-      'exclude-old-transactions': false,
-    }),
-  });
-  if (!response.ok) {
-    throw new Error(`Apple receipt validation failed with HTTP ${response.status}`);
-  }
-  return response.json() as Promise<any>;
-}
-
-async function verifyAppStoreReceipt(receiptData: string): Promise<NormalizedAppleVerification> {
-  const storeKit2Verification = normalizeStoreKit2Transaction(receiptData);
-  if (storeKit2Verification) return storeKit2Verification;
-
-  const sharedSecret = getAppleSharedSecret();
-  if (!sharedSecret) {
-    throw new Error('APPLE_SHARED_SECRET is not configured');
-  }
-
-  const mode = getAppleReceiptVerificationMode();
-  const primaryUrl =
-    mode === 'sandbox'
-      ? APPLE_VERIFY_RECEIPT_SANDBOX_URL
-      : APPLE_VERIFY_RECEIPT_PRODUCTION_URL;
-  const secondaryUrl =
-    primaryUrl === APPLE_VERIFY_RECEIPT_PRODUCTION_URL
-      ? APPLE_VERIFY_RECEIPT_SANDBOX_URL
-      : APPLE_VERIFY_RECEIPT_PRODUCTION_URL;
-  const secondaryStatus =
-    primaryUrl === APPLE_VERIFY_RECEIPT_PRODUCTION_URL ? 21007 : 21008;
-
-  let payload = await verifyReceiptWithApple(primaryUrl, receiptData, sharedSecret);
-  if (mode === 'auto' && payload?.status === secondaryStatus) {
-    payload = await verifyReceiptWithApple(
-      secondaryUrl,
-      receiptData,
-      sharedSecret
-    );
-  }
-
-  return {
-    status: Number(payload?.status ?? -1),
-    environment:
-      typeof payload?.environment === 'string' && payload.environment.trim()
-        ? payload.environment.trim()
-        : mode === 'sandbox'
-          ? 'Sandbox'
-          : 'Production',
-    latestReceipt: payload?.latest_receipt || receiptData,
-    latestReceiptInfo: Array.isArray(payload?.latest_receipt_info)
-      ? payload.latest_receipt_info
-      : Array.isArray(payload?.receipt?.in_app)
-        ? payload.receipt.in_app
-        : [],
-    pendingRenewalInfo: Array.isArray(payload?.pending_renewal_info)
-      ? payload.pending_renewal_info
-      : [],
-  };
-}
-
-function summarizeAppStoreSubscription(
-  latestReceiptInfo: any[],
-  pendingRenewalInfo: any[],
-  preferredProductId?: string
-) {
-  const matchingEntries = latestReceiptInfo
-    .filter((entry) => {
-      const productId = String(entry?.product_id || '').trim();
-      return preferredProductId ? productId === preferredProductId : !!productId;
-    })
-    .sort((a, b) => {
-      const aExpiry = Number(a?.expires_date_ms || 0);
-      const bExpiry = Number(b?.expires_date_ms || 0);
-      return bExpiry - aExpiry;
-    });
-
-  const latest = matchingEntries[0];
-  if (!latest) return null;
-
-  const expiry = parseAppleDateMs(latest.expires_date_ms);
-  const isCanceled = Boolean(latest.cancellation_date_ms || latest.cancellation_date);
-  const isActive = Boolean(!isCanceled && expiry && expiry.getTime() > Date.now());
-  const originalTransactionId = String(
-    latest.original_transaction_id || ''
-  ).trim();
-  const latestTransactionId = String(latest.transaction_id || '').trim();
-  const renewalInfo = pendingRenewalInfo.find((item) => {
-    const itemOriginal = String(item?.original_transaction_id || '').trim();
-    const itemProductId = String(item?.product_id || '').trim();
-    return (
-      (originalTransactionId && itemOriginal === originalTransactionId) ||
-      itemProductId === String(latest.product_id || '').trim()
-    );
-  });
-  const autoRenewStatusRaw = String(renewalInfo?.auto_renew_status || '').trim();
-  const autoRenewStatus =
-    autoRenewStatusRaw === '1'
-      ? true
-      : autoRenewStatusRaw === '0'
-        ? false
-        : null;
-
-  return {
-    productId: String(latest.product_id || preferredProductId || '').trim(),
-    originalTransactionId: originalTransactionId || latestTransactionId,
-    latestTransactionId: latestTransactionId || originalTransactionId || null,
-    expiry,
-    state: isCanceled ? 'CANCELED' : isActive ? 'ACTIVE' : expiry ? 'EXPIRED' : 'UNKNOWN',
-    isActive,
-    autoRenewStatus,
-  };
 }
 
 function formatInvoiceDate(value: unknown) {
@@ -542,17 +336,6 @@ async function listExpenseCategories(userId: number): Promise<CategoryResponse[]
   return Array.from(map.values());
 }
 
-const INVESTMENT_TOTAL_CONTRIBUTIONS_SQL = `COALESCE((SELECT SUM(c.amount) FROM investment_contributions c WHERE c.investment_id = i.id), 0)`;
-
-const INVESTMENT_ESTIMATED_VALUE_SQL = `(
-    (i.principal * POW(1 + (i.annual_rate/100)/365, GREATEST(DATEDIFF(CURDATE(), i.start_date), 0)))
-    + COALESCE(
-        (SELECT SUM(c.amount * POW(1 + (i.annual_rate/100)/365, GREATEST(DATEDIFF(CURDATE(), c.date), 0)))
-         FROM investment_contributions c WHERE c.investment_id = i.id),
-        0
-      )
-  )`;
-
 async function fetchExpenseCategory(userId: number, categoryId: number): Promise<CategoryResponse | null> {
   const [rows] = await db.query(
     `SELECT 
@@ -596,6 +379,7 @@ let transactionDraftSchemaEnsured = false;
 
 async function ensureTransactionTransferTypeSchema() {
   if (transactionTransferTypeSchemaEnsured) return;
+  if (process.env.LEGACY_SCHEMA_BOOTSTRAP !== 'true' || process.env.NODE_ENV === 'production') { transactionTransferTypeSchemaEnsured = true; return; }
   try {
     await db.query(
       "ALTER TABLE transactions MODIFY COLUMN type ENUM('Income', 'Expense', 'Transfer') NOT NULL"
@@ -615,6 +399,7 @@ async function ensureTransactionTransferTypeSchema() {
 
 export async function ensureTransactionDraftSchema() {
   if (transactionDraftSchemaEnsured) return;
+  if (process.env.LEGACY_SCHEMA_BOOTSTRAP !== 'true' || process.env.NODE_ENV === 'production') { transactionDraftSchemaEnsured = true; return; }
 
   const createTableSql = `
     CREATE TABLE IF NOT EXISTS transaction_drafts (
@@ -1318,6 +1103,7 @@ async function findDuplicateDraftTransaction({
 
 async function ensureInvestmentAccountSchema() {
   if (investmentAccountSchemaEnsured) return;
+  if (process.env.LEGACY_SCHEMA_BOOTSTRAP !== 'true' || process.env.NODE_ENV === 'production') { investmentAccountSchemaEnsured = true; return; }
   try {
     await db.query('ALTER TABLE investments ADD COLUMN account_id INT NULL');
   } catch (error: any) {
@@ -1431,54 +1217,11 @@ async function deleteInvestmentContributionByTransaction(userId: number, transac
 const EXEMPT_USER_IDS = new Set([1, 3]);
 
 async function refreshUserProFlag(userId: number): Promise<boolean> {
-  if (EXEMPT_USER_IDS.has(userId)) {
-    await db.query('UPDATE users SET is_pro = 1 WHERE id = ?', [userId]);
-    return true;
-  }
-
-  const [userRows] = await db.query(
-    'SELECT stripe_subscription_status, stripe_current_period_end FROM users WHERE id = ? LIMIT 1',
-    [userId]
-  );
-  const user = (userRows as any[])[0] || {};
-  const stripeStatus = String(user?.stripe_subscription_status || '').trim().toLowerCase();
-  const stripePeriodEnd =
-    user?.stripe_current_period_end != null ? new Date(user.stripe_current_period_end) : null;
-  const stripeActive =
-    stripeStatus === 'active' ||
-    stripeStatus === 'trialing' ||
-    Boolean(stripePeriodEnd && stripePeriodEnd.getTime() > Date.now());
-
-  const [playRows] = await db.query(
-    `SELECT 1
-       FROM play_subscriptions
-      WHERE user_id = ?
-        AND (last_state = 'SUBSCRIPTION_STATE_ACTIVE' OR (expiry_time IS NOT NULL AND expiry_time > NOW()))
-      LIMIT 1`,
-    [userId]
-  );
-  const [appStoreRows] = await db.query(
-    `SELECT 1
-       FROM app_store_subscriptions
-      WHERE user_id = ?
-        AND last_state = 'ACTIVE'
-        AND (expiry_time IS NULL OR expiry_time > NOW())
-      LIMIT 1`,
-    [userId]
-  );
-
-  const isPro =
-    stripeActive ||
-    (playRows as any[]).length > 0 ||
-    (appStoreRows as any[]).length > 0;
-  await db.query('UPDATE users SET is_pro = ? WHERE id = ?', [isPro ? 1 : 0, userId]);
-  return isPro;
+  return refreshEntitlement(userId);
 }
 
 async function userIsPro(userId: number): Promise<boolean> {
-  if (EXEMPT_USER_IDS.has(userId)) return true;
-  const [rows] = await db.query('SELECT COALESCE(is_pro, 0) AS is_pro FROM users WHERE id = ? LIMIT 1', [userId]);
-  return Boolean((rows as any[])[0]?.is_pro);
+  return readEntitlement(userId);
 }
 
 async function ensureProOrExempt(req: Request, res: Response): Promise<boolean> {
@@ -1501,11 +1244,11 @@ async function enforceFreeAccountLimit(req: Request, res: Response): Promise<boo
 }
 
 // Helper function to update balance history for a specific account and month
-async function updateBalanceHistory(userId: number, accountId: number, year: number, month: number) {
+async function updateBalanceHistory(userId: number, accountId: number, year: number, month: number, strict = false) {
   try {
     // Compute the inclusive last day of the requested month
     const endDate = new Date(year, month, 0); // month is 1-based here; day 0 = last day of previous month
-    const endDateStr = endDate.toISOString().slice(0, 10); // YYYY-MM-DD
+    const endDateStr = formatDateOnly(endDate)!; // Calendar month end, without shifting it through UTC.
 
     // Baseline = current account balance - sum(all transactions up to now)
     const [accRows] = await db.query(
@@ -1538,6 +1281,7 @@ async function updateBalanceHistory(userId: number, accountId: number, year: num
       [userId, accountId, year, month, runningBalance]
     );
   } catch (error) {
+    if (strict) throw error;
     console.error('Error updating balance history:', error);
   }
 }
@@ -1548,6 +1292,7 @@ let salarySchemaEnsured = false;
 
 async function ensureSalaryAutomationSchema() {
   if (salarySchemaEnsured) return;
+  if (process.env.LEGACY_SCHEMA_BOOTSTRAP !== 'true' || process.env.NODE_ENV === 'production') { salarySchemaEnsured = true; return; }
   try {
     await db.query('ALTER TABLE salary_rules ADD COLUMN next_date DATE NULL');
   } catch (error: any) {
@@ -1558,192 +1303,13 @@ async function ensureSalaryAutomationSchema() {
   salarySchemaEnsured = true;
 }
 
-async function ensureSalaryCategory(userId: number) {
-  const name = 'Salary';
-  const [existing] = await db.query('SELECT id FROM expense_categories WHERE user_id = ? AND name = ? LIMIT 1', [
-    userId,
-    name,
-  ]);
-  if ((existing as any[]).length > 0) {
-    return { id: (existing as any[])[0].id as number, name };
-  }
-  const defaultIcon = 'work';
-  const [result] = await db.query(
-    'INSERT INTO expense_categories (user_id, name, icon) VALUES (?, ?, ?)',
-    [userId, name, defaultIcon]
-  );
-  return { id: (result as any).insertId as number, name };
-}
-
-function startOfDay(d: Date) {
-  const copy = new Date(d);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
-}
-
-function formatDateOnly(d: Date | null) {
-  if (!d) return null;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function daysInMonth(year: number, monthIndex: number) {
-  return new Date(year, monthIndex + 1, 0).getDate();
-}
-
-function clampDay(year: number, monthIndex: number, desired: number) {
-  const max = daysInMonth(year, monthIndex);
-  return Math.max(1, Math.min(desired, max));
-}
-
-function computeFirstSalaryDate(rule: any, reference: Date) {
-  const today = startOfDay(reference);
-  const schedule = rule?.schedule || 'SemiMonthly';
-
-  switch (schedule) {
-    case 'Weekly': {
-      const rawWeekday = Number(rule?.weekday ?? 1);
-      const target = rawWeekday === 7 ? 0 : Math.max(0, Math.min(6, rawWeekday));
-      const diff = (target - today.getDay() + 7) % 7;
-      const candidate = new Date(today);
-      candidate.setDate(candidate.getDate() + diff);
-      return candidate;
-    }
-    case 'Monthly': {
-      const desired = clampDay(today.getFullYear(), today.getMonth(), Number(rule?.day ?? 1) || 1);
-      let candidate = new Date(today.getFullYear(), today.getMonth(), desired);
-      if (candidate < today) {
-        const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-        const nextDesired = clampDay(nextMonth.getFullYear(), nextMonth.getMonth(), Number(rule?.day ?? 1) || 1);
-        candidate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), nextDesired);
-      }
-      return candidate;
-    }
-    case 'SemiMonthly':
-    default: {
-      const first = new Date(today.getFullYear(), today.getMonth(), 15);
-      const second = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        Math.min(30, daysInMonth(today.getFullYear(), today.getMonth()))
-      );
-      if (today <= first) return first;
-      if (today <= second) return second;
-      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-      return new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 15);
-    }
-  }
-}
-
-function computeNextSalaryDate(rule: any, previous: Date) {
-  const schedule = rule?.schedule || 'SemiMonthly';
-  const base = startOfDay(previous);
-  switch (schedule) {
-    case 'Weekly': {
-      const next = new Date(base);
-      next.setDate(next.getDate() + 7);
-      return next;
-    }
-    case 'Monthly': {
-      const nextMonth = new Date(base.getFullYear(), base.getMonth() + 1, 1);
-      const desired = clampDay(
-        nextMonth.getFullYear(),
-        nextMonth.getMonth(),
-        Number(rule?.day ?? base.getDate()) || 1
-      );
-      return new Date(nextMonth.getFullYear(), nextMonth.getMonth(), desired);
-    }
-    case 'SemiMonthly':
-    default: {
-      const day = base.getDate();
-      const year = base.getFullYear();
-      const month = base.getMonth();
-      if (day <= 15) {
-        const secondDay = Math.min(30, daysInMonth(year, month));
-        return new Date(year, month, secondDay);
-      }
-      return new Date(year, month + 1, 15);
-    }
-  }
-}
-
-const SALARY_PROCESS_LIMIT = 48;
-
-async function processDueSalaryRules(userId: number, referenceDate: Date = new Date()): Promise<void> {
-  if (!userId) return;
+async function processDueSalaryRules(userId: number, referenceDate: Date = new Date(), ruleId?: number): Promise<void> {
   await ensureSalaryAutomationSchema();
   await ensureInvestmentAccountSchema();
-  const today = startOfDay(referenceDate);
-  const [rules] = await db.query('SELECT * FROM salary_rules WHERE user_id = ? AND is_active = TRUE', [userId]);
-
-  for (const rule of rules as any[]) {
-    if (!rule.account_id || !Number.isFinite(Number(rule.amount))) continue;
-    const salaryCategory = await ensureSalaryCategory(userId);
-    let nextDate: Date | null = rule.next_date ? startOfDay(new Date(rule.next_date)) : null;
-    if (!nextDate || Number.isNaN(nextDate.getTime())) {
-      nextDate = computeFirstSalaryDate(rule, today);
-    }
-    if (!nextDate) continue;
-
-    let iterations = 0;
-    let dueDate = startOfDay(nextDate);
-    const amount = Math.abs(Number(rule.amount));
-
-    while (dueDate <= today && iterations < SALARY_PROCESS_LIMIT) {
-      try {
-        const txDate = formatDateOnly(dueDate)!;
-        const description = rule.name || 'Salary';
-
-        const [existingRows] = await db.query(
-          `SELECT id FROM transactions 
-           WHERE user_id = ? 
-             AND account_id = ? 
-             AND date = ? 
-             AND description = ? 
-             AND amount = ? 
-             AND type = ? 
-             AND (category_id <=> ? OR category = ?)
-           LIMIT 1`,
-          [userId, rule.account_id, txDate, description, amount, 'Income', salaryCategory.id, salaryCategory.name]
-        );
-        if ((existingRows as any[]).length > 0) {
-          dueDate = computeNextSalaryDate(rule, dueDate);
-          iterations += 1;
-          continue;
-        }
-
-        const [insertResult] = await db.query(
-          'INSERT INTO transactions (user_id, account_id, date, description, amount, type, category, project_id, category_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [userId, rule.account_id, txDate, description, amount, 'Income', salaryCategory.name, null, salaryCategory.id]
-        );
-
-        await db.query(
-          'UPDATE accounts SET balance = balance + ? WHERE id = ? AND user_id = ?',
-          [amount, rule.account_id, userId]
-        );
-
-        await updateBalanceHistory(userId, rule.account_id, dueDate.getFullYear(), dueDate.getMonth() + 1);
-        await syncInvestmentContribution(userId, rule.account_id, (insertResult as any).insertId, amount, txDate);
-
-        rule.last_transaction_id = (insertResult as any)?.insertId ?? null;
-      } catch (error) {
-        console.error('Failed to process salary automation:', error);
-        break;
-      }
-
-      dueDate = computeNextSalaryDate(rule, dueDate);
-      iterations += 1;
-    }
-
-    if (!dueDate || dueDate <= today) {
-      dueDate = computeNextSalaryDate(rule, today);
-    }
-
-    await db.query('UPDATE salary_rules SET next_date = ? WHERE id = ? AND user_id = ?', [
-      formatDateOnly(dueDate),
-      rule.id,
-      userId,
-    ]);
-  }
+  await processSalaryRules(userId, referenceDate, {
+    updateBalanceHistory: (uid, accountId, year, month) => updateBalanceHistory(uid, accountId, year, month, true),
+    syncInvestmentContribution,
+  }, ruleId);
 }
 
 // Rebuild balance history for the authenticated user (dev/maintenance)
@@ -1811,7 +1377,12 @@ router.post('/api/balance-history/rebuild', authenticateToken, async (req: Reque
 
 // Auth routes
 router.post('/api/signup', async (req: Request, res: Response) => {
-  const { username, email, password } = req.body;
+  const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+  const email = normalizeEmail(req.body?.email);
+  const password = req.body?.password;
+  if (!username || username.length > 50 || !email || !validPassword(password, password)) {
+    return res.status(400).json({ success: false, message: 'Enter a valid username, email and password (6 characters minimum, 72 UTF-8 bytes maximum).' });
+  }
   
   try {
     // Check if username already exists
@@ -1833,11 +1404,12 @@ router.post('/api/signup', async (req: Request, res: Response) => {
     
     // Create user
     const [result] = await db.query(
-      'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
+      "INSERT INTO users (username, email, password, credential_kind) VALUES (?, ?, ?, 'local')",
       [username, email, hashedPassword]
     );
     
     const userId = (result as any).insertId;
+    await recordSignup(userId, req.body?.client_platform).catch(() => console.warn('Signup analytics unavailable'));
     const safeEmail = String(email || '').trim();
     if (safeEmail) {
       void sendWelcomeEmail(safeEmail, String(username || ''));
@@ -1992,7 +1564,7 @@ router.post('/api/login/google', async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: 'Invalid Google token', detail: t });
     }
     const info = await resp.json() as any;
-    const clientId = process.env.GOOGLE_CLIENT_ID || '';
+    const clientId = (process.env.GOOGLE_CLIENT_ID || '').trim();
     if (clientId && info.aud !== clientId) {
       return res.status(401).json({ success: false, message: 'Token audience mismatch' });
     }
@@ -2006,15 +1578,17 @@ router.post('/api/login/google', async (req: Request, res: Response) => {
     }
 
     // Find or create local user
-    const [existing] = await db.query('SELECT id, username, email, COALESCE(is_pro,0) AS is_pro FROM users WHERE email = ? LIMIT 1', [email]);
+    const [existing] = await db.query('SELECT id, username, email, token_version, COALESCE(is_pro,0) AS is_pro FROM users WHERE email = ? LIMIT 1', [email]);
     let userId: number;
     let username: string;
     let is_pro = false;
+    let token_version = 0;
     if ((existing as any[]).length > 0) {
       const u = (existing as any[])[0];
       userId = u.id;
       username = u.username;
       is_pro = Boolean(u.is_pro);
+      token_version = Number(u.token_version);
     } else {
       // Create new user with random password
       username = name.toLowerCase().replace(/[^a-z0-9_]+/g, '').slice(0, 20) || 'user';
@@ -2030,12 +1604,13 @@ router.post('/api/login/google', async (req: Request, res: Response) => {
       const randomPass = crypto.randomBytes(18).toString('base64url');
       const bcrypt = await import('bcrypt');
       const hashed = await bcrypt.hash(randomPass, 10);
-      const [ins] = await db.query('INSERT INTO users (username, email, password) VALUES (?, ?, ?)', [username, email, hashed]);
+      const [ins] = await db.query("INSERT INTO users (username, email, password, credential_kind) VALUES (?, ?, ?, 'google')", [username, email, hashed]);
       userId = (ins as any).insertId;
+      await recordSignup(userId, req.body?.client_platform).catch(() => console.warn('Signup analytics unavailable'));
       void sendWelcomeEmail(email, username);
     }
 
-    const token = generateToken({ id: userId, username, is_pro });
+    const token = generateToken({ id: userId, username, is_pro, token_version });
     res.json({ success: true, token, user: { id: userId, username, email, is_pro } });
   } catch (e) {
     console.error('Google login failed:', e);
@@ -2048,35 +1623,7 @@ router.get('/api/accounts', authenticateToken, async (req: Request, res: Respons
   try {
     await processDueSalaryRules(req.user!.id);
     await ensureInvestmentAccountSchema();
-    const [accounts] = await db.query(
-      `SELECT
-         a.id,
-         a.user_id,
-         a.name,
-         a.type,
-         a.account_number,
-         a.bank_name,
-         a.is_active,
-         a.balance AS raw_balance,
-         CASE
-           WHEN i.id IS NULL THEN a.balance
-           ELSE ${INVESTMENT_ESTIMATED_VALUE_SQL}
-         END AS balance,
-         i.id AS investment_id,
-         i.principal AS investment_principal,
-         i.annual_rate AS investment_annual_rate,
-         ${INVESTMENT_TOTAL_CONTRIBUTIONS_SQL} AS investment_total_contributions,
-         CASE
-           WHEN i.id IS NULL THEN NULL
-           ELSE ${INVESTMENT_ESTIMATED_VALUE_SQL}
-         END AS investment_estimated_value,
-         i.start_date AS investment_start_date
-       FROM accounts a
-       LEFT JOIN investments i ON i.account_id = a.id AND i.user_id = a.user_id
-       WHERE a.user_id = ?
-       ORDER BY a.id DESC`,
-      [req.user?.id]
-    );
+    const [accounts] = await db.query(ACCOUNTS_READ_SQL, [req.user!.id, req.user!.id]);
     res.json(accounts);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch accounts' });
@@ -3175,37 +2722,13 @@ router.get('/api/balance-history', authenticateToken, async (req: Request, res: 
     const currY = now.getFullYear();
     const currM = now.getMonth() + 1; // 1-based
 
-    // Fetch user accounts
-    const [accounts] = await db.query('SELECT id FROM accounts WHERE user_id = ?', [req.user?.id]);
-    const accIds = (accounts as any[]).map((r: any) => r.id) as number[];
-
-    // For each account, find last recorded month and backfill through current month
-    for (const accId of accIds) {
-      const [lastRows] = await db.query(
-        `SELECT year, month FROM balance_history 
-         WHERE user_id = ? AND account_id = ? 
-         ORDER BY year DESC, month DESC LIMIT 1`,
-        [req.user?.id, accId]
-      );
-      if ((lastRows as any[]).length === 0) {
-        await updateBalanceHistory(req.user!.id, accId, currY, currM);
-        continue;
-      }
-      const last = (lastRows as any[])[0] as { year: number; month: number };
-      let y = last.year;
-      let m = last.month;
-      while (y < currY || (y === currY && m < currM)) {
-        m++;
-        if (m > 12) { m = 1; y++; }
-        await updateBalanceHistory(req.user!.id, accId, y, m);
-      }
-    }
+    await ensureMissingBalanceHistory(db, req.user!.id, currY, currM);
 
     // Return ordered history
     const [balanceHistory] = await db.query(
       `SELECT bh.*, a.name as account_name 
        FROM balance_history bh 
-       JOIN accounts a ON bh.account_id = a.id 
+       JOIN accounts a ON bh.account_id = a.id AND a.user_id = bh.user_id
        WHERE bh.user_id = ? 
        ORDER BY bh.year DESC, bh.month DESC, a.name ASC`,
       [req.user?.id]
@@ -3350,13 +2873,6 @@ router.delete('/api/projects/:id', authenticateToken, async (req: Request, res: 
 // Payment routes
 router.get('/api/payments', authenticateToken, async (req: Request, res: Response) => {
   try {
-    // First, let's check what projects exist for this user
-    const [userProjects] = await db.query(
-      'SELECT * FROM projects WHERE user_id = ?',
-      [req.user?.id]
-    );
-    console.log('User projects:', userProjects);
-    
     const [payments] = await db.query(
       `SELECT p.*, a.name as account_name, pr.name as project_name
        FROM payments p 
@@ -3366,7 +2882,6 @@ router.get('/api/payments', authenticateToken, async (req: Request, res: Respons
        ORDER BY p.next_date ASC`,
       [req.user?.id]
     );
-    console.log('Fetched payments:', payments);
     res.json(payments);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch payments' });
@@ -3503,58 +3018,35 @@ router.delete('/api/payments/:id', authenticateToken, async (req: Request, res: 
   }
 });
 
-// Register device token for push notifications
+// Register the current device for the authenticated account.
 router.post('/api/device-tokens', authenticateToken, async (req: Request, res: Response) => {
+  const token = req.body?.token;
+  if (!validDeviceToken(token)) return res.status(400).json({ message: 'Invalid device token' });
+  const platform = req.body?.platform == null ? null : String(req.body.platform).trim().slice(0, 32) || null;
+  const rawOffset = req.body?.timezone_offset_min;
+  const timezoneOffset = rawOffset == null ? null : Number(rawOffset);
+  if (timezoneOffset != null && (!Number.isInteger(timezoneOffset) || Math.abs(timezoneOffset) > 840)) {
+    return res.status(400).json({ message: 'timezone_offset_min invalid' });
+  }
+  const timezoneName = req.body?.timezone_name == null ? null : String(req.body.timezone_name).trim().slice(0, 64) || null;
   try {
-    const uid = req.user!.id;
-    const token = (req.body?.token ?? '').toString().trim();
-    if (!token) {
-      return res.status(400).json({ message: 'token is required' });
-    }
-    const platform =
-      req.body?.platform != null
-        ? String(req.body.platform).trim().slice(0, 32)
-        : null;
-    const tzOffsetRaw = req.body?.timezone_offset_min;
-    const tzNameRaw = req.body?.timezone_name;
-    const tzOffset =
-      tzOffsetRaw === undefined || tzOffsetRaw === null
-        ? null
-        : Number(tzOffsetRaw);
-    if (tzOffset != null && !Number.isFinite(tzOffset)) {
-      return res.status(400).json({ message: 'timezone_offset_min invalid' });
-    }
-    const tzName =
-      tzNameRaw == null
-        ? null
-        : String(tzNameRaw).trim().slice(0, 64) || null;
-
-    await db.query(
-      `INSERT INTO device_tokens (user_id, token, platform)
-       VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE platform = VALUES(platform)`,
-      [uid, token.slice(0, 255), platform]
-    );
-
-    if (tzOffset != null || tzName != null) {
-      const fields: string[] = [];
-      const values: any[] = [];
-      if (tzOffset != null) {
-        fields.push('timezone_offset_min = ?');
-        values.push(tzOffset);
-      }
-      if (tzName != null) {
-        fields.push('timezone_name = ?');
-        values.push(tzName);
-      }
-      values.push(uid);
-      await db.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
-    }
-
+    await registerDeviceToken(req.user!.id, { token, platform, timezoneOffset, timezoneName });
     res.json({ success: true });
-  } catch (e) {
-    console.error('Device token register error:', e);
-    res.status(500).json({ message: 'Failed to register device token' });
+  } catch {
+    console.error('device_token_registration_failed');
+    res.status(503).json({ message: 'Device registration temporarily unavailable' });
+  }
+});
+
+router.post('/api/device-tokens/unregister', authenticateToken, async (req: Request, res: Response) => {
+  const token = req.body?.token;
+  if (!validDeviceToken(token)) return res.status(400).json({ message: 'Invalid device token' });
+  try {
+    await unregisterDeviceToken(req.user!.id, token);
+    res.json({ success: true });
+  } catch {
+    console.error('device_token_unregister_failed');
+    res.status(503).json({ message: 'Device registration temporarily unavailable' });
   }
 });
 
@@ -3621,7 +3113,7 @@ router.get('/api/notifications', authenticateToken, async (req: Request, res: Re
 router.post('/api/notifications/push-now', authenticateToken, async (req: Request, res: Response) => {
   try {
     if (!isFcmConfigured()) {
-      return res.status(400).json({ message: 'FCM_SERVICE_ACCOUNT_JSON not configured' });
+      return res.status(503).json({ message: 'Push notifications are not configured' });
     }
 
     const tomorrow = new Date();
@@ -3668,20 +3160,23 @@ router.post('/api/notifications/push-now', authenticateToken, async (req: Reques
       });
     }
 
-    const [tokensRows] = await db.query('SELECT token FROM device_tokens WHERE user_id = ?', [req.user?.id]);
+    const [tokensRows] = await db.query('SELECT d.token FROM device_tokens d WHERE d.user_id = ? AND NOT EXISTS (SELECT 1 FROM device_tokens other WHERE other.token = d.token AND other.user_id <> d.user_id)', [req.user?.id]);
     const tokens = (tokensRows as any[]).map(r => r.token).filter(Boolean);
     if (tokens.length === 0 || notifications.length === 0) {
       return res.json({ success: true, sent: 0, tokens: tokens.length, notifications: notifications.length });
     }
 
-    let sent = 0;
+    let sent = 0, accepted = 0, failed = 0;
     for (const note of notifications) {
-      const delivered = await sendFcmNotification(tokens, note, note.data);
-      if (delivered > 0) sent += 1;
+      const outcomes = await sendFcmDetailed(tokens, note, note.data);
+      const count = outcomes.filter(result => result.status === 'accepted').length;
+      accepted += count;
+      failed += outcomes.length - count;
+      if (count > 0) sent += 1;
     }
-    res.json({ success: true, sent, tokens: tokens.length, notifications: notifications.length });
-  } catch (e) {
-    console.error('Push now error:', e);
+    res.status(accepted ? 200 : 503).json({ success: accepted > 0, sent, accepted, failed, tokens: tokens.length, notifications: notifications.length });
+  } catch {
+    console.error('push_now_failed');
     res.status(500).json({ message: 'Failed to push notifications' });
   }
 });
@@ -3923,18 +3418,7 @@ router.get('/api/investments', authenticateToken, async (req: Request, res: Resp
     if (!(await ensureProOrExempt(req, res))) return;
     await ensureInvestmentAccountSchema();
     const uid = req.user?.id;
-    // Return base fields plus totals, and an estimated value that includes contributions compounded from their dates
-    const [rows] = await db.query(
-      `SELECT i.id, i.name, i.principal, i.annual_rate, i.start_date, i.account_id,
-              COALESCE((SELECT SUM(c.amount) FROM investment_contributions c WHERE c.investment_id = i.id), 0) AS total_contributions,
-              (i.principal * POW(1 + (i.annual_rate/100)/365, GREATEST(DATEDIFF(CURDATE(), i.start_date), 0))) 
-                + COALESCE((SELECT SUM(c.amount * POW(1 + (i.annual_rate/100)/365, GREATEST(DATEDIFF(CURDATE(), c.date), 0))) FROM investment_contributions c WHERE c.investment_id = i.id), 0)
-                AS estimated_value
-       FROM investments i
-       WHERE i.user_id = ?
-       ORDER BY i.created_at DESC`,
-      [uid]
-    );
+    const [rows] = await db.query(INVESTMENTS_READ_SQL, [uid, uid]);
     res.json(rows);
   } catch (e) {
     console.error('Failed to fetch investments:', e);
@@ -4007,6 +3491,7 @@ router.get('/api/investments', authenticateToken, async (req: Request, res: Resp
     if ((existing as any[]).length === 0) {
       return res.status(404).json({ message: 'Investment not found' });
     }
+    await db.query('START TRANSACTION');
     let accountId = (existing as any[])[0].account_id as number | null;
     if (!accountId) {
       const [accResult] = await db.query(
@@ -4037,8 +3522,10 @@ router.get('/api/investments', authenticateToken, async (req: Request, res: Resp
     }
 
     const [row] = await db.query('SELECT * FROM investments WHERE id = ? AND user_id = ?', [req.params.id, req.user?.id]);
+    await db.query('COMMIT');
     res.json((row as any[])[0]);
   } catch (e) {
+    await db.query('ROLLBACK');
     console.error('Update investment error:', e);
     res.status(500).json({ message: 'Failed to update investment' });
   }
@@ -4098,31 +3585,48 @@ router.get('/api/investments/:id', authenticateToken, async (req: Request, res: 
 
 // Add a contribution
 router.post('/api/investments/:id/contributions', authenticateToken, async (req: Request, res: Response) => {
+  let transactionStarted = false;
   try {
     if (!(await ensureProOrExempt(req, res))) return;
     await ensureInvestmentAccountSchema();
     const uid = req.user?.id;
     const invId = Number(req.params.id);
     const amount = Number(req.body?.amount);
-    const dateStr = new Date(req.body?.date).toISOString().slice(0, 10);
-    if (!Number.isFinite(invId) || !Number.isFinite(amount) || amount === 0 || !dateStr) {
+    const date = new Date(req.body?.date);
+    if (!Number.isFinite(invId) || !Number.isFinite(amount) || amount === 0 || req.body?.date == null || !Number.isFinite(date.getTime())) {
       return res.status(400).json({ message: 'Invalid payload' });
     }
-    // Validate ownership
-    const [invRows] = await db.query('SELECT id, account_id FROM investments WHERE id = ? AND user_id = ?', [invId, uid]);
-    if ((invRows as any[]).length === 0) return res.status(404).json({ message: 'Investment not found' });
+    const dateStr = date.toISOString().slice(0, 10);
+    await db.query('START TRANSACTION');
+    transactionStarted = true;
+    // Hold ownership and the account link stable through all financial writes.
+    const [invRows] = await db.query('SELECT id, account_id FROM investments WHERE id = ? AND user_id = ? FOR UPDATE', [invId, uid]);
+    if ((invRows as any[]).length === 0) {
+      await db.query('ROLLBACK');
+      transactionStarted = false;
+      return res.status(404).json({ message: 'Investment not found' });
+    }
     const [result] = await db.query(
       'INSERT INTO investment_contributions (user_id, investment_id, amount, date) VALUES (?, ?, ?, ?)',
       [uid, invId, amount, dateStr]
+    );
+    const contributionId = (result as any).insertId;
+    await db.query(
+      `INSERT INTO engagement_events (event_id, user_id, event_type, source, idempotency_key, payload_json, occurred_at)
+       VALUES (?, ?, 'investment_contributions.insert', 'server', ?, JSON_OBJECT('entity_id', ?, 'investment_id', ?), UTC_TIMESTAMP(3))`,
+      [crypto.randomUUID(), uid, `investment_contribution:${contributionId}`, contributionId, invId]
     );
     const accountId = (invRows as any[])[0].account_id as number | null;
     if (accountId) {
       await db.query('UPDATE accounts SET balance = balance + ? WHERE id = ? AND user_id = ?', [amount, accountId, uid]);
       const d = new Date(dateStr);
-      await updateBalanceHistory(uid, accountId, d.getFullYear(), d.getMonth() + 1);
+      await updateBalanceHistory(uid, accountId, d.getFullYear(), d.getMonth() + 1, true);
     }
-    res.json({ id: (result as any).insertId, investment_id: invId, amount, date: dateStr });
+    await db.query('COMMIT');
+    transactionStarted = false;
+    res.json({ id: contributionId, investment_id: invId, amount, date: dateStr });
   } catch (e) {
+    if (transactionStarted) await db.query('ROLLBACK');
     console.error('Failed to add contribution:', e);
     res.status(500).json({ message: 'Failed to add contribution' });
   }
@@ -4151,6 +3655,7 @@ router.get('/api/salaries', authenticateToken, async (req: Request, res: Respons
 router.post('/api/salaries', authenticateToken, async (req: Request, res: Response) => {
   try {
     await ensureSalaryAutomationSchema();
+    await ensureInvestmentAccountSchema();
     const { name, amount, schedule, weekday, day, account_id, is_active } = req.body || {};
     if (!name) return res.status(400).json({ message: 'name is required' });
     const amt = Number(amount);
@@ -4170,11 +3675,22 @@ router.post('/api/salaries', authenticateToken, async (req: Request, res: Respon
         ? computeFirstSalaryDate({ schedule: sch, weekday: weekdayNum, day: dayNum }, today)
         : null;
     const nextDateStr = formatDateOnly(initialNextDate);
-    const [result] = await db.query(
-      'INSERT INTO salary_rules (user_id, name, amount, schedule, weekday, day, account_id, is_active, next_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.user?.id, name, amt, sch, weekdayNum, dayNum, accountIdNum, active, nextDateStr]
-    );
-    const id = (result as any).insertId;
+    const id = await withSalaryLock(req.user!.id, async () => {
+      if (accountIdNum != null) {
+        const [accounts] = await db.query('SELECT id FROM accounts WHERE id = ? AND user_id = ? FOR UPDATE', [accountIdNum, req.user!.id]);
+        if (!(accounts as any[]).length) throw new HttpError(400, 'account invalid');
+      }
+      const [result] = await db.query(
+        'INSERT INTO salary_rules (user_id, name, amount, schedule, weekday, day, account_id, is_active, next_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [req.user?.id, name, amt, sch, weekdayNum, dayNum, accountIdNum, active, nextDateStr]
+      );
+      const id = (result as any).insertId as number;
+      // A newly created rule has at most one current occurrence. Include that
+      // initial payment in creation so a failure cannot leave a hidden rule
+      // behind for the client to recreate on retry.
+      await processDueSalaryRules(req.user!.id, today, id);
+      return id;
+    });
     const [row] = await db.query(
       `SELECT s.id, s.name, s.amount, s.schedule, s.weekday, s.day, s.account_id, s.is_active, s.next_date,
               s.created_at, s.updated_at, a.name AS account_name
@@ -4182,9 +3698,9 @@ router.post('/api/salaries', authenticateToken, async (req: Request, res: Respon
        WHERE s.id = ?`,
       [id]
     );
-    await processDueSalaryRules(req.user!.id);
     res.json((row as any[])[0]);
   } catch (e) {
+    if (e instanceof HttpError) return res.status(e.status).json({ message: e.code });
     res.status(500).json({ message: 'Failed to create salary rule' });
   }
 });
@@ -4194,101 +3710,106 @@ router.put('/api/salaries/:id', authenticateToken, async (req: Request, res: Res
     await ensureSalaryAutomationSchema();
     const { name, amount, schedule, weekday, day, account_id, is_active } = req.body || {};
 
-    const [existingRows] = await db.query(
-      'SELECT * FROM salary_rules WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user?.id]
-    );
-    if ((existingRows as any[]).length === 0) {
-      return res.status(404).json({ message: 'Salary rule not found' });
-    }
-    const current = (existingRows as any[])[0];
-
-    const updatedName = name ?? current.name;
-    const updatedAmount =
-      amount === undefined || amount === null ? Number(current.amount) : Number(amount);
-    if (!Number.isFinite(updatedAmount)) {
-      return res.status(400).json({ message: 'amount invalid' });
-    }
-
-    const updatedSchedule = schedule ?? current.schedule;
-    if (!['Weekly', 'Monthly', 'SemiMonthly'].includes(updatedSchedule)) {
-      return res.status(400).json({ message: 'schedule invalid' });
-    }
-
-    const weekdaySupplied = weekday !== undefined;
-    const daySupplied = day !== undefined;
-    const accountSupplied = account_id !== undefined;
-
-    const updatedWeekday = weekdaySupplied
-      ? weekday == null || weekday === ''
-        ? null
-        : Number(weekday)
-      : current.weekday;
-    if (weekdaySupplied && updatedWeekday != null && !Number.isFinite(updatedWeekday)) {
-      return res.status(400).json({ message: 'weekday invalid' });
-    }
-
-    const updatedDay = daySupplied
-      ? day == null || day === ''
-        ? null
-        : Number(day)
-      : current.day;
-    if (daySupplied && updatedDay != null && !Number.isFinite(updatedDay)) {
-      return res.status(400).json({ message: 'day invalid' });
-    }
-
-    const updatedAccountId = accountSupplied
-      ? account_id == null || account_id === ''
-        ? null
-        : Number(account_id)
-      : current.account_id;
-    if (accountSupplied && updatedAccountId != null && !Number.isFinite(updatedAccountId)) {
-      return res.status(400).json({ message: 'account invalid' });
-    }
-
-    const currentActive = Boolean(current.is_active);
-    const updatedIsActive =
-      is_active === undefined || is_active === null ? currentActive : Boolean(is_active);
-
-    let nextDateStr: string | null = current.next_date || null;
-    const scheduleChanged = schedule !== undefined && schedule !== current.schedule;
-    const weekdayChanged =
-      weekdaySupplied && updatedWeekday !== (current.weekday ?? null);
-    const dayChanged = daySupplied && updatedDay !== (current.day ?? null);
-    const accountChanged =
-      accountSupplied && updatedAccountId !== (current.account_id ?? null);
-    const reactivated = !currentActive && updatedIsActive;
-    const shouldResetDate = scheduleChanged || weekdayChanged || dayChanged || accountChanged || reactivated || !nextDateStr;
-
-    if (!updatedIsActive) {
-      nextDateStr = null;
-    } else if (shouldResetDate) {
-      if (updatedAccountId) {
-        const nextDate = computeFirstSalaryDate(
-          { schedule: updatedSchedule, weekday: updatedWeekday, day: updatedDay },
-          startOfDay(new Date())
-        );
-        nextDateStr = formatDateOnly(nextDate);
-      } else {
-        nextDateStr = null;
+    await withSalaryLock(req.user!.id, async () => {
+      const [existingRows] = await db.query(
+        "SELECT *, DATE_FORMAT(next_date, '%Y-%m-%d') AS cursor_date FROM salary_rules WHERE id = ? AND user_id = ? FOR UPDATE",
+        [req.params.id, req.user?.id]
+      );
+      if ((existingRows as any[]).length === 0) {
+        throw new HttpError(404, 'Salary rule not found');
       }
-    }
+      const current = (existingRows as any[])[0];
 
-    await db.query(
-      'UPDATE salary_rules SET name = ?, amount = ?, schedule = ?, weekday = ?, day = ?, account_id = ?, is_active = ?, next_date = ? WHERE id = ? AND user_id = ?',
-      [
-        updatedName,
-        updatedAmount,
-        updatedSchedule,
-        updatedWeekday,
-        updatedDay,
-        updatedAccountId,
-        updatedIsActive ? 1 : 0,
-        nextDateStr,
-        req.params.id,
-        req.user?.id,
-      ]
-    );
+      const updatedName = name ?? current.name;
+      const updatedAmount =
+        amount === undefined || amount === null ? Number(current.amount) : Number(amount);
+      if (!Number.isFinite(updatedAmount)) {
+        throw new HttpError(400, 'amount invalid');
+      }
+
+      const updatedSchedule = schedule ?? current.schedule;
+      if (!['Weekly', 'Monthly', 'SemiMonthly'].includes(updatedSchedule)) {
+        throw new HttpError(400, 'schedule invalid');
+      }
+
+      const weekdaySupplied = weekday !== undefined;
+      const daySupplied = day !== undefined;
+      const accountSupplied = account_id !== undefined;
+
+      const updatedWeekday = weekdaySupplied
+        ? weekday == null || weekday === ''
+          ? null
+          : Number(weekday)
+        : current.weekday;
+      if (weekdaySupplied && updatedWeekday != null && !Number.isFinite(updatedWeekday)) {
+        throw new HttpError(400, 'weekday invalid');
+      }
+
+      const updatedDay = daySupplied
+        ? day == null || day === ''
+          ? null
+          : Number(day)
+        : current.day;
+      if (daySupplied && updatedDay != null && !Number.isFinite(updatedDay)) {
+        throw new HttpError(400, 'day invalid');
+      }
+
+      const updatedAccountId = accountSupplied
+        ? account_id == null || account_id === ''
+          ? null
+          : Number(account_id)
+        : current.account_id;
+      if (accountSupplied && updatedAccountId != null && !Number.isFinite(updatedAccountId)) {
+        throw new HttpError(400, 'account invalid');
+      }
+
+      if (updatedAccountId != null) {
+        const [accounts] = await db.query('SELECT id FROM accounts WHERE id = ? AND user_id = ? FOR UPDATE', [updatedAccountId, req.user!.id]);
+        if (!(accounts as any[]).length) throw new HttpError(400, 'account invalid');
+      }
+
+      const currentActive = Boolean(current.is_active);
+      const updatedIsActive =
+        is_active === undefined || is_active === null ? currentActive : Boolean(is_active);
+
+      let nextDateStr: string | null = current.cursor_date || null;
+      const scheduleChanged = schedule !== undefined && schedule !== current.schedule;
+      const weekdayChanged =
+        weekdaySupplied && updatedWeekday !== (current.weekday ?? null);
+      const dayChanged = daySupplied && updatedDay !== (current.day ?? null);
+      const accountChanged =
+        accountSupplied && updatedAccountId !== (current.account_id ?? null);
+      const reactivated = !currentActive && updatedIsActive;
+      const shouldResetDate = scheduleChanged || weekdayChanged || dayChanged || accountChanged || reactivated || !nextDateStr;
+
+      // Keep the first unpaid date even while paused/unlinked. Reactivation or a
+      // schedule change must not replay an occurrence that already committed.
+      if (updatedIsActive && shouldResetDate) {
+        if (updatedAccountId) {
+          const nextDate = computeFirstSalaryDate(
+            { schedule: updatedSchedule, weekday: updatedWeekday, day: updatedDay },
+            salaryScheduleReference(current.cursor_date, new Date())
+          );
+          nextDateStr = formatDateOnly(nextDate);
+        }
+      }
+
+      await db.query(
+        'UPDATE salary_rules SET name = ?, amount = ?, schedule = ?, weekday = ?, day = ?, account_id = ?, is_active = ?, next_date = ? WHERE id = ? AND user_id = ?',
+        [
+          updatedName,
+          updatedAmount,
+          updatedSchedule,
+          updatedWeekday,
+          updatedDay,
+          updatedAccountId,
+          updatedIsActive ? 1 : 0,
+          nextDateStr,
+          req.params.id,
+          req.user?.id,
+        ]
+      );
+    });
 
     await processDueSalaryRules(req.user!.id);
 
@@ -4301,13 +3822,16 @@ router.put('/api/salaries/:id', authenticateToken, async (req: Request, res: Res
     );
     res.json((row as any[])[0]);
   } catch (e) {
+    if (e instanceof HttpError) return res.status(e.status).json({ message: e.code });
     res.status(500).json({ message: 'Failed to update salary rule' });
   }
 });
 
 router.delete('/api/salaries/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
-    await db.query('DELETE FROM salary_rules WHERE id = ? AND user_id = ?', [req.params.id, req.user?.id]);
+    await withSalaryLock(req.user!.id, async () => {
+      await db.query('DELETE FROM salary_rules WHERE id = ? AND user_id = ?', [req.params.id, req.user?.id]);
+    });
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ message: 'Failed to delete salary rule' });
@@ -4337,13 +3861,13 @@ function dateToYmd(value: any): string | null {
 }
 
 async function handleAiChat(req: Request, res: Response) {
+  let aiRequestId: string | undefined;
   try {
     const client = getOpenAiClient();
     if (!client) {
       console.warn('AI chat unavailable: missing OPENAI_API_KEY');
       return res.status(503).json({ message: 'Assistant unavailable' });
     }
-    if (!(await ensureProOrExempt(req, res))) return;
 
     const messages = normalizeAiMessages(req.body?.messages);
     if (messages.length === 0) {
@@ -4351,6 +3875,9 @@ async function handleAiChat(req: Request, res: Response) {
     }
 
     const uid = req.user!.id;
+    const reservation = await reserveAi(uid, req.body?.request_id);
+    if (reservation.cached) return res.json(reservation.cached);
+    aiRequestId = reservation.requestId;
     console.log('AI chat request:', uid, `messages=${messages.length}`);
     const [accountRows] = await db.query(
       'SELECT id, name, type, balance, is_active FROM accounts WHERE user_id = ? ORDER BY id DESC',
@@ -4470,29 +3997,20 @@ async function handleAiChat(req: Request, res: Response) {
       `Context (JSON): ${JSON.stringify(context)}`,
     ].join('\n');
 
-    const timeoutMs = Math.max(5000, Number(process.env.OPENAI_TIMEOUT_MS || 20000));
-    const completion = (await Promise.race([
-      client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        temperature: 0.3,
-        max_tokens: 700,
-        messages: [{ role: 'system', content: systemPrompt }, ...messages],
-      }),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('OpenAI timeout')), timeoutMs)
-      ),
-    ])) as any;
-
+    const timeoutMs = Math.min(60000, Math.max(5000, Number(process.env.OPENAI_TIMEOUT_MS || 20000)));
+    const completion = await client.chat.completions.create({
+      model: 'gpt-4o-mini', temperature: 0.3, max_tokens: 700,
+      messages: [{ role: 'system', content: systemPrompt }, ...messages],
+    }, { timeout: timeoutMs, maxRetries: 0 });
     const reply = completion.choices?.[0]?.message?.content?.trim() ?? '';
-    console.log('AI chat response:', uid, `chars=${reply.length}`);
+    if (!reply) throw new Error('EMPTY_AI_RESPONSE');
+    await finishAi(uid, aiRequestId, reply);
     res.json({ reply });
   } catch (error) {
-    const msg = (error as any)?.message || '';
-    console.error('AI chat error:', error);
-    if (msg.includes('OpenAI timeout')) {
-      return res.status(504).json({ message: 'AI request timed out' });
-    }
-    res.status(500).json({ message: 'Assistant failed to respond' });
+    if (aiRequestId) await finishAi(req.user!.id, aiRequestId).catch(() => console.error('ai_release_pending'));
+    if (error instanceof HttpError) return res.status(error.status).json({ message: error.code, code: error.code });
+    console.error('ai_request_failed');
+    res.status(503).json({ message: 'Assistant failed to respond. Your credit was not consumed.' });
   }
 }
 
@@ -4645,6 +4163,7 @@ router.post('/api/invoices', authenticateToken, async (req: Request, res: Respon
     const totals = computeInvoiceTotals(items, Number(discount || 0), Number(tax || 0));
     const amount_due = totals.total; // initially unpaid
     // Create as 'sent' to remove the explicit send step
+    await db.query('START TRANSACTION');
     const [result] = await conn.query(
       `INSERT INTO invoices (user_id, customer_id, project_id, account_id, number, issue_date, due_date, status, currency, notes, subtotal, tax, discount, total, amount_due)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'sent', ?, ?, ?, ?, ?, ?, ?)`,
@@ -4661,8 +4180,10 @@ router.post('/api/invoices', authenticateToken, async (req: Request, res: Respon
       );
     }
     const [row] = await conn.query('SELECT * FROM invoices WHERE id = ?', [invoiceId]);
+    await db.query('COMMIT');
     res.json((row as any[])[0]);
   } catch (e) {
+    await db.query('ROLLBACK');
     console.error('Create invoice error:', e);
     res.status(500).json({ message: 'Failed to create invoice' });
   }
@@ -4682,6 +4203,7 @@ router.put('/api/invoices/:id', authenticateToken, async (req: Request, res: Res
 
     const totals = Array.isArray(items) && items.length > 0 ? computeInvoiceTotals(items, Number(discount || 0), Number(tax || 0)) : null;
 
+    await db.query('START TRANSACTION');
     if (totals) {
       await conn.query(
         `UPDATE invoices SET customer_id = ?, project_id = ?, account_id = ?, number = ?, issue_date = ?, due_date = ?, currency = ?, notes = ?,
@@ -4716,8 +4238,10 @@ router.put('/api/invoices/:id', authenticateToken, async (req: Request, res: Res
       }
     }
     const [row] = await conn.query('SELECT * FROM invoices WHERE id = ?', [id]);
+    await db.query('COMMIT');
     res.json((row as any[])[0]);
   } catch (e) {
+    await db.query('ROLLBACK');
     console.error('Update invoice error:', e);
     res.status(500).json({ message: 'Failed to update invoice' });
   }
@@ -4950,6 +4474,7 @@ router.post('/api/invoices/:id/payments', authenticateToken, async (req: Request
 // Current user profile
 router.get('/api/me', authenticateToken, async (req: Request, res: Response) => {
   try {
+    await refreshUserProFlag(req.user!.id);
     const [rows] = await db.query('SELECT id, username, email, COALESCE(is_pro,0) AS is_pro FROM users WHERE id = ? LIMIT 1', [req.user?.id]);
     if ((rows as any[]).length === 0) return res.status(404).json({ message: 'User not found' });
     res.json((rows as any[])[0]);
@@ -4958,291 +4483,39 @@ router.get('/api/me', authenticateToken, async (req: Request, res: Response) => 
   }
 });
 
-// Stripe Billing
+// Stripe Billing: verified provider failures are sanitized; limiter is shared across instances.
+function stripeFailure(res:Response,error:unknown) {
+  const status=error instanceof BillingError?error.httpStatus:error instanceof HttpError?error.status:503;
+  const code=error instanceof HttpError?error.code:safeBillingError(error);
+  return res.status(status).json({message:code});
+}
 router.post('/api/stripe/checkout', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { url } = await createCheckoutSession(req.user?.id!);
+    await platformRateLimit(`stripe:${req.user!.id}`,15);
+    const { url } = await createCheckoutSession(req.user!.id,UUID.test(req.body?.flow_id??'')?req.body.flow_id:undefined);
     res.json({ url });
-  } catch (e: any) {
-    console.error('Create checkout session error:', e?.message || e);
-    res.status(500).json({ message: 'Failed to create checkout session' });
-  }
+  } catch (error) {stripeFailure(res,error);}
 });
-
 router.post('/api/stripe/portal', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { url } = await createPortalSession(req.user?.id!);
-    res.json({ url });
-  } catch (e: any) {
-    console.error('Create portal session error:', e?.message || e);
-    res.status(500).json({ message: 'Failed to create portal session' });
-  }
+    await platformRateLimit(`stripe:${req.user!.id}`,15);
+    res.json(await createPortalSession(req.user!.id));
+  } catch (error) {stripeFailure(res,error);}
 });
-
 router.post('/api/stripe/sync', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const result = await syncUserSubscription(req.user?.id!);
-    res.json(result);
-  } catch (e: any) {
-    console.error('Stripe sync error:', e?.message || e);
-    res.status(500).json({ message: 'Failed to sync subscription' });
-  }
+    await platformRateLimit(`stripe:${req.user!.id}`,15);
+    res.json(await syncUserSubscription(req.user!.id));
+  } catch (error) {stripeFailure(res,error);}
 });
-
 router.post('/api/stripe/cancel', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const result = await cancelUserSubscription(req.user?.id!);
-    res.json(result);
-  } catch (e: any) {
-    console.error('Stripe cancel error:', e?.message || e);
-    const message = e?.message || 'Failed to cancel subscription';
-    const status =
-      message === 'No active subscription to cancel' || message === 'Unable to locate subscription in Stripe'
-        ? 400
-        : 500;
-    res.status(status).json({ message });
-  }
+    await platformRateLimit(`stripe:${req.user!.id}`,15);
+    res.json(await cancelUserSubscription(req.user!.id));
+  } catch (error) {stripeFailure(res,error);}
 });
-
-
 
 // Basic health endpoint to help mobile/web diagnose connectivity
 router.get('/api/health', (_req: Request, res: Response) => {
   res.json({ ok: true, time: new Date().toISOString() });
-});
-
-// Activate Pro for current user after app store purchase (Play Billing)
-router.post('/api/pro/activate', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    await db.query('UPDATE users SET is_pro = 1 WHERE id = ?', [req.user?.id]);
-    res.json({ success: true, is_pro: true });
-  } catch (e) {
-    console.error('Activate Pro error:', e);
-    res.status(500).json({ message: 'Failed to activate Pro' });
-  }
-});
-
-// Helper: verify subscription state using Google Play Developer API (best-effort)
-async function verifyPlaySub(purchaseToken: string) {
-  try {
-    const packageName = process.env.ANDROID_PACKAGE_NAME || 'com.finsight.finsight';
-    const auth = await google.auth.getClient({ scopes: ['https://www.googleapis.com/auth/androidpublisher'] });
-    const androidpublisher = google.androidpublisher({ version: 'v3', auth });
-    // Subscriptions v2
-    const resp = await androidpublisher.purchases.subscriptionsv2.get({ packageName, token: purchaseToken });
-    const sub: any = resp.data;
-    // subscriptionState: SUBSCRIPTION_STATE_ACTIVE | CANCELED | IN_GRACE_PERIOD | ON_HOLD | PAUSED | EXPIRED
-    const state: string = sub?.subscriptionState || '';
-    let expiry: Date | null = null;
-    try {
-      const li = (sub?.lineItems || [])[0];
-      const ms = li?.expiryTime ? Number(li.expiryTime) : undefined;
-      if (ms && !Number.isNaN(ms)) expiry = new Date(ms);
-    } catch {}
-    return { ok: true, state, expiry };
-  } catch (e) {
-    console.warn('Play verify failed:', (e as any)?.message || e);
-    return { ok: false };
-  }
-}
-
-// Link a Play Billing purchase token to the current user
-router.post('/api/play/link', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const { productId, purchaseToken } = req.body || {};
-    if (!productId || !purchaseToken) {
-      return res.status(400).json({ message: 'productId and purchaseToken are required' });
-    }
-
-    let state = 'UNKNOWN';
-    let expiry: Date | null = null;
-    const ver = await verifyPlaySub(purchaseToken);
-    if (ver.ok) {
-      state = ver.state || 'UNKNOWN';
-      expiry = ver.expiry || null;
-    }
-
-    // Upsert mapping
-    await db.query(
-      `INSERT INTO play_subscriptions (user_id, product_id, purchase_token, auto_renewing, expiry_time, last_state)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE product_id = VALUES(product_id), expiry_time = VALUES(expiry_time), last_state = VALUES(last_state)`,
-      [req.user?.id, productId, purchaseToken, null, expiry, state]
-    );
-
-    const isPro = await refreshUserProFlag(req.user!.id);
-    res.json({ success: true, state, expiry, is_pro: isPro });
-  } catch (e) {
-    console.error('play/link error:', e);
-    res.status(500).json({ message: 'Failed to link purchase' });
-  }
-});
-
-// Sync subscription status for current user (best-effort)
-router.post('/api/play/sync', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const [rows] = await db.query('SELECT purchase_token FROM play_subscriptions WHERE user_id = ?', [req.user?.id]);
-    const tokens = (rows as any[]).map(r => r.purchase_token as string);
-    if (tokens.length === 0) {
-      const isPro = await refreshUserProFlag(req.user!.id);
-      return res.json({ success: true, tokens: 0, is_pro: isPro });
-    }
-    for (const t of tokens) {
-      const ver = await verifyPlaySub(t);
-      if (ver.ok) {
-        await db.query('UPDATE play_subscriptions SET expiry_time = ?, last_state = ? WHERE purchase_token = ?', [ver.expiry ?? null, ver.state ?? null, t]);
-      }
-    }
-    const isPro = await refreshUserProFlag(req.user!.id);
-    res.json({ success: true, tokens: tokens.length, is_pro: isPro });
-  } catch (e) {
-    console.error('play/sync error:', e);
-    res.status(500).json({ message: 'Failed to sync subscription' });
-  }
-});
-
-router.post('/api/appstore/link', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const { productId, receiptData } = req.body || {};
-    if (!productId || !receiptData) {
-      return res.status(400).json({ message: 'productId and receiptData are required' });
-    }
-
-    const verification = await verifyAppStoreReceipt(String(receiptData));
-    if (verification.status !== 0) {
-      return res.status(400).json({
-        message: 'Receipt validation failed',
-        status: verification.status,
-      });
-    }
-
-    const summary = summarizeAppStoreSubscription(
-      verification.latestReceiptInfo,
-      verification.pendingRenewalInfo,
-      String(productId)
-    );
-    if (!summary?.originalTransactionId || !summary.productId) {
-      return res.status(400).json({
-        message: 'No matching App Store subscription found in receipt',
-      });
-    }
-
-    await db.query(
-      `INSERT INTO app_store_subscriptions (
-         user_id,
-         product_id,
-         original_transaction_id,
-         latest_transaction_id,
-         auto_renew_status,
-         expiry_time,
-         last_state,
-         environment,
-         receipt_data
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE
-         user_id = VALUES(user_id),
-         product_id = VALUES(product_id),
-         latest_transaction_id = VALUES(latest_transaction_id),
-         auto_renew_status = VALUES(auto_renew_status),
-         expiry_time = VALUES(expiry_time),
-         last_state = VALUES(last_state),
-         environment = VALUES(environment),
-         receipt_data = VALUES(receipt_data)`,
-      [
-        req.user?.id,
-        summary.productId,
-        summary.originalTransactionId,
-        summary.latestTransactionId,
-        summary.autoRenewStatus,
-        summary.expiry,
-        summary.state,
-        verification.environment,
-        verification.latestReceipt,
-      ]
-    );
-
-    const isPro = await refreshUserProFlag(req.user!.id);
-    res.json({
-      success: true,
-      state: summary.state,
-      expiry: summary.expiry,
-      environment: verification.environment,
-      is_pro: isPro,
-    });
-  } catch (e) {
-    console.error('appstore/link error:', e);
-    res.status(500).json({ message: 'Failed to link App Store purchase' });
-  }
-});
-
-router.post('/api/appstore/sync', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const [rows] = await db.query(
-      `SELECT product_id, receipt_data
-         FROM app_store_subscriptions
-        WHERE user_id = ?
-          AND receipt_data IS NOT NULL
-          AND receipt_data != ''`,
-      [req.user?.id]
-    );
-    const subscriptions = rows as any[];
-    if (subscriptions.length === 0) {
-      const isPro = await refreshUserProFlag(req.user!.id);
-      return res.json({ success: true, receipts: 0, is_pro: isPro });
-    }
-
-    for (const subscription of subscriptions) {
-      const verification = await verifyAppStoreReceipt(
-        String(subscription.receipt_data)
-      );
-      if (verification.status !== 0) continue;
-
-      const summary = summarizeAppStoreSubscription(
-        verification.latestReceiptInfo,
-        verification.pendingRenewalInfo,
-        String(subscription.product_id || '')
-      );
-      if (!summary?.originalTransactionId || !summary.productId) continue;
-
-      await db.query(
-        `INSERT INTO app_store_subscriptions (
-           user_id,
-           product_id,
-           original_transaction_id,
-           latest_transaction_id,
-           auto_renew_status,
-           expiry_time,
-           last_state,
-           environment,
-           receipt_data
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-           user_id = VALUES(user_id),
-           product_id = VALUES(product_id),
-           latest_transaction_id = VALUES(latest_transaction_id),
-           auto_renew_status = VALUES(auto_renew_status),
-           expiry_time = VALUES(expiry_time),
-           last_state = VALUES(last_state),
-           environment = VALUES(environment),
-           receipt_data = VALUES(receipt_data)`,
-        [
-          req.user?.id,
-          summary.productId,
-          summary.originalTransactionId,
-          summary.latestTransactionId,
-          summary.autoRenewStatus,
-          summary.expiry,
-          summary.state,
-          verification.environment,
-          verification.latestReceipt,
-        ]
-      );
-    }
-
-    const isPro = await refreshUserProFlag(req.user!.id);
-    res.json({ success: true, receipts: subscriptions.length, is_pro: isPro });
-  } catch (e) {
-    console.error('appstore/sync error:', e);
-    res.status(500).json({ message: 'Failed to sync App Store subscription' });
-  }
 });

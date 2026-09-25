@@ -1,5 +1,6 @@
 import { db } from './db.js';
-import { isFcmConfigured, sendFcmNotification, type NotificationPayload } from './fcm.js';
+import { isFcmConfigured, type NotificationPayload } from './fcm.js';
+import { deliverPushEvent } from './notifications/delivery.js';
 import { isEmailConfigured, sendResendEmail } from './email.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -8,6 +9,17 @@ const TYPE_PAYMENT_DUE_SOON = 'payment_due_soon';
 const TYPE_EMAIL_PAYMENT_DUE_SOON = 'email_payment_due_soon';
 const TYPE_PROJECT_OVER_BUDGET = 'project_over_budget';
 const TYPE_SUBCATEGORY_OVER_BUDGET = 'subcategory_over_budget';
+
+export type NotificationPorts = {
+  query: typeof db.query;
+  pushConfigured: () => boolean;
+  emailConfigured: () => boolean;
+  sendEmail: typeof sendResendEmail;
+  deliverPush: typeof deliverPushEvent;
+  now: () => Date;
+  log: (code: string) => void;
+};
+const defaults: NotificationPorts = { query: db.query.bind(db), pushConfigured: isFcmConfigured, emailConfigured: isEmailConfigured, sendEmail: sendResendEmail, deliverPush: deliverPushEvent, now: () => new Date(), log: code => console.error('notification_delivery_failed', { code }) };
 
 type PendingEvent = {
   type: string;
@@ -156,45 +168,46 @@ function buildPaymentDueEmail(input: {
   return { subject, text, html };
 }
 
-async function resolveOverBudgetEvents(userId: number, activeProjectIds: string[]) {
+async function resolveOverBudgetEvents(ports: NotificationPorts, userId: number, activeProjectIds: string[]) {
   if (activeProjectIds.length === 0) {
-    await db.query(
+    await ports.query(
       'UPDATE notification_events SET resolved_at = NOW() WHERE user_id = ? AND type = ? AND resolved_at IS NULL',
       [userId, TYPE_PROJECT_OVER_BUDGET]
     );
     return;
   }
-  await db.query(
+  await ports.query(
     'UPDATE notification_events SET resolved_at = NOW() WHERE user_id = ? AND type = ? AND resolved_at IS NULL AND entity_id NOT IN (?)',
     [userId, TYPE_PROJECT_OVER_BUDGET, activeProjectIds]
   );
 }
 
-async function resolveSubcategoryBudgetEvents(userId: number, overBudgetIds: string[], monthKey: string) {
+async function resolveSubcategoryBudgetEvents(ports: NotificationPorts, userId: number, overBudgetIds: string[], monthKey: string) {
   if (overBudgetIds.length === 0) {
-    await db.query(
+    await ports.query(
       'UPDATE notification_events SET resolved_at = NOW() WHERE user_id = ? AND type = ? AND resolved_at IS NULL AND event_key = ?',
       [userId, TYPE_SUBCATEGORY_OVER_BUDGET, monthKey]
     );
-    await db.query(
+    await ports.query(
       'UPDATE notification_events SET resolved_at = NOW() WHERE user_id = ? AND type = ? AND resolved_at IS NULL AND event_key <> ?',
       [userId, TYPE_SUBCATEGORY_OVER_BUDGET, monthKey]
     );
     return;
   }
-  await db.query(
+  await ports.query(
     'UPDATE notification_events SET resolved_at = NOW() WHERE user_id = ? AND type = ? AND resolved_at IS NULL AND (event_key <> ? OR entity_id NOT IN (?))',
     [userId, TYPE_SUBCATEGORY_OVER_BUDGET, monthKey, overBudgetIds]
   );
 }
 
 async function claimNotificationEvent(
+  ports: NotificationPorts,
   userId: number,
   type: string,
   entityId: string,
   eventKey: string
 ): Promise<boolean> {
-  const [result] = await db.query(
+  const [result] = await ports.query(
     'INSERT IGNORE INTO notification_events (user_id, type, entity_id, event_key) VALUES (?, ?, ?, ?)',
     [userId, type, entityId, eventKey]
   );
@@ -202,18 +215,20 @@ async function claimNotificationEvent(
 }
 
 async function releaseNotificationEvent(
+  ports: NotificationPorts,
   userId: number,
   type: string,
   entityId: string,
   eventKey: string
 ) {
-  await db.query(
+  await ports.query(
     'DELETE FROM notification_events WHERE user_id = ? AND type = ? AND entity_id = ? AND event_key = ?',
     [userId, type, entityId, eventKey]
   );
 }
 
 async function processUser(
+  ports: NotificationPorts,
   userId: number,
   email: string | null,
   username: string | null,
@@ -221,17 +236,17 @@ async function processUser(
   pushEnabled: boolean,
   emailEnabled: boolean
 ) {
-  const now = new Date();
+  const now = ports.now();
   const { start, end, baseUtcMs } = getLocalDateRange(now, offsetMin, PAYMENT_DUE_SOON_DAYS);
   const monthRange = getLocalMonthRange(now, offsetMin);
 
   const pendingEvents: PendingEvent[] = [];
   const pendingEmailEvents: PendingEmailEvent[] = [];
 
-  const [pRows] = await db.query(
+  const [pRows] = await ports.query(
     `SELECT p.id, p.name, DATE_FORMAT(p.next_date, '%Y-%m-%d') AS next_date, p.amount, a.name AS account_name
      FROM payments p
-     LEFT JOIN accounts a ON a.id = p.account_id
+     LEFT JOIN accounts a ON a.id = p.account_id AND a.user_id = p.user_id
      WHERE p.user_id = ? AND p.is_active = TRUE AND DATE(p.next_date) BETWEEN ? AND ?`,
     [userId, start, end]
   );
@@ -243,19 +258,9 @@ async function processUser(
     account_name: string | null;
   }>;
   if (payments.length > 0 && pushEnabled) {
-    const ids = payments.map((p) => String(p.id));
-    const keys = payments.map((p) => p.next_date);
-    const [eventRows] = await db.query(
-      'SELECT entity_id, event_key FROM notification_events WHERE user_id = ? AND type = ? AND entity_id IN (?) AND event_key IN (?)',
-      [userId, TYPE_PAYMENT_DUE_SOON, ids, keys]
-    );
-    const existing = new Set(
-      (eventRows as any[]).map((r) => `${r.entity_id}|${r.event_key}`)
-    );
     for (const p of payments) {
       const eventKey = p.next_date;
-      const signature = `${p.id}|${eventKey}`;
-      if (existing.has(signature)) continue;
+
       const daysUntil = diffDays(baseUtcMs, eventKey);
       const when =
         daysUntil <= 0 ? 'today' : daysUntil === 1 ? 'tomorrow' : `in ${daysUntil} days`;
@@ -278,9 +283,10 @@ async function processUser(
   }
 
   if (payments.length > 0 && emailEnabled && email) {
+    try {
     const ids = payments.map((p) => String(p.id));
     const keys = payments.map((p) => p.next_date);
-    const [eventRows] = await db.query(
+    const [eventRows] = await ports.query(
       'SELECT entity_id, event_key FROM notification_events WHERE user_id = ? AND type = ? AND entity_id IN (?) AND event_key IN (?)',
       [userId, TYPE_EMAIL_PAYMENT_DUE_SOON, ids, keys]
     );
@@ -313,10 +319,12 @@ async function processUser(
         html: emailPayload.html,
       });
     }
+    } catch { ports.log('EMAIL_EVIDENCE_FAILED'); }
   }
 
   if (pushEnabled) {
-    const [projRows] = await db.query(
+    try {
+    const [projRows] = await ports.query(
       `SELECT id, name, budget, spent
        FROM projects
        WHERE user_id = ? AND status = 'Active' AND budget > 0 AND spent > budget`,
@@ -329,18 +337,18 @@ async function processUser(
       spent: number;
     }>;
     const activeProjectIds = projects.map((p) => String(p.id));
-    const [activeRows] = await db.query(
-      'SELECT entity_id FROM notification_events WHERE user_id = ? AND type = ? AND resolved_at IS NULL',
+    const [activeRows] = await ports.query(
+      'SELECT entity_id,event_key FROM notification_events WHERE user_id = ? AND type = ? AND resolved_at IS NULL ORDER BY id DESC',
       [userId, TYPE_PROJECT_OVER_BUDGET]
     );
-    const activeSet = new Set((activeRows as any[]).map((r) => String(r.entity_id)));
+    const activeKeys = new Map<string,string>();
+    for (const row of activeRows as any[]) if (!activeKeys.has(String(row.entity_id))) activeKeys.set(String(row.entity_id), String(row.event_key));
     for (const p of projects) {
-      if (activeSet.has(String(p.id))) continue;
       const overBy = Number(p.spent) - Number(p.budget);
       pendingEvents.push({
         type: TYPE_PROJECT_OVER_BUDGET,
         entityId: String(p.id),
-        eventKey: start,
+        eventKey: activeKeys.get(String(p.id)) ?? start,
         note: {
           title: 'Project over budget',
           body: `${p.name} is over budget by ${overBy.toFixed(2)}`,
@@ -352,9 +360,9 @@ async function processUser(
         },
       });
     }
-    await resolveOverBudgetEvents(userId, activeProjectIds);
+    await resolveOverBudgetEvents(ports, userId, activeProjectIds);
 
-    const [subRows] = await db.query(
+    const [subRows] = await ports.query(
       `SELECT sc.id, sc.name, sc.budget, c.name AS category_name,
               COALESCE(SUM(ABS(t.amount)), 0) AS spent
          FROM expense_subcategories sc
@@ -372,14 +380,7 @@ async function processUser(
     const overBudget = (subRows as any[]).filter((row) => Number(row.spent) > Number(row.budget));
     const overBudgetIds = overBudget.map((row) => String(row.id));
 
-    const [activeSubRows] = await db.query(
-      'SELECT entity_id FROM notification_events WHERE user_id = ? AND type = ? AND resolved_at IS NULL AND event_key = ?',
-      [userId, TYPE_SUBCATEGORY_OVER_BUDGET, monthRange.key]
-    );
-    const activeSubSet = new Set((activeSubRows as any[]).map((r) => String(r.entity_id)));
-
     for (const row of overBudget) {
-      if (activeSubSet.has(String(row.id))) continue;
       const overBy = Number(row.spent) - Number(row.budget);
       const label = row.category_name ? `${row.category_name} / ${row.name}` : row.name;
       pendingEvents.push({
@@ -397,83 +398,72 @@ async function processUser(
         },
       });
     }
-    await resolveSubcategoryBudgetEvents(userId, overBudgetIds, monthRange.key);
+    await resolveSubcategoryBudgetEvents(ports, userId, overBudgetIds, monthRange.key);
+    } catch { ports.log('PUSH_EVIDENCE_FAILED'); }
   }
 
-  if (emailEnabled && email && pendingEmailEvents.length > 0) {
-    const normalizedEmail = email.trim().toLowerCase();
-    if (normalizedEmail == 'root@example.com') return;
+  if (emailEnabled && email && email.trim().toLowerCase() !== 'root@example.com' && pendingEmailEvents.length > 0) {
     for (const event of pendingEmailEvents) {
+      try {
       const claimed = await claimNotificationEvent(
-        userId,
+        ports, userId,
         event.type,
         event.entityId,
         event.eventKey
       );
       if (!claimed) continue;
-      const sent = await sendResendEmail({
+      let sent = false;
+      try { sent = await ports.sendEmail({
         to: email,
         subject: event.subject,
         text: event.text,
         html: event.html,
-      });
+      }); } catch { ports.log('EMAIL_SEND_FAILED'); }
       if (!sent) {
         await releaseNotificationEvent(
-          userId,
+          ports, userId,
           event.type,
           event.entityId,
           event.eventKey
         );
       }
+      } catch { ports.log('EMAIL_EVENT_FAILED'); }
     }
   }
 
   if (pushEnabled && pendingEvents.length > 0) {
-    const [tokenRows] = await db.query('SELECT token FROM device_tokens WHERE user_id = ?', [userId]);
-    const tokens = (tokenRows as any[]).map((r) => r.token).filter(Boolean);
-    if (tokens.length === 0) return;
-
     for (const event of pendingEvents) {
-      const claimed = await claimNotificationEvent(
-        userId,
-        event.type,
-        event.entityId,
-        event.eventKey
-      );
-      if (!claimed) continue;
-      const sent = await sendFcmNotification(tokens, event.note, event.data);
-      if (sent === 0) {
-        await releaseNotificationEvent(
-          userId,
-          event.type,
-          event.entityId,
-          event.eventKey
-        );
-      }
+      const expiresAt = event.type === TYPE_PAYMENT_DUE_SOON
+        ? new Date(ymdToUtcMs(event.eventKey) + DAY_MS - offsetMin * 60000)
+        : new Date(now.getTime() + DAY_MS);
+      try {
+        await ports.deliverPush({ userId, type: event.type, entityId: event.entityId, eventKey: event.eventKey, expiresAt }, event.note, event.data);
+      } catch { ports.log('PUSH_EVENT_FAILED'); }
     }
   }
 }
 
-export async function runNotificationCron() {
-  const pushEnabled = isFcmConfigured();
-  const emailEnabled = isEmailConfigured();
+export async function runNotificationCron(overrides: Partial<NotificationPorts> = {}) {
+  const ports = { ...defaults, ...overrides };
+  const pushEnabled = ports.pushConfigured();
+  const emailEnabled = ports.emailConfigured();
   if (!pushEnabled && !emailEnabled) {
     console.warn('Notification cron skipped: no delivery channels configured');
     return;
   }
-  const [users] = await db.query(
+  const [users] = await ports.query(
     'SELECT id, username, email, COALESCE(timezone_offset_min, 0) AS timezone_offset_min FROM users'
   );
   for (const u of users as any[]) {
     const offset = Number(u.timezone_offset_min) || 0;
-    await processUser(
-      Number(u.id),
+    try { await processUser(
+      ports, Number(u.id),
       u.email ?? null,
       u.username ?? null,
       offset,
       pushEnabled,
       emailEnabled
-    );
+    ); } catch { ports.log('USER_PROCESSING_FAILED'); }
   }
 }
 
@@ -490,8 +480,8 @@ export function startNotificationCron() {
     running = true;
     try {
       await runNotificationCron();
-    } catch (e) {
-      console.error('Notification cron error:', e);
+    } catch {
+      console.error('Notification cron error', { code: 'CRON_FAILED' });
     } finally {
       running = false;
     }

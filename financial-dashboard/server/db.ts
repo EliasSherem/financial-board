@@ -3,11 +3,12 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createScopedDatabase } from './platform/databaseScope.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config();
+if (process.env.NODE_ENV !== 'test') dotenv.config();
 
 // Support MYSQL_URL (e.g. mysql://user:pass@host:port/db) and optional SSL.
 let host = process.env.MYSQL_HOST;
@@ -40,6 +41,7 @@ const pool = mysql.createPool({
   user,
   password,
   database,
+  timezone: 'Z',
   ssl: useSSL ? { rejectUnauthorized } : undefined,
   waitForConnections: true,
   connectionLimit: 10,
@@ -52,9 +54,20 @@ const pool = mysql.createPool({
   ...(allowPublicKeyRetrieval ? { enableKeepAlive: true, authPlugins: undefined, } : {})
 });
 
-export const db = pool.promise();
+pool.on('connection', connection => { connection.query("SET time_zone = '+00:00'"); });
+export const pooledDb = pool.promise();
+const scoped = createScopedDatabase(pooledDb);
+export const db = scoped.database;
+export const databaseScope = scoped.middleware;
+export const withTransaction = scoped.transaction;
 
 export async function initializeDatabase() {
+  // Deployments must run explicit, reviewed migrations before enabling features.
+  // The legacy bootstrap includes demo users and is opt-in for local development only.
+  if (process.env.LEGACY_SCHEMA_BOOTSTRAP !== 'true' || process.env.NODE_ENV === 'production') {
+    await db.query('SELECT 1');
+    return;
+  }
   try {
     console.log('Initializing database...');
     console.log('Database config:', {

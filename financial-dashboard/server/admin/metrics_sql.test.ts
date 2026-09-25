@@ -1,0 +1,36 @@
+import test,{before,after} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {db} from '../db.js';
+import {parseFilters} from './filters.js';
+import {getAdminReport,getAdminUser,exportRows} from './service.js';
+const enabled=process.env.RUN_DB_TESTS==='true';const prefix=`admin_sql_${randomUUID().slice(0,8)}`;const ids:number[]=[];let tracking:any;
+if(enabled){assert.equal(process.env.NODE_ENV,'test');assert.equal(process.env.MYSQL_URL,undefined);assert.equal(process.env.MYSQL_HOST,'127.0.0.1');assert.match(process.env.MYSQL_DATABASE||'',/_test$/);}
+const now=new Date(),today=now.toISOString().slice(0,10),day=(n:number)=>new Date(Date.parse(today)+n*86400000),iso=(n:number)=>day(n).toISOString().slice(0,10);
+const filters=()=>parseFilters({start:iso(-45),end:today,environment:'test',q:prefix,timezone:'UTC'});
+const count=(r:any,key:string)=>r.cards.find((c:any)=>c.key===key)?.value;
+before(async()=>{if(!enabled)return;const [tr]:any=await db.query("SELECT value_json FROM platform_settings WHERE setting_key='tracking_started_at'");tracking=tr[0].value_json;await db.query("UPDATE platform_settings SET value_json=? WHERE setting_key='tracking_started_at'",[JSON.stringify({at:day(-60).toISOString()})]);
+ for(let n=0;n<5;n++){const [u]:any=await db.query('INSERT INTO users(username,email,password,created_at) VALUES(?,?,?,?)',[`${prefix}_${n}`,`${prefix}_${n}@example.invalid`,'not-a-login',day(n===2?-2:-40)]);ids.push(Number(u.insertId));await db.query('INSERT INTO analytics_user_settings(user_id,environment,is_internal) VALUES(?,?,?)',[u.insertId,n===4?'unknown':'test',n===3]);}
+ const ev=async(user:number,platform:string,at:Date,significant=true)=>db.query('INSERT INTO analytics_events(event_id,user_id,event_type,client_platform,client_occurred_at,significant,environment) VALUES(?,?,?,?,?,?,?)',[randomUUID(),ids[user],significant?'weekly_review_completed':'screen_view',platform,at,significant,'test']);
+ await ev(0,'web',day(-33));await ev(0,'android',day(-33));await ev(0,'web',day(-10));await ev(0,'web',new Date(Date.now()-1000));await ev(0,'android',new Date(Date.now()-1000));await ev(1,'unknown',day(-32));await ev(1,'ios',day(-4));await ev(2,'ios',day(-1),false);await ev(3,'web',new Date(Date.now()-1000));await ev(4,'ios',new Date(Date.now()-1000));
+ const expiry=day(365);for(const [index,user,currency,amount,months,trial]of [[0,0,'USD','120',12,false],[1,0,'MXN','199',1,false],[2,1,'USD','9',1,false],[3,2,'USD','10',1,true]] as const){const [c]:any=await db.query('INSERT INTO billing_contracts(user_id,provider,contract_key,product_id,raw_state,status,access_until,is_trial,auto_renewing,currency,recurring_amount,period_months,environment,verified,synced_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,TRUE,UTC_TIMESTAMP())',[ids[user],index===1?'google':'stripe',prefix+index,'test_plan','active',trial?'trial':'active',expiry,trial,true,currency,amount,months,'test']);if(index===0){for(const [kind,money]of [['charge','120'],['refund','20']])await db.query('INSERT INTO billing_charges(user_id,contract_id,provider,provider_charge_id,kind,amount,currency,occurred_at,environment) VALUES(?,?,?,?,?,?,?,?,?)',[ids[user],c.insertId,'stripe',prefix+kind,kind,money,'USD',day(-5),'test']);}}
+ await db.query('INSERT INTO billing_grants(user_id,source) VALUES(?,?)',[ids[2],'manual_fixture']);
+ const flow=randomUUID();for(const [type,platform,offset,meta]of [['paywall_viewed','web',-12,{}],['checkout_started','web',-11,{flow_id:flow}],['purchase_verified','unknown',-10,{flow_id:flow,status:'active',provider:'stripe'}]] as const)await db.query('INSERT INTO analytics_events(event_id,user_id,event_type,client_platform,client_occurred_at,environment,metadata_json) VALUES(?,?,?,?,?,?,?)',[randomUUID(),ids[0],type,platform,day(offset),'test',JSON.stringify(meta)]);
+ await db.query('INSERT INTO analytics_events(event_id,user_id,event_type,client_platform,client_occurred_at,environment) VALUES(?,?,?,?,?,?)',[randomUUID(),ids[2],'paywall_viewed','ios',day(-1),'test']);
+ for(let user=0;user<2;user++){await db.query('INSERT INTO momentum_periods(user_id,kind,period_key,timezone_name,starts_at,ends_at,assigned_at,completed_at) VALUES(?,?,?,?,?,?,?,?)',[ids[user],'week','2026-W36','UTC',day(-21),day(-14),day(-21),user===0?day(-15):null]);for(const slot of ['review','maintenance','goal'])await db.query('INSERT INTO user_missions(user_id,mission_key,catalog_version,period_key,scope,slot,status,nominal_xp,assigned_at,completed_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[ids[user],`fixture_${slot}`,1,'2026-W36','weekly',slot,user===0?'completed':slot==='goal'?'unavailable':'active',20,day(-21),user===0?day(-15):null]);}
+
+});
+after(async()=>{if(enabled){for(const id of ids)await db.query('DELETE FROM users WHERE id=?',[id]);await db.query("UPDATE platform_settings SET value_json=? WHERE setting_key='tracking_started_at'",[typeof tracking==='string'?tracking:JSON.stringify(tracking)]);}await db.end();});
+test('SQL overview: dedup platforms, closed exact D7/D30, exclude immature/internal, annual MRR and real refunds by currency',{skip:!enabled},async()=>{
+ const r=await getAdminReport('overview',filters());assert.equal(count(r,'registered'),3);assert.equal(count(r,'dau'),2);assert.equal(count(r,'wau'),3);assert.equal(count(r,'mau'),3);assert.equal(count(r,'retention_d7'),50);assert.equal(count(r,'retention_d30'),50);assert.equal(count(r,'paid_users'),2);assert.equal(count(r,'paid_contracts'),3);assert.equal(count(r,'trials'),1);assert.equal(count(r,'grants'),1);assert.equal(count(r,'paywall_conversion_7d'),100);
+ const mrr=r.tables.find(t=>t.key==='mrr')!.rows;assert.equal(Number(mrr.find(v=>v.currency==='USD')!.mrr),19);assert.equal(Number(mrr.find(v=>v.currency==='MXN')!.mrr),199);
+ const revenue=r.tables.find(t=>t.key==='revenue')!.rows;assert.equal(revenue.length,1);assert.equal(Number(revenue[0].collections),120);assert.equal(Number(revenue[0].refunds),20);assert.equal(Number(revenue[0].after_refunds),100);
+});
+test('SQL: every report executes, filters independent, server pagination and exports/details contain no secrets',{skip:!enabled},async()=>{
+ for(const section of ['usage','users','subscriptions','momentum','data-health'] as const){const r=await getAdminReport(section,filters());assert.ok(r.meta.generated_at);assert.equal(JSON.stringify(r).includes('secret_encrypted'),false);}
+ const momentum=await getAdminReport('momentum',filters());assert.equal(count(momentum,'weekly_completion'),100);
+ const usage=await getAdminReport('usage',filters());assert.equal(count(usage,'multiplatform'),1);const daily=usage.series.find(s=>s.key==='active')!.rows;assert.equal(daily.at(-1)!.dau,2);
+ const onlyWeb=await getAdminReport('overview',parseFilters({start:iso(-45),end:today,environment:'test',q:prefix,platform:'web'} as any));assert.equal(count(onlyWeb,'paid_users'),1);assert.equal(count(onlyWeb,'paid_contracts'),2);
+ const users=await exportRows('users',filters());assert.equal(users.rows.length,3);assert.equal(users.fields.includes('password'),false);assert.equal(users.rows.find(u=>u.id===ids[0])!.platforms_used,'android,web');
+ const detail=await getAdminUser(ids[0],filters());assert.ok(detail.tables.find(t=>t.key==='timeline'));assert.equal(JSON.stringify(detail).includes('contract_key'),false);
+});

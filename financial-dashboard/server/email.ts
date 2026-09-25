@@ -235,6 +235,7 @@ export async function sendResendEmail(payload: EmailPayload): Promise<boolean> {
   try {
     const res = await fetch(RESEND_API_URL, {
       method: 'POST',
+      signal: AbortSignal.timeout(10000),
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
@@ -260,13 +261,13 @@ export async function sendResendEmail(payload: EmailPayload): Promise<boolean> {
     });
 
     if (!res.ok) {
-      const body = await res.text();
-      console.error('Resend email failed:', res.status, body);
+      // Provider errors can echo recipient addresses and recovery links. Log status only.
+      console.error('Resend email failed:', res.status);
       return false;
     }
     return true;
-  } catch (error) {
-    console.error('Resend email error:', error);
+  } catch {
+    console.error('Resend email delivery failed or timed out');
     return false;
   }
 }
