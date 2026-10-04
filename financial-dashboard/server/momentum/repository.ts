@@ -176,15 +176,18 @@ export async function collectFacts(conn: PoolConnection, userId: number, state: 
   if(repair.entities) await conn.query(`INSERT IGNORE INTO momentum_entities(user_id,entity_type,entity_id,canonical_key)
     SELECT user_id,'transaction',id,momentum_identity FROM transactions WHERE user_id=? AND type<>'Transfer' AND momentum_identity IS NOT NULL`,[userId]);
   const factSelects:string[]=[],factValues:unknown[]=[];
+  // Table columns and CAST/parameter expressions can inherit different collations.
+  // Normalize identity keys before UNION resolves its result type; INSERT's target
+  // collation is applied too late to prevent ER_CANT_AGGREGATE_NCOLLATIONS.
   if(repair.entities || repair.categorized) {
-    factSelects.push(`SELECT t.user_id,'categorized',e.canonical_key,1,? FROM transactions t JOIN momentum_entities e ON e.user_id=t.user_id AND e.entity_type='transaction' AND e.entity_id=t.id WHERE t.user_id=? AND t.type<>'Transfer' AND (t.category_id IS NOT NULL OR NULLIF(TRIM(t.category),'') IS NOT NULL)`);
+    factSelects.push(`SELECT t.user_id,'categorized',CAST(e.canonical_key AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin,1,? FROM transactions t JOIN momentum_entities e ON e.user_id=t.user_id AND e.entity_type='transaction' AND e.entity_id=t.id WHERE t.user_id=? AND t.type<>'Transfer' AND (t.category_id IS NOT NULL OR NULLIF(TRIM(t.category),'') IS NOT NULL)`);
     factValues.push(state.backfilled_at?'reconciliation':'backfill',userId);
   }
   if(repair.subcategories) {
-    factSelects.push("SELECT user_id,'used_subcategories',CAST(subcategory_id AS CHAR),1,'verified_data' FROM transactions WHERE user_id=? AND subcategory_id IS NOT NULL AND type<>'Transfer'");factValues.push(userId);
+    factSelects.push("SELECT user_id,'used_subcategories',CAST(subcategory_id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin,1,'verified_data' FROM transactions WHERE user_id=? AND subcategory_id IS NOT NULL AND type<>'Transfer'");factValues.push(userId);
   }
   // Receipt sources were read without locks, exactly like the former bounded VALUES batch.
-  for(const receipt of receipts) {factSelects.push("SELECT ?,'receipts',?,1,'verified_data'");factValues.push(userId,String(receipt.image_sha256));}
+  for(const receipt of receipts) {factSelects.push("SELECT ?,'receipts',CAST(? AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_bin,1,'verified_data'");factValues.push(userId,String(receipt.image_sha256));}
   if(factSelects.length) await conn.query(`INSERT IGNORE INTO momentum_facts(user_id,metric,fact_key,value,provenance) ${factSelects.join(' UNION ALL ')}`,factValues);
   const changed=repair.entities || factSelects.length;
   const metrics=changed ? await readBundle(conn,{
